@@ -63,7 +63,7 @@ impl Optimizer {
                 },
                 Some(c) => {
                     let fsz = jf.size() as i64;
-                    let (buf, c) = match c.minify(&mut jf) {
+                    let buf = match c.minify(&mut jf) {
                         Ok(x) => x,
                         Err(e) => {
                             println!("{}: {}", fname, e);
@@ -73,7 +73,7 @@ impl Optimizer {
                     };
                     dsum -= (buf.len() as i64) - fsz;
                     newjar.start_file(&fname, self.file_opts.clone()
-                        .compression_method(aggressive_check(&buf, c)?)
+                        .compression_method(compress_check(&buf, c.compress_min())?)
                     )?;
                     newjar.write_all(&buf)?;
                 }
@@ -87,11 +87,12 @@ impl Optimizer {
     }
 }
 
-fn aggressive_check(b: &[u8], can_compress: bool) -> io::Result<CompressionMethod> {
-    let nc = if can_compress {
+fn compress_check(b: &[u8], compress_min: usize) -> io::Result<CompressionMethod> {
+    let lb = b.len();
+    let nc = if lb > compress_min {
         let de = DeflateEncoder::new(b, flate2::Compression::best());
         let sum = de.bytes().count();
-        sum < b.len()
+        sum < lb
     } else { false };
     Ok(if nc { CompressionMethod::Deflated } else { CompressionMethod::Stored })
 }

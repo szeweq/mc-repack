@@ -13,32 +13,33 @@ pub fn all_minifiers() -> HashMap<&'static str, Box<dyn Minifier>> {
 }
 
 pub trait Minifier {
-    fn minify(&self, f: &mut ZipFile) -> io::Result<(Vec<u8>, bool)>;
+    fn minify(&self, f: &mut ZipFile) -> io::Result<Vec<u8>>;
+    fn compress_min(&self) -> usize;
 }
 
 pub struct JSONMinifier;
 impl Minifier for JSONMinifier {
-    fn minify(&self, f: &mut ZipFile) -> io::Result<(Vec<u8>, bool)> {
+    fn minify(&self, f: &mut ZipFile) -> io::Result<Vec<u8>> {
         let br = BufReader::new(f);
         let v: serde_json::Value = serde_json::from_reader(br)?;
         let buf = serde_json::to_vec(&v)?;
-        let c = buf.len() > 48;
-        Ok((buf, c))
+        Ok(buf)
     }
+    fn compress_min(&self) -> usize { 48 }
 }
 
 pub struct PNGMinifier {
     pub opts: oxipng::Options
 }
 impl Minifier for PNGMinifier {
-    fn minify(&self, f: &mut ZipFile) -> io::Result<(Vec<u8>, bool)> {
+    fn minify(&self, f: &mut ZipFile) -> io::Result<Vec<u8>> {
         let mut d = Vec::new();
         f.read_to_end(&mut d)?;
         let buf = match oxipng::optimize_from_memory(&d, &self.opts) {
             Err(e) => return Err(io::Error::new(io::ErrorKind::Other, e)),
             Ok(x) => x
         };
-        let c = buf.len() > 512;
-        Ok((buf, c))
+        Ok(buf)
     }
+    fn compress_min(&self) -> usize { 512 }
 }
