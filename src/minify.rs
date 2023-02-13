@@ -1,4 +1,6 @@
-use std::{io, collections::HashMap};
+use std::{io::{self, Cursor}, collections::HashMap};
+
+use json_comments::StripComments;
 
 pub fn all_minifiers() -> HashMap<&'static str, Box<dyn Minifier>> {
     let mut popts = oxipng::Options::default();
@@ -19,7 +21,8 @@ pub trait Minifier {
 pub struct JSONMinifier;
 impl Minifier for JSONMinifier {
     fn minify(&self, v: &Vec<u8>) -> io::Result<Vec<u8>> {
-        let sv: serde_json::Value = serde_json::from_slice(v)?;
+        let strip_comments = StripComments::new(Cursor::new(v));
+        let sv: serde_json::Value = serde_json::from_reader(strip_comments)?;
         let buf = serde_json::to_vec(&sv)?;
         Ok(buf)
     }
