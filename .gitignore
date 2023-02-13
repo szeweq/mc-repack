@@ -1,0 +1,4 @@
+/target
+
+# JARs for testing
+*.jar
