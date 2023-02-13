@@ -3,7 +3,7 @@ mod minify;
 use std::{fs::{File, self}, io::{self, Write, Read}, collections::HashMap, env::args};
 
 use flate2::read::DeflateEncoder;
-use indicatif::{ProgressBar, ProgressStyle};
+use indicatif::{ProgressBar, ProgressStyle, MultiProgress};
 use zip::{ZipArchive, ZipWriter, write::FileOptions, CompressionMethod};
 
 use crate::minify::*;
@@ -16,12 +16,17 @@ fn main() -> io::Result<()> {
         None => return Err(io::Error::new(io::ErrorKind::Other, "No directory path provided"))
     };
 
+    let mp = MultiProgress::new();
+
     let rd = fs::read_dir(dir)?;
     let optim = Optimizer {
         minifiers: all_minifiers(),
         file_opts: FileOptions::default().compression_level(Some(9))
     };
     let mut dsum = 0;
+    let pb = mp.add(ProgressBar::new_spinner().with_style(
+        ProgressStyle::with_template("{wide_msg}").unwrap()
+    ));
 
     for rde in rd {
         let rde = rde?;
@@ -32,11 +37,12 @@ fn main() -> io::Result<()> {
         };
         let meta = fs::metadata(&fp)?;
         if meta.is_file() && fname.ends_with(".jar") {
+            pb.set_message(fname.to_string());
             let (fpart, _) = fname.rsplit_once('.').unwrap();
             let nfp = fp.with_file_name(format!("{}_new.jar", fpart));
             let inf = File::open(&fp)?;
             let outf = File::create(&nfp)?;
-            let fsum = optim.optimize_file(&inf, &outf)
+            let fsum = optim.optimize_file(&inf, &outf, &mp)
                 .map_err(|e| io::Error::new(e.kind(), format!("{}: {}", fp.to_str().unwrap(), e)))?;
             dsum += fsum;
         }
@@ -56,16 +62,16 @@ impl Optimizer {
         &self,
         fin: &File,
         fout: &File,
+        mp: &MultiProgress
     ) -> io::Result<i64> {
         let mut oldjar = ZipArchive::new(fin)?;
         let mut newjar = ZipWriter::new(fout);
         
         let mut dsum = 0;
         let jfc = oldjar.len() as u64;
-        let pb = ProgressBar::new(jfc).with_style(
-            ProgressStyle::with_template("{bar} {pos}/{len} {wide_msg}").unwrap()
-        );
-    
+        let pb = mp.add(ProgressBar::new(jfc).with_style(
+            ProgressStyle::with_template("# {bar} {pos}/{len} {wide_msg}").unwrap()
+        ));
     
         for i in 0..jfc {
             let mut jf = oldjar.by_index(i as usize)?;
@@ -107,6 +113,7 @@ impl Optimizer {
     
         pb.finish_with_message("Finished!");
         newjar.finish()?;
+        mp.remove(&pb);
         
         Ok(dsum)
     }
