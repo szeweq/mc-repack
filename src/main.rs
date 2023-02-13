@@ -1,6 +1,6 @@
 mod minify;
 
-use std::{fs::File, io::{self, Write, Read}, collections::HashMap};
+use std::{fs::{File, self}, io::{self, Write, Read}, collections::HashMap, env::args};
 
 use flate2::read::DeflateEncoder;
 use indicatif::{ProgressBar, ProgressStyle};
@@ -11,13 +11,37 @@ use crate::minify::*;
 fn main() -> io::Result<()> {
     println!("MC REPACK!");
 
+    let dir = match args().skip(1).next() {
+        Some(d) => d,
+        None => return Err(io::Error::new(io::ErrorKind::Other, "No directory path provided"))
+    };
+
+    let rd = fs::read_dir(dir)?;
     let optim = Optimizer {
         minifiers: all_minifiers(),
         file_opts: FileOptions::default().compression_level(Some(9))
     };
+    let mut dsum = 0;
 
-    let of = File::open("mod.jar")?;
-    let dsum = optim.optimize_file(&of, "mod_new.jar")?;
+    for rde in rd {
+        let rde = rde?;
+        let fp = rde.path();
+        let rfn = rde.file_name();
+        let Some(fname) = rfn.to_str() else {
+            return Err(io::Error::new(io::ErrorKind::NotFound, "A path has no file name"))
+        };
+        let meta = fs::metadata(&fp)?;
+        if meta.is_file() && fname.ends_with(".jar") {
+            let (fpart, _) = fname.rsplit_once('.').unwrap();
+            let nfp = fp.with_file_name(format!("{}_new.jar", fpart));
+            let inf = File::open(&fp)?;
+            let outf = File::create(&nfp)?;
+            let fsum = optim.optimize_file(&inf, &outf)
+                .map_err(|e| io::Error::new(e.kind(), format!("{}: {}", fp.to_str().unwrap(), e)))?;
+            dsum += fsum;
+        }
+    }
+
     println!("[REPACK] Bytes saved: {}", dsum);
 
     Ok(())
@@ -30,11 +54,11 @@ struct Optimizer{
 impl Optimizer {
     fn optimize_file(
         &self,
-        f: &File,
-        new_name: &str
+        fin: &File,
+        fout: &File,
     ) -> io::Result<i64> {
-        let mut oldjar = ZipArchive::new(f)?;
-        let mut newjar = ZipWriter::new(File::create(new_name)?);
+        let mut oldjar = ZipArchive::new(fin)?;
+        let mut newjar = ZipWriter::new(fout);
         
         let mut dsum = 0;
         let jfc = oldjar.len() as u64;
@@ -63,12 +87,13 @@ impl Optimizer {
                 },
                 Some(c) => {
                     let fsz = jf.size() as i64;
-                    let buf = match c.minify(&mut jf) {
+                    let mut ubuf = Vec::new();
+                    jf.read_to_end(&mut ubuf)?;
+                    let buf = match c.minify(&ubuf) {
                         Ok(x) => x,
                         Err(e) => {
                             println!("{}: {}", fname, e);
-                            newjar.raw_copy_file(jf)?;
-                            continue;
+                            ubuf
                         }
                     };
                     dsum -= (buf.len() as i64) - fsz;
