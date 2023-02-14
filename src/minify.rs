@@ -19,7 +19,7 @@ fn find_brackets(b: &[u8]) -> Result<(usize, usize), Box<dyn Error>> {
     Ok((i, j))
 }
 
-const DUMMIES: &[&str] = &["fsh", "vsh", "js", "txt", "html"];
+const DUMMIES: &[&str] = &["fsh", "vsh", "js", "txt", "html", "glsl", "vert", "nbt"];
 
 pub fn all_minifiers() -> HashMap<&'static str, Box<dyn Minifier>> {
     let mut popts = oxipng::Options::default();
