@@ -20,6 +20,7 @@ fn main() -> io::Result<()> {
     let rd = fs::read_dir(dir)?;
     let optim = Optimizer::new();
     let mut dsum = 0;
+    let mut zsum = 0;
     let pb = mp.add(ProgressBar::new_spinner().with_style(
         ProgressStyle::with_template("{wide_msg}").unwrap()
     ));
@@ -51,6 +52,7 @@ fn main() -> io::Result<()> {
                 jev.push((fname.to_string(), nev));
                 ev = Vec::new();
             }
+            zsum += (inf.metadata()?.len() as i64) - (outf.metadata()?.len() as i64);
         }
     }
     mp.clear()?;
@@ -69,6 +71,9 @@ fn main() -> io::Result<()> {
 
     if dsum > 0 {
         println!("[REPACK] Bytes saved by minifying: {}", HumanBytes(dsum as u64));
+    }
+    if zsum > 0 {
+        println!("[REPACK] Bytes saved by repacking: {}", HumanBytes(zsum as u64));
     }
 
     Ok(())
