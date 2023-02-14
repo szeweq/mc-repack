@@ -7,11 +7,12 @@ fn strip_bom(b: &[u8]) -> &[u8] {
     if b.len() >= 3 && b[..3] == BOM_BYTES { &b[3..] } else { b }
 }
 
-const DUMMIES: &[&str] = &["fsh", "vsh", "cfg", "js"];
+const DUMMIES: &[&str] = &["fsh", "vsh", "cfg", "js", "txt", "html"];
 
 pub fn all_minifiers() -> HashMap<&'static str, Box<dyn Minifier>> {
     let mut popts = oxipng::Options::default();
     popts.fix_errors = true;
+    popts.strip = oxipng::Headers::Safe;
 
     let mut minif: HashMap<&str, Box<dyn Minifier>> = HashMap::new();
     minif.insert("png", Box::new(PNGMinifier { opts: popts }));
