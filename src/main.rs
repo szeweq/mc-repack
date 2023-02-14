@@ -53,13 +53,9 @@ fn main() -> io::Result<()> {
             }
         }
     }
+    mp.clear()?;
 
-    if dsum > 0 {
-        pb.finish_with_message(format!("[REPACK] Bytes saved: {}", HumanBytes(dsum as u64)));
-    }
-    
     if !jev.is_empty() {
-        mp.clear()?;
         eprintln!();
         eprintln!("Errors found while repacking:");
         for (f, v) in jev {
@@ -69,6 +65,10 @@ fn main() -> io::Result<()> {
             }
             eprintln!("|");
         }
+    }
+
+    if dsum > 0 {
+        println!("[REPACK] Bytes saved by minifying: {}", HumanBytes(dsum as u64));
     }
 
     Ok(())
