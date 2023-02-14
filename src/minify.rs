@@ -15,6 +15,7 @@ pub fn all_minifiers() -> HashMap<&'static str, Box<dyn Minifier>> {
     minif.insert("png", Box::new(PNGMinifier { opts: popts }));
     minif.insert("json", Box::new(JSONMinifier));
     minif.insert("mcmeta", Box::new(JSONMinifier));
+    minif.insert("toml", Box::new(TOMLMinifier));
     minif
 }
 
@@ -46,4 +47,15 @@ impl Minifier for PNGMinifier {
         Ok(buf)
     }
     fn compress_min(&self) -> usize { 512 }
+}
+
+pub struct TOMLMinifier;
+impl Minifier for TOMLMinifier {
+    fn minify(&self, v: &Vec<u8>) -> ResultBytes {
+        let fv = std::str::from_utf8(strip_bom(v))?;
+        let table: toml::Table = toml::from_str(fv)?;
+        let buf = toml::to_string(&table)?.as_bytes().to_vec();
+        Ok(buf)
+    }
+    fn compress_min(&self) -> usize { 48 }
 }
