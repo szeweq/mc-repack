@@ -21,7 +21,8 @@ impl Optimizer {
         &self,
         fin: &File,
         fout: &File,
-        pb: &ProgressBar
+        pb: &ProgressBar,
+        errors: &mut Vec<(String, io::Error)>
     ) -> io::Result<i64> {
         let mut oldjar = ZipArchive::new(fin)?;
         let mut newjar = ZipWriter::new(fout);
@@ -55,7 +56,7 @@ impl Optimizer {
                     let buf = match c.minify(&ubuf) {
                         Ok(x) => x,
                         Err(e) => {
-                            println!("{}: {}", fname, e);
+                            errors.push((fname.to_string(), e));
                             ubuf
                         }
                     };

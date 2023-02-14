@@ -26,6 +26,8 @@ fn main() -> io::Result<()> {
     let pb2 = mp.add(ProgressBar::new(0).with_style(
         ProgressStyle::with_template("# {bar} {pos}/{len} {wide_msg}").unwrap()
     ));
+    let mut ev: Vec<(String, io::Error)> = Vec::new();
+    let mut jev: Vec<(String, Vec<(String, io::Error)>)> = Vec::new();
 
     for rde in rd {
         let rde = rde?;
@@ -41,9 +43,14 @@ fn main() -> io::Result<()> {
             let nfp = fp.with_file_name(format!("{}$repack.jar", fpart));
             let inf = File::open(&fp)?;
             let outf = File::create(&nfp)?;
-            let fsum = optim.optimize_file(&inf, &outf, &pb2)
+            let fsum = optim.optimize_file(&inf, &outf, &pb2, &mut ev)
                 .map_err(|e| io::Error::new(e.kind(), format!("{}: {}", fp.to_str().unwrap(), e)))?;
             dsum += fsum;
+            if !ev.is_empty() {
+                let nev = ev;
+                jev.push((fname.to_string(), nev));
+                ev = Vec::new();
+            }
         }
     }
 
@@ -51,6 +58,18 @@ fn main() -> io::Result<()> {
         pb.finish_with_message(format!("[REPACK] Bytes saved: {}", HumanBytes(dsum as u64)));
     }
     
+    if !jev.is_empty() {
+        mp.clear()?;
+        eprintln!();
+        eprintln!("Errors found while repacking:");
+        for (f, v) in jev {
+            eprintln!("| File: {}", f);
+            for (pf, e) in v {
+                eprintln!("| # {}: {}", pf, e);
+            }
+            eprintln!("|");
+        }
+    }
 
     Ok(())
 }

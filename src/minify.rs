@@ -2,6 +2,8 @@ use std::{io::{self, Cursor}, collections::HashMap};
 
 use json_comments::StripComments;
 
+const BOM_BYTES: [u8; 3] = [239, 187, 191];
+
 pub fn all_minifiers() -> HashMap<&'static str, Box<dyn Minifier>> {
     let mut popts = oxipng::Options::default();
     popts.fix_errors = true;
@@ -21,7 +23,8 @@ pub trait Minifier {
 pub struct JSONMinifier;
 impl Minifier for JSONMinifier {
     fn minify(&self, v: &Vec<u8>) -> io::Result<Vec<u8>> {
-        let strip_comments = StripComments::new(Cursor::new(v));
+        let fv = if v.len() >= 3 && v[..3] == BOM_BYTES { &v[3..] } else { &v };
+        let strip_comments = StripComments::new(Cursor::new(fv));
         let sv: serde_json::Value = serde_json::from_reader(strip_comments)?;
         let buf = serde_json::to_vec(&sv)?;
         Ok(buf)
