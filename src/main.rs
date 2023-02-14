@@ -1,7 +1,7 @@
 mod minify;
 mod optimizer;
 
-use std::{fs::{File, self}, io, env::args};
+use std::{fs::{File, self}, io, env::args, error::Error};
 
 use indicatif::{ProgressBar, ProgressStyle, MultiProgress, HumanBytes};
 
@@ -26,8 +26,8 @@ fn main() -> io::Result<()> {
     let pb2 = mp.add(ProgressBar::new(0).with_style(
         ProgressStyle::with_template("# {bar} {pos}/{len} {wide_msg}").unwrap()
     ));
-    let mut ev: Vec<(String, io::Error)> = Vec::new();
-    let mut jev: Vec<(String, Vec<(String, io::Error)>)> = Vec::new();
+    let mut ev: Vec<(String, Box<dyn Error>)> = Vec::new();
+    let mut jev: Vec<(String, Vec<(String, Box<dyn Error>)>)> = Vec::new();
 
     for rde in rd {
         let rde = rde?;
