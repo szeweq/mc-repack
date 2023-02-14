@@ -10,3 +10,4 @@ oxipng = "8.0"
 flate2 = "1.0"
 indicatif = "0.17"
 json_comments = "0.2"
+toml = {version = "0.7", features = ["preserve_order"]}
