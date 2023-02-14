@@ -1,7 +1,7 @@
 use std::{collections::HashMap, fs::File, io::{self, Read, Write}};
 
 use flate2::read::DeflateEncoder;
-use indicatif::{MultiProgress, ProgressStyle, ProgressBar};
+use indicatif::ProgressBar;
 use zip::{ZipArchive, CompressionMethod, write::FileOptions, ZipWriter};
 
 use crate::minify::{Minifier, all_minifiers};
@@ -21,16 +21,14 @@ impl Optimizer {
         &self,
         fin: &File,
         fout: &File,
-        mp: &MultiProgress
+        pb: &ProgressBar
     ) -> io::Result<i64> {
         let mut oldjar = ZipArchive::new(fin)?;
         let mut newjar = ZipWriter::new(fout);
         
         let mut dsum = 0;
         let jfc = oldjar.len() as u64;
-        let pb = mp.add(ProgressBar::new(jfc).with_style(
-            ProgressStyle::with_template("# {bar} {pos}/{len} {wide_msg}").unwrap()
-        ));
+        pb.set_length(jfc);
     
         for i in 0..jfc {
             let mut jf = oldjar.by_index(i as usize)?;
@@ -72,7 +70,6 @@ impl Optimizer {
     
         pb.finish_with_message("Finished!");
         newjar.finish()?;
-        mp.remove(&pb);
         
         Ok(dsum)
     }

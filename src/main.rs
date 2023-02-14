@@ -23,6 +23,9 @@ fn main() -> io::Result<()> {
     let pb = mp.add(ProgressBar::new_spinner().with_style(
         ProgressStyle::with_template("{wide_msg}").unwrap()
     ));
+    let pb2 = mp.add(ProgressBar::new(0).with_style(
+        ProgressStyle::with_template("# {bar} {pos}/{len} {wide_msg}").unwrap()
+    ));
 
     for rde in rd {
         let rde = rde?;
@@ -38,7 +41,7 @@ fn main() -> io::Result<()> {
             let nfp = fp.with_file_name(format!("{}$repack.jar", fpart));
             let inf = File::open(&fp)?;
             let outf = File::create(&nfp)?;
-            let fsum = optim.optimize_file(&inf, &outf, &mp)
+            let fsum = optim.optimize_file(&inf, &outf, &pb2)
                 .map_err(|e| io::Error::new(e.kind(), format!("{}: {}", fp.to_str().unwrap(), e)))?;
             dsum += fsum;
         }
