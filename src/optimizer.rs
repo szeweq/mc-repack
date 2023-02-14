@@ -69,7 +69,7 @@ impl Optimizer {
             }
         }
     
-        pb.finish_with_message("Finished!");
+        pb.finish_with_message("Saving...");
         newjar.finish()?;
         
         Ok(dsum)
