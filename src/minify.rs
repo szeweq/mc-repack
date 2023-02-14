@@ -7,6 +7,8 @@ fn strip_bom(b: &[u8]) -> &[u8] {
     if b.len() >= 3 && b[..3] == BOM_BYTES { &b[3..] } else { b }
 }
 
+const DUMMIES: &[&str] = &["fsh", "vsh", "cfg", "js"];
+
 pub fn all_minifiers() -> HashMap<&'static str, Box<dyn Minifier>> {
     let mut popts = oxipng::Options::default();
     popts.fix_errors = true;
@@ -16,6 +18,9 @@ pub fn all_minifiers() -> HashMap<&'static str, Box<dyn Minifier>> {
     minif.insert("json", Box::new(JSONMinifier));
     minif.insert("mcmeta", Box::new(JSONMinifier));
     minif.insert("toml", Box::new(TOMLMinifier));
+    for dt in DUMMIES {
+        minif.insert(dt, Box::new(DummyMinifier));
+    }
     minif
 }
 
@@ -58,4 +63,13 @@ impl Minifier for TOMLMinifier {
         Ok(buf)
     }
     fn compress_min(&self) -> usize { 48 }
+}
+
+pub struct DummyMinifier;
+impl Minifier for DummyMinifier {
+    fn minify(&self, v: &Vec<u8>) -> ResultBytes {
+        let fv = strip_bom(v);
+        Ok(fv.to_vec())
+    }
+    fn compress_min(&self) -> usize { 0 }
 }
