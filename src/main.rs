@@ -3,7 +3,7 @@ mod optimizer;
 
 use std::{fs::{File, self}, io, env::args};
 
-use indicatif::{ProgressBar, ProgressStyle, MultiProgress};
+use indicatif::{ProgressBar, ProgressStyle, MultiProgress, HumanBytes};
 
 use crate::optimizer::*;
 
@@ -32,10 +32,10 @@ fn main() -> io::Result<()> {
             return Err(io::Error::new(io::ErrorKind::NotFound, "A path has no file name"))
         };
         let meta = fs::metadata(&fp)?;
-        if meta.is_file() && fname.ends_with(".jar") {
+        if meta.is_file() && fname.ends_with(".jar") && !fname.ends_with("$repack.jar") {
             pb.set_message(fname.to_string());
             let (fpart, _) = fname.rsplit_once('.').unwrap();
-            let nfp = fp.with_file_name(format!("{}_new.jar", fpart));
+            let nfp = fp.with_file_name(format!("{}$repack.jar", fpart));
             let inf = File::open(&fp)?;
             let outf = File::create(&nfp)?;
             let fsum = optim.optimize_file(&inf, &outf, &mp)
@@ -44,7 +44,10 @@ fn main() -> io::Result<()> {
         }
     }
 
-    println!("[REPACK] Bytes saved: {}", dsum);
+    if dsum > 0 {
+        pb.finish_with_message(format!("[REPACK] Bytes saved: {}", HumanBytes(dsum as u64)));
+    }
+    
 
     Ok(())
 }
