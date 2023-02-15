@@ -1,7 +1,7 @@
 mod minify;
 mod optimizer;
 
-use std::{fs::{File, self}, io, env::args, error::Error};
+use std::{fs::{File, self}, io, env::args, error::Error, path::{PathBuf, Path}};
 
 use indicatif::{ProgressBar, ProgressStyle, MultiProgress, HumanBytes};
 
@@ -10,14 +10,81 @@ use crate::optimizer::*;
 fn main() -> io::Result<()> {
     println!("MC REPACK!");
 
-    let dir = match args().skip(1).next() {
-        Some(d) => d,
-        None => return Err(io::Error::new(io::ErrorKind::Other, "No directory path provided"))
+    let spec_path = match args().skip(1).next() {
+        Some(d) => PathBuf::from(d),
+        None => return Err(io::Error::new(io::ErrorKind::Other, "No path provided"))
     };
 
+    let path_meta = fs::metadata(&spec_path)?;
+
+    let (dsum, zsum) = if path_meta.is_dir() {
+        process_dir(&spec_path)
+    } else if path_meta.is_file() {
+        process_file(&spec_path)
+    } else {
+        Err(io::Error::new(io::ErrorKind::Other, "Not a file or directory"))
+    }?;
+
+    if dsum > 0 {
+        println!("[REPACK] Bytes saved by minifying: {}", HumanBytes(dsum as u64));
+    }
+    if zsum > 0 {
+        println!("[REPACK] Bytes saved by repacking: {}", HumanBytes(zsum as u64));
+    }
+
+    Ok(())
+}
+
+const DOT_JAR: &str = ".jar";
+const REPACK_JAR: &str = "$repack.jar";
+
+fn process_file<P: AsRef<Path>>(p: P) -> io::Result<(i64, i64)> {
+    let fp = p.as_ref();
+    if let Some(fname) = fp.file_name() {
+        let s = fname.to_string_lossy();
+        if !s.ends_with(DOT_JAR) {
+            return Err(io::Error::new(io::ErrorKind::Other, "Not a .jar file"))
+        }
+        if s.ends_with(REPACK_JAR) {
+            return Err(io::Error::new(io::ErrorKind::Other, "This .jar is marked as repacked, no re-repacking needed"))
+        }
+    }
+
+    let optim = Optimizer::new();
+    let mut dsum = 0;
+    let mut zsum = 0;
+
+    let pb2 = ProgressBar::new(0).with_style(
+        ProgressStyle::with_template("# {bar} {pos}/{len} {wide_msg}").unwrap()
+    );
+    let mut ev: Vec<(String, Box<dyn Error>)> = Vec::new();
+
+    let Some(fstem) = fp.file_stem() else {
+        return Err(io::Error::new(io::ErrorKind::Other, "Not a named file"))
+    };
+    let nfp = fp.with_file_name(format!("{}$repack.jar", fstem.to_string_lossy()));
+    let inf = File::open(&fp)?;
+    let outf = File::create(&nfp)?;
+    let fsum = optim.optimize_file(&inf, &outf, &pb2, &mut ev)
+        .map_err(|e| io::Error::new(e.kind(), format!("{}: {}", fp.to_str().unwrap(), e)))?;
+    dsum += fsum;
+    zsum += (inf.metadata()?.len() as i64) - (outf.metadata()?.len() as i64);
+
+    if !ev.is_empty() {
+        eprintln!();
+        eprintln!("Errors found while repacking a file:");
+        for (f, e) in ev {
+            eprintln!("| # {}: {}", f, e);
+        }
+    }
+
+    Ok((dsum, zsum))
+}
+
+fn process_dir<P: AsRef<Path>>(p: P) -> io::Result<(i64, i64)> {
     let mp = MultiProgress::new();
 
-    let rd = fs::read_dir(dir)?;
+    let rd = fs::read_dir(p)?;
     let optim = Optimizer::new();
     let mut dsum = 0;
     let mut zsum = 0;
@@ -27,6 +94,7 @@ fn main() -> io::Result<()> {
     let pb2 = mp.add(ProgressBar::new(0).with_style(
         ProgressStyle::with_template("# {bar} {pos}/{len} {wide_msg}").unwrap()
     ));
+    
     let mut ev: Vec<(String, Box<dyn Error>)> = Vec::new();
     let mut jev: Vec<(String, Vec<(String, Box<dyn Error>)>)> = Vec::new();
 
@@ -59,7 +127,7 @@ fn main() -> io::Result<()> {
 
     if !jev.is_empty() {
         eprintln!();
-        eprintln!("Errors found while repacking:");
+        eprintln!("Errors found while repacking files:");
         for (f, v) in jev {
             eprintln!("| File: {}", f);
             for (pf, e) in v {
@@ -69,12 +137,5 @@ fn main() -> io::Result<()> {
         }
     }
 
-    if dsum > 0 {
-        println!("[REPACK] Bytes saved by minifying: {}", HumanBytes(dsum as u64));
-    }
-    if zsum > 0 {
-        println!("[REPACK] Bytes saved by repacking: {}", HumanBytes(zsum as u64));
-    }
-
-    Ok(())
+    Ok((dsum, zsum))
 }
