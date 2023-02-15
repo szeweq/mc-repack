@@ -15,7 +15,7 @@ fn main() -> io::Result<()> {
         None => return Err(io::Error::new(io::ErrorKind::Other, "No path provided"))
     };
 
-    let path_meta = fs::metadata(&spec_path)?;
+    let path_meta = spec_path.metadata()?;
 
     let (dsum, zsum) = if path_meta.is_dir() {
         process_dir(&spec_path)
@@ -38,6 +38,8 @@ fn main() -> io::Result<()> {
 const DOT_JAR: &str = ".jar";
 const REPACK_JAR: &str = "$repack.jar";
 
+const PB_STYLE_ZIP: &str = "# {bar} {pos}/{len} {wide_msg}";
+
 fn process_file<P: AsRef<Path>>(p: P) -> io::Result<(i64, i64)> {
     let fp = p.as_ref();
     if let Some(fname) = fp.file_name() {
@@ -55,7 +57,7 @@ fn process_file<P: AsRef<Path>>(p: P) -> io::Result<(i64, i64)> {
     let mut zsum = 0;
 
     let pb2 = ProgressBar::new(0).with_style(
-        ProgressStyle::with_template("# {bar} {pos}/{len} {wide_msg}").unwrap()
+        ProgressStyle::with_template(PB_STYLE_ZIP).unwrap()
     );
     let mut ev: Vec<(String, Box<dyn Error>)> = Vec::new();
 
@@ -68,7 +70,7 @@ fn process_file<P: AsRef<Path>>(p: P) -> io::Result<(i64, i64)> {
     let fsum = optim.optimize_file(&inf, &outf, &pb2, &mut ev)
         .map_err(|e| io::Error::new(e.kind(), format!("{}: {}", fp.to_str().unwrap(), e)))?;
     dsum += fsum;
-    zsum += (inf.metadata()?.len() as i64) - (outf.metadata()?.len() as i64);
+    zsum += file_size_diff(&inf, &outf)?;
 
     if !ev.is_empty() {
         eprintln!();
@@ -92,7 +94,7 @@ fn process_dir<P: AsRef<Path>>(p: P) -> io::Result<(i64, i64)> {
         ProgressStyle::with_template("{wide_msg}").unwrap()
     ));
     let pb2 = mp.add(ProgressBar::new(0).with_style(
-        ProgressStyle::with_template("# {bar} {pos}/{len} {wide_msg}").unwrap()
+        ProgressStyle::with_template(PB_STYLE_ZIP).unwrap()
     ));
     
     let mut ev: Vec<(String, Box<dyn Error>)> = Vec::new();
@@ -105,7 +107,7 @@ fn process_dir<P: AsRef<Path>>(p: P) -> io::Result<(i64, i64)> {
         let Some(fname) = rfn.to_str() else {
             return Err(io::Error::new(io::ErrorKind::NotFound, "A path has no file name"))
         };
-        let meta = fs::metadata(&fp)?;
+        let meta = fp.metadata()?;
         if meta.is_file() && fname.ends_with(".jar") && !fname.ends_with("$repack.jar") {
             pb.set_message(fname.to_string());
             let (fpart, _) = fname.rsplit_once('.').unwrap();
@@ -120,7 +122,7 @@ fn process_dir<P: AsRef<Path>>(p: P) -> io::Result<(i64, i64)> {
                 jev.push((fname.to_string(), nev));
                 ev = Vec::new();
             }
-            zsum += (inf.metadata()?.len() as i64) - (outf.metadata()?.len() as i64);
+            zsum += file_size_diff(&inf, &outf)?;
         }
     }
     mp.clear()?;
@@ -138,4 +140,8 @@ fn process_dir<P: AsRef<Path>>(p: P) -> io::Result<(i64, i64)> {
     }
 
     Ok((dsum, zsum))
+}
+
+fn file_size_diff(a: &File, b: &File) -> io::Result<i64> {
+    Ok((a.metadata()?.len() as i64) - (b.metadata()?.len() as i64))
 }
