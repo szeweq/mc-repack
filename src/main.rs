@@ -26,10 +26,10 @@ fn main() -> io::Result<()> {
     }?;
 
     if dsum > 0 {
-        println!("[REPACK] Bytes saved by minifying: {}", HumanBytes(dsum as u64));
+        println!("Bytes saved by minifying: {}", HumanBytes(dsum as u64));
     }
     if zsum > 0 {
-        println!("[REPACK] Bytes saved by repacking: {}", HumanBytes(zsum as u64));
+        println!("Bytes saved by repacking: {}", HumanBytes(zsum as u64));
     }
 
     Ok(())
@@ -73,7 +73,6 @@ fn process_file<P: AsRef<Path>>(p: P) -> io::Result<(i64, i64)> {
     zsum += file_size_diff(&inf, &outf)?;
 
     if !ev.is_empty() {
-        eprintln!();
         eprintln!("Errors found while repacking a file:");
         for (f, e) in ev {
             eprintln!("| # {}: {}", f, e);
@@ -128,14 +127,13 @@ fn process_dir<P: AsRef<Path>>(p: P) -> io::Result<(i64, i64)> {
     mp.clear()?;
 
     if !jev.is_empty() {
-        eprintln!();
         eprintln!("Errors found while repacking files:");
         for (f, v) in jev {
-            eprintln!("| File: {}", f);
+            eprintln!(" File: {}", f);
             for (pf, e) in v {
-                eprintln!("| # {}: {}", pf, e);
+                eprintln!(" # {}: {}", pf, e);
             }
-            eprintln!("|");
+            eprintln!();
         }
     }
 
