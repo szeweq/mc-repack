@@ -8,6 +8,14 @@ An experimental repacking tool for Minecraft mods to optimize size and loading s
 
 There are other, less important functions like stripping Unicode BOM and removing comment lines in `.cfg` files.
 
+## Comparison table
+These mods were tested and repacked by MC-Repack with the following results:
+| File name | Before | After |
+|----|----:|----:|
+| minecolonies-1.19.2-1.0.1247-BETA.jar | 72.8 MB | 65.2 MB |
+| twilightforest-1.19.3-4.2.1549-universal.jar | 22.5 MB | 22.0 MB |
+| create-1.19.2-0.5.0.i.jar | 13.1 MB | 12.8 MB |
+
 ## Usage
 Currently the only way to get this app is to use Cargo:
 ```sh
