@@ -32,7 +32,9 @@ This is a great tool that can be helpful for:
 MC-Repack shows all errors happened during repacking. Most of them are errors that can be simply ignored (like `trailing comma at line X column Y`).
 
 ## How to contribute?
-The easiest way to contribute is to share this to others.
+The easiest way to contribute is to share this with others on social media.
+
+There is a lot of things that should be fixed or optimized. New feature ideas are welcome, just file an issue.
 
 ## Can I use it outside Minecraft?
 Yes. The tool does not recognize that a `.jar` file is not a Minecraft mod.
