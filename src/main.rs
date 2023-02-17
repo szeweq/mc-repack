@@ -2,26 +2,44 @@ mod minify;
 mod optimizer;
 mod blacklist;
 
-use std::{fs::{File, self}, io, env::args, error::Error, path::{PathBuf, Path}};
+use std::{fs::{File, self}, io, error::Error, path::PathBuf};
 
+use clap::Parser;
 use indicatif::{ProgressBar, ProgressStyle, MultiProgress, HumanBytes};
 
 use crate::optimizer::*;
 
+#[derive(Debug, Parser)]
+#[command(version)]
+struct CliArgs {
+    /// Path to a file/directory of .jar archive(s)
+    path: PathBuf,
+
+    /// Optimize more file formats (potentially breaking their debugging); Flag reserved for a future version
+    #[arg(short, long)]
+    aggressive: bool,
+
+    /// Use built-in blacklist for files
+    #[arg(short = 'b', long)]
+    use_blacklist: bool,
+
+    /// Try to recompress .class files; Flag reserved for a future version
+    #[arg(long)]
+    optimize_class: bool
+}
+
 fn main() -> io::Result<()> {
+
+    let cli_args = CliArgs::parse();
+
     println!("MC REPACK!");
 
-    let spec_path = match args().skip(1).next() {
-        Some(d) => PathBuf::from(d),
-        None => return Err(io::Error::new(io::ErrorKind::Other, "No path provided"))
-    };
-
-    let path_meta = spec_path.metadata()?;
+    let path_meta = cli_args.path.metadata()?;
 
     let (dsum, zsum) = if path_meta.is_dir() {
-        process_dir(&spec_path)
+        process_dir(&cli_args)
     } else if path_meta.is_file() {
-        process_file(&spec_path)
+        process_file(&cli_args)
     } else {
         Err(io::Error::new(io::ErrorKind::Other, "Not a file or directory"))
     }?;
@@ -47,8 +65,8 @@ fn file_progress_bar() -> ProgressBar {
     )
 }
 
-fn process_file<P: AsRef<Path>>(p: P) -> io::Result<(i64, i64)> {
-    let fp = p.as_ref();
+fn process_file(ca: &CliArgs) -> io::Result<(i64, i64)> {
+    let fp = &ca.path;
     if let Some(fname) = fp.file_name() {
         let s = fname.to_string_lossy();
         if !s.ends_with(DOT_JAR) {
@@ -59,7 +77,7 @@ fn process_file<P: AsRef<Path>>(p: P) -> io::Result<(i64, i64)> {
         }
     }
 
-    let optim = Optimizer::new();
+    let optim = Optimizer::new(ca.use_blacklist);
     let mut dsum = 0;
     let mut zsum = 0;
 
@@ -87,11 +105,12 @@ fn process_file<P: AsRef<Path>>(p: P) -> io::Result<(i64, i64)> {
     Ok((dsum, zsum))
 }
 
-fn process_dir<P: AsRef<Path>>(p: P) -> io::Result<(i64, i64)> {
+fn process_dir(ca: &CliArgs) -> io::Result<(i64, i64)> {
+    let p = &ca.path;
     let mp = MultiProgress::new();
 
     let rd = fs::read_dir(p)?;
-    let optim = Optimizer::new();
+    let optim = Optimizer::new(ca.use_blacklist);
     let mut dsum = 0;
     let mut zsum = 0;
     let pb = mp.add(ProgressBar::new_spinner().with_style(

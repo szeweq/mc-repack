@@ -8,13 +8,15 @@ use crate::{minify::{Minifier, all_minifiers}, blacklist};
 
 pub struct Optimizer{
     minifiers: HashMap<&'static str, Box<dyn Minifier>>,
-    file_opts: FileOptions
+    file_opts: FileOptions,
+    use_blacklist: bool,
 }
 impl Optimizer {
-    pub fn new() -> Self {
+    pub fn new(use_blacklist: bool) -> Self {
         Self {
             minifiers: all_minifiers(),
-            file_opts: FileOptions::default().compression_level(Some(9))
+            file_opts: FileOptions::default().compression_level(Some(9)),
+            use_blacklist
         }
     }
     pub fn optimize_file(
@@ -46,11 +48,13 @@ impl Optimizer {
             };
             match self.minifiers.get(ftype) {
                 None => {
-                    if !blacklist::can_ignore_type(ftype) {
-                        newjar.raw_copy_file(jf)?;
-                    } else {
-                        errors.push((fname.to_string(), Box::new(blacklist::BlacklistedFile)))
+                    if blacklist::can_ignore_type(ftype) {
+                        errors.push((fname.to_string(), Box::new(blacklist::BlacklistedFile)));
+                        if self.use_blacklist {
+                            continue;
+                        }
                     }
+                    newjar.raw_copy_file(jf)?;
                     continue;
                 },
                 Some(c) => {
