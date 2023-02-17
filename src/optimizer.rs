@@ -4,7 +4,7 @@ use flate2::read::DeflateEncoder;
 use indicatif::ProgressBar;
 use zip::{ZipArchive, CompressionMethod, write::FileOptions, ZipWriter};
 
-use crate::minify::{Minifier, all_minifiers};
+use crate::{minify::{Minifier, all_minifiers}, blacklist};
 
 pub struct Optimizer{
     minifiers: HashMap<&'static str, Box<dyn Minifier>>,
@@ -40,13 +40,17 @@ impl Optimizer {
                 newjar.raw_copy_file(jf)?;
                 continue;
             }
-            let comp = match fname.rsplit_once('.') {
-                Some((_, x)) => self.minifiers.get(x),
-                None => None
+            let ftype = match fname.rsplit_once('.') {
+                Some((_, x)) => x,
+                None => ""
             };
-            match comp {
+            match self.minifiers.get(ftype) {
                 None => {
-                    newjar.raw_copy_file(jf)?;
+                    if !blacklist::can_ignore_type(ftype) {
+                        newjar.raw_copy_file(jf)?;
+                    } else {
+                        errors.push((fname.to_string(), Box::new(blacklist::BlacklistedFile)))
+                    }
                     continue;
                 },
                 Some(c) => {

@@ -1,5 +1,6 @@
 mod minify;
 mod optimizer;
+mod blacklist;
 
 use std::{fs::{File, self}, io, env::args, error::Error, path::{PathBuf, Path}};
 
