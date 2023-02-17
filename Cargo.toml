@@ -2,6 +2,7 @@
 name = "mc-repack"
 version = "0.1.0"
 edition = "2021"
+authors = ["Szeweq"]
 
 [dependencies]
 zip = {version = "0.6", default-features = false, features = ["deflate"]}
@@ -11,3 +12,4 @@ flate2 = "1.0"
 indicatif = "0.17"
 json_comments = "0.2"
 toml = {version = "0.7", features = ["preserve_order"]}
+clap = {version = "4.1", features = ["derive", "cargo"]}
