@@ -41,6 +41,12 @@ const REPACK_JAR: &str = "$repack.jar";
 
 const PB_STYLE_ZIP: &str = "# {bar} {pos}/{len} {wide_msg}";
 
+fn file_progress_bar() -> ProgressBar {
+    ProgressBar::new(0).with_style(
+        ProgressStyle::with_template(PB_STYLE_ZIP).unwrap()
+    )
+}
+
 fn process_file<P: AsRef<Path>>(p: P) -> io::Result<(i64, i64)> {
     let fp = p.as_ref();
     if let Some(fname) = fp.file_name() {
@@ -57,9 +63,7 @@ fn process_file<P: AsRef<Path>>(p: P) -> io::Result<(i64, i64)> {
     let mut dsum = 0;
     let mut zsum = 0;
 
-    let pb2 = ProgressBar::new(0).with_style(
-        ProgressStyle::with_template(PB_STYLE_ZIP).unwrap()
-    );
+    let pb2 = file_progress_bar();
     let mut ev: Vec<(String, Box<dyn Error>)> = Vec::new();
 
     let Some(fstem) = fp.file_stem() else {
@@ -69,7 +73,7 @@ fn process_file<P: AsRef<Path>>(p: P) -> io::Result<(i64, i64)> {
     let inf = File::open(&fp)?;
     let outf = File::create(&nfp)?;
     let fsum = optim.optimize_file(&inf, &outf, &pb2, &mut ev)
-        .map_err(|e| io::Error::new(e.kind(), format!("{}: {}", fp.to_str().unwrap(), e)))?;
+        .map_err(|e| io::Error::new(e.kind(), format!("{}: {}", fp.display(), e)))?;
     dsum += fsum;
     zsum += file_size_diff(&inf, &outf)?;
 
@@ -93,9 +97,7 @@ fn process_dir<P: AsRef<Path>>(p: P) -> io::Result<(i64, i64)> {
     let pb = mp.add(ProgressBar::new_spinner().with_style(
         ProgressStyle::with_template("{wide_msg}").unwrap()
     ));
-    let pb2 = mp.add(ProgressBar::new(0).with_style(
-        ProgressStyle::with_template(PB_STYLE_ZIP).unwrap()
-    ));
+    let pb2 = mp.add(file_progress_bar());
     
     let mut ev: Vec<(String, Box<dyn Error>)> = Vec::new();
     let mut jev: Vec<(String, Vec<(String, Box<dyn Error>)>)> = Vec::new();
@@ -110,12 +112,12 @@ fn process_dir<P: AsRef<Path>>(p: P) -> io::Result<(i64, i64)> {
         let meta = fp.metadata()?;
         if meta.is_file() && fname.ends_with(".jar") && !fname.ends_with("$repack.jar") {
             pb.set_message(fname.to_string());
-            let (fpart, _) = fname.rsplit_once('.').unwrap();
+            let fpart = &fname[..fname.len()-4];
             let nfp = fp.with_file_name(format!("{}$repack.jar", fpart));
             let inf = File::open(&fp)?;
             let outf = File::create(&nfp)?;
             let fsum = optim.optimize_file(&inf, &outf, &pb2, &mut ev)
-                .map_err(|e| io::Error::new(e.kind(), format!("{}: {}", fp.to_str().unwrap(), e)))?;
+                .map_err(|e| io::Error::new(e.kind(), format!("{}: {}",  fp.display(), e)))?;
             dsum += fsum;
             if !ev.is_empty() {
                 let nev = ev;
