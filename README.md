@@ -16,12 +16,18 @@ These mods were tested and repacked by MC-Repack with the following results:
 | twilightforest-1.19.3-4.2.1549-universal.jar | 22.5 MB | 22.0 MB |
 | create-1.19.2-0.5.0.i.jar | 13.1 MB | 12.8 MB |
 
-## Usage
+## Installation
 Currently the only way to get this app is to use Cargo:
+```sh
+cargo install mc-repack
+```
+
+If you want to test the latest version directly from this repo:
 ```sh
 cargo install --git https://github.com/szeweq/mc-repack
 ```
 
+## Usage
 After installation, the tool can be used by typing the following command:
 ```sh
 mc-repack <file|directory>
