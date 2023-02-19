@@ -84,7 +84,10 @@ impl Minifier for TOMLMinifier {
     fn minify(&self, v: &Vec<u8>) -> ResultBytes {
         let fv = std::str::from_utf8(strip_bom(v))?;
         let table: toml::Table = toml::from_str(fv)?;
-        let buf = toml::to_string(&table)?.as_bytes().to_vec();
+        let buf = toml::to_string(&table)?
+            .lines()
+            .map(|l| l.replacen(" = ", "=", 1).into_bytes())
+            .collect::<Vec<_>>().join(&b'\n');
         Ok(buf)
     }
     fn compress_min(&self) -> usize { 48 }
