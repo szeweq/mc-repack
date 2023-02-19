@@ -2,7 +2,7 @@ mod minify;
 mod optimizer;
 mod blacklist;
 
-use std::{fs::{File, self}, io, error::Error, path::{PathBuf, Path}};
+use std::{fs::{File, self}, io, error::Error, path::{PathBuf, Path}, time::Instant};
 
 use clap::Parser;
 use indicatif::{ProgressBar, ProgressStyle, MultiProgress, HumanBytes};
@@ -33,6 +33,7 @@ fn main() -> io::Result<()> {
     let cli_args = CliArgs::parse();
 
     println!("MC REPACK!");
+    let dt = Instant::now();
 
     let path_meta = cli_args.path.metadata()?;
 
@@ -50,6 +51,7 @@ fn main() -> io::Result<()> {
     if zsum > 0 {
         println!("Bytes saved by repacking: {}", HumanBytes(zsum as u64));
     }
+    println!("Done in: {:.3?}", dt.elapsed());
 
     Ok(())
 }
