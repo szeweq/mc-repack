@@ -2,7 +2,7 @@ mod minify;
 mod optimizer;
 mod blacklist;
 
-use std::{fs::{File, self}, io, error::Error, path::PathBuf};
+use std::{fs::{File, self}, io, error::Error, path::{PathBuf, Path}};
 
 use clap::Parser;
 use indicatif::{ProgressBar, ProgressStyle, MultiProgress, HumanBytes};
@@ -87,7 +87,7 @@ fn process_file(ca: &CliArgs) -> io::Result<(i64, i64)> {
     let Some(fstem) = fp.file_stem() else {
         return Err(io::Error::new(io::ErrorKind::Other, "Not a named file"))
     };
-    let nfp = fp.with_file_name(format!("{}$repack.jar", fstem.to_string_lossy()));
+    let nfp = file_name_repack(fp, &fstem.to_string_lossy());
     let inf = File::open(&fp)?;
     let outf = File::create(&nfp)?;
     let fsum = optim.optimize_file(&inf, &outf, &pb2, &mut ev)
@@ -129,10 +129,10 @@ fn process_dir(ca: &CliArgs) -> io::Result<(i64, i64)> {
             return Err(io::Error::new(io::ErrorKind::NotFound, "A path has no file name"))
         };
         let meta = fp.metadata()?;
-        if meta.is_file() && fname.ends_with(".jar") && !fname.ends_with("$repack.jar") {
+        if meta.is_file() && fname.ends_with(DOT_JAR) && !fname.ends_with(REPACK_JAR) {
             pb.set_message(fname.to_string());
             let fpart = &fname[..fname.len()-4];
-            let nfp = fp.with_file_name(format!("{}$repack.jar", fpart));
+            let nfp = file_name_repack(&fp, &fpart);
             let inf = File::open(&fp)?;
             let outf = File::create(&nfp)?;
             let fsum = optim.optimize_file(&inf, &outf, &pb2, &mut ev)
@@ -164,4 +164,8 @@ fn process_dir(ca: &CliArgs) -> io::Result<(i64, i64)> {
 
 fn file_size_diff(a: &File, b: &File) -> io::Result<i64> {
     Ok((a.metadata()?.len() as i64) - (b.metadata()?.len() as i64))
+}
+
+fn file_name_repack(p: &Path, s: &str) -> PathBuf {
+    p.with_file_name(format!("{}$repack.jar", s))
 }
