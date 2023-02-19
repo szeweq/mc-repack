@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fs::File, io::{self, Read, Write}, error::Error};
+use std::{collections::HashMap, fs::File, io::{self, Read, Write, BufReader, BufWriter}, error::Error};
 
 use flate2::read::DeflateEncoder;
 use indicatif::ProgressBar;
@@ -26,8 +26,8 @@ impl Optimizer {
         pb: &ProgressBar,
         errors: &mut Vec<(String, Box<dyn Error>)>
     ) -> io::Result<i64> {
-        let mut oldjar = ZipArchive::new(fin)?;
-        let mut newjar = ZipWriter::new(fout);
+        let mut oldjar = ZipArchive::new(BufReader::new(fin))?;
+        let mut newjar = ZipWriter::new(BufWriter::new(fout));
         
         let mut dsum = 0;
         let jfc = oldjar.len() as u64;
