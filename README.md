@@ -5,8 +5,9 @@ A repacking tool for Minecraft mods to optimize size and loading speed of mods.
 - Minifying JSON files, using `serde-json`
 - Optimizing PNG files, using `oxipng`
 - Optimizing TOML files, using `toml`
-
-There are other, less important functions like stripping Unicode BOM and removing comment lines in `.cfg` files.
+- Removing unwanted files – some project files (from Blender, Photoshop, etc.) are mistakenly packed in mods. This operation will detect and remove (ignore while repacking) these files.
+- Stripping Unicode BOM
+- Removing comment lines in in `.cfg` files
 
 ## Comparison table
 These mods were tested and repacked by MC-Repack with the following results:
@@ -55,4 +56,5 @@ Yes. The tool does not recognize that a `.jar` file is not a Minecraft mod.
 
 ## Future plans
 - Aggresive mode – minify JavaScript and shader files (potentially breaking debugging).
-- Remove unwanted files – some project files (from Blender, Photoshop, etc.) are mistakenly packed in mods. This operation will detect and remove (ignore while repacking) these files.
+- Strip unwanted data in JSON files
+- Recompress `.class` files more efficiently
