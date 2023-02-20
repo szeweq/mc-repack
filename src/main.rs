@@ -29,7 +29,6 @@ struct CliArgs {
 }
 
 fn main() -> io::Result<()> {
-
     let cli_args = CliArgs::parse();
 
     println!("MC REPACK!");
@@ -37,7 +36,7 @@ fn main() -> io::Result<()> {
 
     let path_meta = cli_args.path.metadata()?;
 
-    let (dsum, zsum) = if path_meta.is_dir() {
+    let sums = if path_meta.is_dir() {
         process_dir(&cli_args)
     } else if path_meta.is_file() {
         process_file(&cli_args)
@@ -45,12 +44,10 @@ fn main() -> io::Result<()> {
         Err(io::Error::new(io::ErrorKind::Other, "Not a file or directory"))
     }?;
 
-    if dsum > 0 {
-        println!("Bytes saved by minifying: {}", HumanBytes(dsum as u64));
-    }
-    if zsum > 0 {
-        println!("Bytes saved by repacking: {}", HumanBytes(zsum as u64));
-    }
+    let dsum = sums.0.max(0) as u64;
+    let zsum = sums.1.max(0) as u64;
+
+    println!("Bytes saved: {} by minifying, {} by repacking", HumanBytes(dsum), HumanBytes(zsum));
     println!("Done in: {:.3?}", dt.elapsed());
 
     Ok(())

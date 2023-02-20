@@ -1,5 +1,5 @@
 # MC-Repack
-An experimental repacking tool for Minecraft mods to optimize size and loading speed of mods.
+A repacking tool for Minecraft mods to optimize size and loading speed of mods.
 
 ## Features
 - Minifying JSON files, using `serde-json`
