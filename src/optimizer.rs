@@ -42,10 +42,7 @@ impl Optimizer {
                 newjar.raw_copy_file(jf)?;
                 continue;
             }
-            let ftype = match fname.rsplit_once('.') {
-                Some((_, x)) => x,
-                None => ""
-            };
+            let ftype = if let Some((_, x)) = fname.rsplit_once('.') { x } else { "" };
             match self.minifiers.get(ftype) {
                 None => {
                     if blacklist::can_ignore_type(ftype) {
