@@ -35,6 +35,8 @@ mc-repack <file|directory>
 ```
 When a file path is provided, then MC-Repack will repack the file contents into a `$repack.jar`. If a path is a directory, then all files inside (non-recursive) will be repacked.
 
+More options are provided by typing `mc-repack --help` in a shell/terminal.
+
 ## Why?
 MC-Repack is meant to show how many Minecraft mods come with unoptimized files (and I don't mean just pretty-printed JSON files). You will be surprised that in some cases a PNG file's metadata added by Photoshop is much larger than its content.
 
