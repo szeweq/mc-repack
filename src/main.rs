@@ -23,9 +23,14 @@ struct CliArgs {
     #[arg(short = 'b', long)]
     use_blacklist: bool,
 
-    /// Try to recompress .class files; Flag reserved for a future version
+    /// Try to recompress .class files (may produce larger files)
     #[arg(long)]
-    optimize_class: bool
+    optimize_class: bool,
+
+    /// Assume that the provided path is a "mods" directory (or its parent). This will make a new "mods" directory with repacked jars
+    /// while the original ones will be stored in "mods_orig" directory.
+    #[arg(short = 'm', long)]
+    mods_dir: bool
 }
 
 fn main() -> io::Result<()> {
@@ -76,7 +81,7 @@ fn process_file(ca: &CliArgs) -> io::Result<(i64, i64)> {
         }
     }
 
-    let optim = Optimizer::new(ca.use_blacklist);
+    let optim = Optimizer::new(ca.use_blacklist, ca.optimize_class);
     let mut dsum = 0;
     let mut zsum = 0;
 
@@ -109,7 +114,7 @@ fn process_dir(ca: &CliArgs) -> io::Result<(i64, i64)> {
     let mp = MultiProgress::new();
 
     let rd = fs::read_dir(p)?;
-    let optim = Optimizer::new(ca.use_blacklist);
+    let optim = Optimizer::new(ca.use_blacklist, ca.optimize_class);
     let mut dsum = 0;
     let mut zsum = 0;
     let pb = mp.add(ProgressBar::new_spinner().with_style(

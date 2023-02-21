@@ -10,13 +10,15 @@ pub struct Optimizer{
     minifiers: HashMap<&'static str, Box<dyn Minifier>>,
     file_opts: FileOptions,
     use_blacklist: bool,
+    optimize_class: bool,
 }
 impl Optimizer {
-    pub fn new(use_blacklist: bool) -> Self {
+    pub fn new(use_blacklist: bool, optimize_class: bool) -> Self {
         Self {
             minifiers: all_minifiers(),
             file_opts: FileOptions::default().compression_level(Some(9)),
-            use_blacklist
+            use_blacklist,
+            optimize_class
         }
     }
     pub fn optimize_file(
@@ -43,6 +45,15 @@ impl Optimizer {
                 continue;
             }
             let ftype = if let Some((_, x)) = fname.rsplit_once('.') { x } else { "" };
+            if self.optimize_class && ftype == "class" {
+                let mut ubuf = Vec::new();
+                jf.read_to_end(&mut ubuf)?;
+                newjar.start_file(&fname, self.file_opts.clone()
+                    .compression_method(compress_check(&ubuf, 64)?)
+                )?;
+                newjar.write_all(&ubuf)?;
+                continue;
+            }
             match self.minifiers.get(ftype) {
                 None => {
                     if blacklist::can_ignore_type(ftype) {
