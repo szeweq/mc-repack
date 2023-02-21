@@ -46,7 +46,7 @@ fn main() -> io::Result<()> {
     } else if path_meta.is_file() {
         process_file(&cli_args)
     } else {
-        Err(io::Error::new(io::ErrorKind::Other, "Not a file or directory"))
+        Err(new_io_error("Not a file or directory"))
     }?;
 
     let dsum = sums.0.max(0) as u64;
@@ -63,6 +63,8 @@ const REPACK_JAR: &str = "$repack.jar";
 
 const PB_STYLE_ZIP: &str = "# {bar} {pos}/{len} {wide_msg}";
 
+const ERR_FNAME_INVALID: &str = "Invalid file name";
+
 fn file_progress_bar() -> ProgressBar {
     ProgressBar::new(0).with_style(
         ProgressStyle::with_template(PB_STYLE_ZIP).unwrap()
@@ -70,15 +72,16 @@ fn file_progress_bar() -> ProgressBar {
 }
 
 fn process_file(ca: &CliArgs) -> io::Result<(i64, i64)> {
-    let fp = &ca.path;
-    if let Some(fname) = fp.file_name() {
-        let s = fname.to_string_lossy();
-        if !s.ends_with(DOT_JAR) {
-            return Err(io::Error::new(io::ErrorKind::Other, "Not a .jar file"))
-        }
-        if s.ends_with(REPACK_JAR) {
-            return Err(io::Error::new(io::ErrorKind::Other, "This .jar is marked as repacked, no re-repacking needed"))
-        }
+let fp = &ca.path;
+    let fname = if let Some(x) = fp.file_name() {
+        x.to_string_lossy()
+    } else {
+        return Err(new_io_error(ERR_FNAME_INVALID))
+    };
+    match check_file_type(&fname) {
+        FileType::Other => { return Err(new_io_error("Not a .jar file")) }
+        FileType::RepackedJar => { return Err(new_io_error("This .jar is marked as repacked, no re-repacking needed")) }
+        _ => {}
     }
 
     let optim = Optimizer::new(ca.use_blacklist, ca.optimize_class);
@@ -88,10 +91,8 @@ fn process_file(ca: &CliArgs) -> io::Result<(i64, i64)> {
     let pb2 = file_progress_bar();
     let mut ev: Vec<(String, Box<dyn Error>)> = Vec::new();
 
-    let Some(fstem) = fp.file_stem() else {
-        return Err(io::Error::new(io::ErrorKind::Other, "Not a named file"))
-    };
-    let nfp = file_name_repack(fp, &fstem.to_string_lossy());
+    let fstem = &fname[..fname.len()-4];
+    let nfp = file_name_repack(fp, fstem);
     let inf = File::open(&fp)?;
     let outf = File::create(&nfp)?;
     let fsum = optim.optimize_file(&inf, &outf, &pb2, &mut ev)
@@ -130,10 +131,10 @@ fn process_dir(ca: &CliArgs) -> io::Result<(i64, i64)> {
         let fp = rde.path();
         let rfn = rde.file_name();
         let Some(fname) = rfn.to_str() else {
-            return Err(io::Error::new(io::ErrorKind::NotFound, "A path has no file name"))
+            return Err(new_io_error(ERR_FNAME_INVALID))
         };
         let meta = fp.metadata()?;
-        if meta.is_file() && fname.ends_with(DOT_JAR) && !fname.ends_with(REPACK_JAR) {
+        if meta.is_file() && check_file_type(fname) == FileType::Jar {
             pb.set_message(fname.to_string());
             let fpart = &fname[..fname.len()-4];
             let nfp = file_name_repack(&fp, &fpart);
@@ -172,4 +173,20 @@ fn file_size_diff(a: &File, b: &File) -> io::Result<i64> {
 
 fn file_name_repack(p: &Path, s: &str) -> PathBuf {
     p.with_file_name(format!("{}$repack.jar", s))
+}
+
+#[derive(PartialEq)]
+enum FileType {
+    Other, Jar, RepackedJar
+}
+fn check_file_type(s: &str) -> FileType {
+    use FileType::*;
+    if s.ends_with(DOT_JAR) {
+        return if s.ends_with(REPACK_JAR) { RepackedJar } else { Jar }
+    }
+    Other
+}
+
+fn new_io_error(s: &str) -> io::Error {
+    io::Error::new(io::ErrorKind::Other, s)
 }
