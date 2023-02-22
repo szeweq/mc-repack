@@ -1,6 +1,7 @@
 mod minify;
 mod optimizer;
 mod blacklist;
+mod fop;
 
 use std::{fs::{File, self}, io, error::Error, path::{PathBuf, Path}, time::Instant};
 
@@ -8,6 +9,7 @@ use clap::Parser;
 use indicatif::{ProgressBar, ProgressStyle, MultiProgress, HumanBytes};
 
 use crate::optimizer::*;
+use crate::fop::*;
 
 #[derive(Debug, Parser)]
 #[command(version)]
@@ -57,9 +59,6 @@ fn main() -> io::Result<()> {
 
     Ok(())
 }
-
-const DOT_JAR: &str = ".jar";
-const REPACK_JAR: &str = "$repack.jar";
 
 const PB_STYLE_ZIP: &str = "# {bar} {pos}/{len} {wide_msg}";
 
@@ -173,18 +172,6 @@ fn file_size_diff(a: &File, b: &File) -> io::Result<i64> {
 
 fn file_name_repack(p: &Path, s: &str) -> PathBuf {
     p.with_file_name(format!("{}$repack.jar", s))
-}
-
-#[derive(PartialEq)]
-enum FileType {
-    Other, Jar, RepackedJar
-}
-fn check_file_type(s: &str) -> FileType {
-    use FileType::*;
-    if s.ends_with(DOT_JAR) {
-        return if s.ends_with(REPACK_JAR) { RepackedJar } else { Jar }
-    }
-    Other
 }
 
 fn new_io_error(s: &str) -> io::Error {

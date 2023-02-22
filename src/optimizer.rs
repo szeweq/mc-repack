@@ -1,10 +1,9 @@
 use std::{collections::HashMap, fs::File, io::{self, Read, Write, BufReader, BufWriter}, error::Error};
 
-use flate2::read::DeflateEncoder;
 use indicatif::ProgressBar;
-use zip::{ZipArchive, CompressionMethod, write::FileOptions, ZipWriter};
+use zip::{ZipArchive, write::FileOptions, ZipWriter};
 
-use crate::{minify::{Minifier, all_minifiers}, blacklist};
+use crate::{minify::{Minifier, all_minifiers}, blacklist, fop::compress_check};
 
 pub struct Optimizer{
     minifiers: HashMap<&'static str, Box<dyn Minifier>>,
@@ -90,14 +89,4 @@ impl Optimizer {
         
         Ok(dsum)
     }
-}
-
-fn compress_check(b: &[u8], compress_min: usize) -> io::Result<CompressionMethod> {
-    let lb = b.len();
-    let nc = if lb > compress_min {
-        let de = DeflateEncoder::new(b, flate2::Compression::best());
-        let sum = de.bytes().count();
-        sum < lb
-    } else { false };
-    Ok(if nc { CompressionMethod::Deflated } else { CompressionMethod::Stored })
 }
