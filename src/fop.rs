@@ -22,8 +22,9 @@ pub fn check_file_type(s: &str) -> FileType {
 enum FileOp {
     Retain,
     Recompress,
-    Optimize(Box<dyn crate::minify::Minifier>),
-    Ignore
+    Minify(Box<dyn crate::minify::Minifier>),
+    Ignore,
+    Warn(String)
 }
 
 pub fn compress_check(b: &[u8], compress_min: usize) -> io::Result<CompressionMethod> {
