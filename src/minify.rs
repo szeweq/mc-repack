@@ -1,6 +1,7 @@
 use std::{io::{Cursor, BufRead}, collections::HashMap, error::Error};
 
 use json_comments::StripComments;
+use serde_json::Value;
 
 const BOM_BYTES: [u8; 3] = [239, 187, 191];
 fn strip_bom(b: &[u8]) -> &[u8] {
@@ -61,11 +62,22 @@ impl Minifier for JSONMinifier {
         let (i, j) = find_brackets(fv)?;
         fv = &fv[i..j+1];
         let strip_comments = StripComments::new(Cursor::new(fv));
-        let sv: serde_json::Value = serde_json::from_reader(strip_comments)?;
+        let mut sv: Value = serde_json::from_reader(strip_comments)?;
+        if let Value::Object(xm) = &mut sv {
+            uncomment_json_recursive(xm)
+        }
         let buf = serde_json::to_vec(&sv)?;
         Ok(buf)
     }
     fn compress_min(&self) -> usize { 48 }
+}
+fn uncomment_json_recursive(m: &mut serde_json::Map<String, Value>) {
+    m.retain(|k, _| !k.starts_with('_'));
+    for v in m.values_mut() {
+        if let Value::Object(xm) = v {
+            uncomment_json_recursive(xm);
+        }
+    }
 }
 
 pub struct PNGMinifier {
