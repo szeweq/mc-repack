@@ -1,7 +1,7 @@
-use std::io::{self, Read};
+use std::{io::{self, Read, Write, Seek}, error::Error};
 
 use flate2::read::DeflateEncoder;
-use zip::CompressionMethod;
+use zip::{CompressionMethod, ZipWriter, write::FileOptions};
 
 
 pub const DOT_JAR: &str = ".jar";
@@ -19,21 +19,32 @@ pub fn check_file_type(s: &str) -> FileType {
     Other
 }
 
-pub enum FileOp {
+pub enum FileOp<'a> {
     Retain,
-    Recompress,
-    Minify(Box<dyn crate::minify::Minifier>),
+    Recompress(usize),
+    Minify(&'a Box<dyn crate::minify::Minifier>),
     CheckContent,
     Ignore,
-    Warn(String)
+    Warn(Box<dyn Error>)
 }
 
-pub fn compress_check(b: &[u8], compress_min: usize) -> io::Result<CompressionMethod> {
+pub fn pack_file<W: Write + Seek>(
+    z: &mut ZipWriter<W>,
+    name: &str,
+    opts: &FileOptions,
+    data: &[u8],
+    compress_min: usize
+) -> io::Result<()> {
+    z.start_file(name, opts.clone().compression_method(compress_check(data, compress_min)))?;
+    z.write_all(data)
+}
+
+pub fn compress_check(b: &[u8], compress_min: usize) -> CompressionMethod {
     let lb = b.len();
     let nc = if lb > compress_min {
         let de = DeflateEncoder::new(b, flate2::Compression::best());
         let sum = de.bytes().count();
         sum < lb
     } else { false };
-    Ok(if nc { CompressionMethod::DEFLATE } else { CompressionMethod::STORE })
+    if nc { CompressionMethod::DEFLATE } else { CompressionMethod::STORE }
 }

@@ -1,9 +1,9 @@
-use std::{collections::HashMap, fs::File, io::{self, Read, Write, BufReader, BufWriter}, error::Error};
+use std::{collections::HashMap, fs::File, io::{self, Read, BufReader, BufWriter}, error::Error, fmt::Display};
 
 use indicatif::ProgressBar;
 use zip::{ZipArchive, write::FileOptions, ZipWriter};
 
-use crate::{minify::{Minifier, all_minifiers}, blacklist, fop::compress_check};
+use crate::{minify::{Minifier, all_minifiers}, blacklist, fop::{FileOp, pack_file}};
 
 pub struct Optimizer{
     minifiers: HashMap<&'static str, Box<dyn Minifier>>,
@@ -39,36 +39,21 @@ impl Optimizer {
             let fname = jf.name().to_string();
             pb.set_position(i);
             pb.set_message(fname.clone());
-            if jf.is_dir() {
-                newjar.raw_copy_file(jf)?;
-                continue;
-            }
-            let ftype = if let Some((_, x)) = fname.rsplit_once('.') { x } else { "" };
-            if self.optimize_class && ftype == "class" {
-                let mut ubuf = Vec::new();
-                jf.read_to_end(&mut ubuf)?;
-                newjar.start_file(&fname, self.file_opts.clone()
-                    .compression_method(compress_check(&ubuf, 64)?)
-                )?;
-                newjar.write_all(&ubuf)?;
-                continue;
-            }
-            match self.minifiers.get(ftype) {
-                None => {
-                    if blacklist::can_ignore_type(ftype) {
-                        errors.push((fname.to_string(), Box::new(blacklist::BlacklistedFile)));
-                        if self.use_blacklist {
-                            continue;
-                        }
-                    }
+
+            match self.check_file_by_name(&fname) {
+                FileOp::Retain => {
                     newjar.raw_copy_file(jf)?;
-                    continue;
-                },
-                Some(c) => {
+                }
+                FileOp::Recompress(cmin) => {
+                    let mut v = Vec::new();
+                    jf.read_to_end(&mut v)?;
+                    pack_file(&mut newjar, &fname, &self.file_opts, &v, cmin)?;
+                }
+                FileOp::Minify(m) => {
                     let fsz = jf.size() as i64;
                     let mut ubuf = Vec::new();
                     jf.read_to_end(&mut ubuf)?;
-                    let buf = match c.minify(&ubuf) {
+                    let buf = match m.minify(&ubuf) {
                         Ok(x) => x,
                         Err(e) => {
                             errors.push((fname.to_string(), e));
@@ -76,10 +61,15 @@ impl Optimizer {
                         }
                     };
                     dsum -= (buf.len() as i64) - fsz;
-                    newjar.start_file(&fname, self.file_opts.clone()
-                        .compression_method(compress_check(&buf, c.compress_min())?)
-                    )?;
-                    newjar.write_all(&buf)?;
+                    pack_file(&mut newjar, &fname, &self.file_opts, &buf, m.compress_min())?;
+                }
+                FileOp::CheckContent => {}
+                FileOp::Ignore => {
+                    errors.push((fname.to_string(), Box::new(blacklist::BlacklistedFile)));
+                }
+                FileOp::Warn(x) => {
+                    errors.push((fname.to_string(), x));
+                    newjar.raw_copy_file(jf)?;
                 }
             }
         }
@@ -89,4 +79,39 @@ impl Optimizer {
         
         Ok(dsum)
     }
+    fn check_file_by_name(&self, fname: &str) -> FileOp {
+        use FileOp::*;
+        if fname.ends_with('/') { return Retain }
+        if fname.starts_with("META-INF/") {
+            let sub = &fname[9..];
+            return match sub {
+                "MANIFEST.MF" => Recompress(64),
+                "SIGNFILE.SF" | "SIGNFILE.DSA" => Warn(Box::new(StrError(ERR_SIGNFILE))),
+                x if x.starts_with("SIG-") || [".DSA", ".RSA", ".SF"].into_iter().any(|e| x.ends_with(e)) => Warn(Box::new(StrError(ERR_SIGNFILE))),
+                x if x.starts_with("services/") => Recompress(64),
+                _ => Retain
+            }
+        }
+        let ftype = fname.rsplit_once('.').unzip().1.unwrap_or("");
+        if ftype == "class" {
+            return if self.optimize_class { Recompress(64) } else { Retain }
+        }
+        match self.minifiers.get(ftype) {
+            None => {
+                if self.use_blacklist && blacklist::can_ignore_type(ftype) { Ignore } else { Retain }
+            }
+            Some(x) => { Minify(x) }
+        }
+    }
 }
+
+#[derive(Debug)]
+pub struct StrError(pub &'static str);
+impl Error for StrError {}
+impl Display for StrError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.0)
+    }
+}
+
+const ERR_SIGNFILE: &str = "This file cannot be repacked since it contains SHA-256 digests for zipped entries";
