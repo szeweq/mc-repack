@@ -17,7 +17,9 @@ These mods were tested and repacked by MC-Repack with the following results:
 |----|----:|----:|
 | minecolonies-1.19.2-1.0.1247-BETA.jar | 72.8 MB | 65.2 MB |
 | twilightforest-1.19.3-4.2.1549-universal.jar | 22.5 MB | 22.0 MB |
+| BloodMagic-1.18.2-3.2.6-41.jar | 13.6 MB | 12.1 MB |
 | create-1.19.2-0.5.0.i.jar | 13.1 MB | 12.8 MB |
+| Botania-1.19.2-437-FORGE.jar | 10.9 MB | 10.2 MB |
 
 ## Installation
 Currently the only way to get this app is to use Cargo:
