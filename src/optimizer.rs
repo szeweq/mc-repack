@@ -20,7 +20,7 @@ impl Optimizer {
             optimize_class
         }
     }
-    pub fn optimize_file(
+    pub fn optimize_archive(
         &self,
         fin: &File,
         fout: &File,

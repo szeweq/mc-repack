@@ -94,7 +94,7 @@ let fp = &ca.path;
     let nfp = file_name_repack(fp, fstem);
     let inf = File::open(&fp)?;
     let outf = File::create(&nfp)?;
-    let fsum = optim.optimize_file(&inf, &outf, &pb2, &mut ev)
+    let fsum = optim.optimize_archive(&inf, &outf, &pb2, &mut ev)
         .map_err(|e| io::Error::new(e.kind(), format!("{}: {}", fp.display(), e)))?;
     dsum += fsum;
     zsum += file_size_diff(&inf, &outf)?;
@@ -139,7 +139,7 @@ fn process_dir(ca: &CliArgs) -> io::Result<(i64, i64)> {
             let nfp = file_name_repack(&fp, &fpart);
             let inf = File::open(&fp)?;
             let outf = File::create(&nfp)?;
-            let fsum = optim.optimize_file(&inf, &outf, &pb2, &mut ev)
+            let fsum = optim.optimize_archive(&inf, &outf, &pb2, &mut ev)
                 .map_err(|e| io::Error::new(e.kind(), format!("{}: {}",  fp.display(), e)))?;
             dsum += fsum;
             if !ev.is_empty() {
