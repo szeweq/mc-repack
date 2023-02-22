@@ -19,10 +19,11 @@ pub fn check_file_type(s: &str) -> FileType {
     Other
 }
 
-enum FileOp {
+pub enum FileOp {
     Retain,
     Recompress,
     Minify(Box<dyn crate::minify::Minifier>),
+    CheckContent,
     Ignore,
     Warn(String)
 }
