@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fs::File, io::{self, Read, BufReader, BufWriter}, error::Error, fmt::Display};
+use std::{collections::HashMap, fs::File, io::{self, Read, BufReader, BufWriter}, error::Error, fmt};
 
 use indicatif::ProgressBar;
 use zip::{ZipArchive, write::FileOptions, ZipWriter};
@@ -108,8 +108,8 @@ impl Optimizer {
 #[derive(Debug)]
 pub struct StrError(pub &'static str);
 impl Error for StrError {}
-impl Display for StrError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Display for StrError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(self.0)
     }
 }
