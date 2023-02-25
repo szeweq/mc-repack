@@ -14,10 +14,10 @@ use crate::fop::*;
 #[derive(Debug, Parser)]
 #[command(version)]
 struct CliArgs {
-    /// Path to a file/directory of .jar archive(s)
-    path: PathBuf,
+    /// (Optional) Path to a file/directory of .jar archive(s)
+    path: Option<PathBuf>,
 
-    /// Optimize more file formats (potentially breaking their debugging); Flag reserved for a future version
+    /// Optimize more file formats (potentially breaking their debugging) [Reserved for future use]
     #[arg(short, long)]
     aggressive: bool,
 
@@ -30,7 +30,7 @@ struct CliArgs {
     optimize_class: bool,
 
     /// Assume that the provided path is a "mods" directory (or its parent). This will make a new "mods" directory with repacked jars
-    /// while the original ones will be stored in "mods_orig" directory.
+    /// while the original ones will be stored in "mods_orig" directory. [Reserved for future use]
     #[arg(short = 'm', long)]
     mods_dir: bool
 }
@@ -38,15 +38,25 @@ struct CliArgs {
 fn main() -> io::Result<()> {
     let cli_args = CliArgs::parse();
 
-    println!("MC REPACK!");
+    println!(r"
+    █▀▄▀█ █▀▀ ▄▄ █▀█ █▀▀ █▀█ ▄▀█ █▀▀ █▄▀
+    █ ▀ █ █▄▄    █▀▄ ██▄ █▀▀ █▀█ █▄▄ █ █
+    ");
     let dt = Instant::now();
 
-    let path_meta = cli_args.path.metadata()?;
+    let fpath = cli_args.path.clone().unwrap_or_else(|| {
+        use dialoguer::{theme::ColorfulTheme, Input};
+        let fstr: String = Input::with_theme(&ColorfulTheme::default())
+            .with_prompt("Path to a file/directory").interact_text().unwrap();
+        PathBuf::from(fstr)
+    });
+
+    let path_meta = fpath.metadata()?;
 
     let sums = if path_meta.is_dir() {
-        process_dir(&cli_args)
+        process_dir(&cli_args, &fpath)
     } else if path_meta.is_file() {
-        process_file(&cli_args)
+        process_file(&cli_args, &fpath)
     } else {
         Err(new_io_error("Not a file or directory"))
     }?;
@@ -70,8 +80,7 @@ fn file_progress_bar() -> ProgressBar {
     )
 }
 
-fn process_file(ca: &CliArgs) -> io::Result<(i64, i64)> {
-let fp = &ca.path;
+fn process_file(ca: &CliArgs, fp: &Path) -> io::Result<(i64, i64)> {
     let fname = if let Some(x) = fp.file_name() {
         x.to_string_lossy()
     } else {
@@ -109,8 +118,7 @@ let fp = &ca.path;
     Ok((dsum, zsum))
 }
 
-fn process_dir(ca: &CliArgs) -> io::Result<(i64, i64)> {
-    let p = &ca.path;
+fn process_dir(ca: &CliArgs, p: &Path) -> io::Result<(i64, i64)> {
     let mp = MultiProgress::new();
 
     let rd = fs::read_dir(p)?;
