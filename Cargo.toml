@@ -9,7 +9,7 @@ readme = "README.md"
 homepage = "https://github.com/szeweq/mc-repack"
 repository = "https://github.com/szeweq/mc-repack"
 categories = ["command-line-utilities"]
-keywords = ["minecraft", "jar", "zip", "optimizer", "pack", "repack", "assets"]
+keywords = ["minecraft", "jar", "zip", "optimizer", "repack"]
 exclude = ["/.github"]
 
 [dependencies]
