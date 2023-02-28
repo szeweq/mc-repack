@@ -14,7 +14,7 @@ use crate::fop::*;
 #[derive(Debug, Parser)]
 #[command(version)]
 struct CliArgs {
-    /// (Optional) Path to a file/directory of .jar archive(s)
+    /// (Optional) Path to a file/directory of archives (JAR and ZIP)
     path: Option<PathBuf>,
 
     /// Optimize more file formats (potentially breaking their debugging) [Reserved for future use]
@@ -87,8 +87,8 @@ fn process_file(ca: &CliArgs, fp: &Path) -> io::Result<(i64, i64)> {
         return Err(new_io_error(ERR_FNAME_INVALID))
     };
     match check_file_type(&fname) {
-        FileType::Other => { return Err(new_io_error("Not a .jar file")) }
-        FileType::RepackedJar => { return Err(new_io_error("This .jar is marked as repacked, no re-repacking needed")) }
+        FileType::Other => { return Err(new_io_error("File is not an JAR/ZIP archive")) }
+        FileType::Repacked => { return Err(new_io_error("This archive is marked as repacked, no re-repacking needed")) }
         _ => {}
     }
 
@@ -98,9 +98,8 @@ fn process_file(ca: &CliArgs, fp: &Path) -> io::Result<(i64, i64)> {
 
     let pb2 = file_progress_bar();
     let mut ev: Vec<(String, Box<dyn Error>)> = Vec::new();
-
-    let fstem = &fname[..fname.len()-4];
-    let nfp = file_name_repack(fp, fstem);
+    
+    let nfp = file_name_repack(fp);
     let inf = File::open(&fp)?;
     let outf = File::create(&nfp)?;
     let fsum = optim.optimize_archive(&inf, &outf, &pb2, &mut ev)
@@ -141,10 +140,10 @@ fn process_dir(ca: &CliArgs, p: &Path) -> io::Result<(i64, i64)> {
             return Err(new_io_error(ERR_FNAME_INVALID))
         };
         let meta = fp.metadata()?;
-        if meta.is_file() && check_file_type(fname) == FileType::Jar {
+        if meta.is_file() && check_file_type(fname) == FileType::Original {
             pb.set_message(fname.to_string());
-            let fpart = &fname[..fname.len()-4];
-            let nfp = file_name_repack(&fp, &fpart);
+            
+            let nfp = file_name_repack(&fp);
             let inf = File::open(&fp)?;
             let outf = File::create(&nfp)?;
             let fsum = optim.optimize_archive(&inf, &outf, &pb2, &mut ev)
@@ -178,8 +177,11 @@ fn file_size_diff(a: &File, b: &File) -> io::Result<i64> {
     Ok((a.metadata()?.len() as i64) - (b.metadata()?.len() as i64))
 }
 
-fn file_name_repack(p: &Path, s: &str) -> PathBuf {
-    p.with_file_name(format!("{}$repack.jar", s))
+fn file_name_repack(p: &Path) -> PathBuf {
+    let stem = p.file_stem().unwrap_or_default().to_string_lossy();
+    let ext = p.extension().unwrap_or_default().to_string_lossy();
+    let x = stem + "$repack." + ext;
+    p.with_file_name(x.to_string())
 }
 
 fn new_io_error(s: &str) -> io::Error {

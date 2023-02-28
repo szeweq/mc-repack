@@ -4,19 +4,18 @@ use flate2::read::DeflateEncoder;
 use zip::{CompressionMethod, ZipWriter, write::FileOptions};
 
 
-pub const DOT_JAR: &str = ".jar";
-pub const REPACK_JAR: &str = "$repack.jar";
+pub const REPACKED: &str = "$repack";
 
 #[derive(PartialEq)]
 pub enum FileType {
-    Other, Jar, RepackedJar
+    Other, Original, Repacked
 }
 pub fn check_file_type(s: &str) -> FileType {
     use FileType::*;
-    if s.ends_with(DOT_JAR) {
-        return if s.ends_with(REPACK_JAR) { RepackedJar } else { Jar }
+    match s.rsplit_once('.') {
+        Some((n, "jar" | "zip")) => if n.ends_with(REPACKED) { Repacked } else { Original }
+        _ => Other
     }
-    Other
 }
 
 pub enum FileOp<'a> {
