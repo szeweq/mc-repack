@@ -12,6 +12,9 @@ categories = ["command-line-utilities"]
 keywords = ["minecraft", "jar", "zip", "optimizer", "repack"]
 exclude = ["/.github"]
 
+[dev-dependencies]
+criterion = "0.4"
+
 [dependencies]
 zip = {version = "0.6", default-features = false, features = ["deflate"]}
 serde_json = {version = "1.0", features = ["preserve_order"]}
@@ -25,3 +28,7 @@ dialoguer = "0.10"
 
 [profile.release]
 lto = true
+
+[[bench]]
+name = "repack_bench"
+harness = false
