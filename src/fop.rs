@@ -1,6 +1,6 @@
 use std::{io::{self, Read, Write, Seek}, error::Error};
 
-use flate2::read::DeflateEncoder;
+use flate2::bufread::DeflateEncoder;
 use zip::{CompressionMethod, ZipWriter, write::FileOptions};
 
 
