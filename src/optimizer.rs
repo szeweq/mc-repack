@@ -3,7 +3,7 @@ use std::{collections::HashMap, fs::File, io::{self, Read, BufReader, BufWriter}
 use indicatif::ProgressBar;
 use zip::{ZipArchive, write::FileOptions, ZipWriter};
 
-use crate::{minify::{Minifier, all_minifiers}, blacklist, fop::{FileOp, pack_file}};
+use crate::{minify::{Minifier, all_minifiers, only_recompress}, blacklist, fop::{FileOp, pack_file}};
 
 pub struct Optimizer{
     minifiers: HashMap<&'static str, Box<dyn Minifier>>,
@@ -47,7 +47,13 @@ impl Optimizer {
                 FileOp::Recompress(cmin) => {
                     let mut v = Vec::new();
                     jf.read_to_end(&mut v)?;
-                    pack_file(&mut newjar, &fname, &self.file_opts, &v, cmin)?;
+                    pack_file(
+                        &mut newjar,
+                        &fname,
+                        &self.file_opts,
+                        &v,
+                        cmin
+                    )?;
                 }
                 FileOp::Minify(m) => {
                     let fsz = jf.size() as i64;
@@ -95,6 +101,9 @@ impl Optimizer {
         let ftype = fname.rsplit_once('.').unzip().1.unwrap_or("");
         if ftype == "class" {
             return if self.optimize_class { Recompress(64) } else { Retain }
+        }
+        if only_recompress(ftype) {
+            return Recompress(4)
         }
         match self.minifiers.get(ftype) {
             None => {

@@ -20,7 +20,11 @@ fn find_brackets(b: &[u8]) -> Result<(usize, usize), Box<dyn Error>> {
     Ok((i, j))
 }
 
-const DUMMIES: &[&str] = &["fsh", "glsl", "html", "js", "md", "nbt", "ogg", "txt", "vert", "vsh", "xml"];
+const DUMMIES: &[&str] = &["fsh", "glsl", "html", "js", "kotlin_module", "md", "nbt", "ogg", "txt", "vert", "vsh", "xml"];
+
+pub fn only_recompress(ftype: &str) -> bool {
+    DUMMIES.binary_search(&ftype).is_ok()
+}
 
 pub fn all_minifiers() -> HashMap<&'static str, Box<dyn Minifier>> {
     let mut popts = oxipng::Options::default();
@@ -33,9 +37,8 @@ pub fn all_minifiers() -> HashMap<&'static str, Box<dyn Minifier>> {
     minif.insert("mcmeta", Box::new(JSONMinifier));
     minif.insert("toml", Box::new(TOMLMinifier));
     minif.insert("cfg", Box::new(HashCommentRemover));
-    for dt in DUMMIES {
-        minif.insert(dt, Box::new(DummyMinifier));
-    }
+    minif.insert("obj", Box::new(HashCommentRemover));
+    minif.insert("mtl", Box::new(HashCommentRemover));
     minif
 }
 
@@ -105,15 +108,6 @@ impl Minifier for TOMLMinifier {
     fn compress_min(&self) -> usize { 48 }
 }
 
-pub struct DummyMinifier;
-impl Minifier for DummyMinifier {
-    fn minify(&self, v: &Vec<u8>) -> ResultBytes {
-        let fv = strip_bom(v);
-        Ok(fv.to_vec())
-    }
-    fn compress_min(&self) -> usize { 0 }
-}
-
 pub struct HashCommentRemover;
 impl Minifier for HashCommentRemover {
     fn minify(&self, v: &Vec<u8>) -> ResultBytes {
@@ -127,5 +121,5 @@ impl Minifier for HashCommentRemover {
         }
         Ok(buf)
     }
-    fn compress_min(&self) -> usize { 0 }
+    fn compress_min(&self) -> usize { 4 }
 }
