@@ -30,6 +30,8 @@ pub fn all_minifiers() -> HashMap<&'static str, Box<dyn Minifier>> {
     let mut popts = oxipng::Options::default();
     popts.fix_errors = true;
     popts.strip = oxipng::Headers::Safe;
+    popts.optimize_alpha = true;
+    popts.deflate = oxipng::Deflaters::Libdeflater { compression: 12 };
 
     let mut minif: HashMap<&str, Box<dyn Minifier>> = HashMap::new();
     minif.insert("png", Box::new(PNGMinifier { opts: popts }));
