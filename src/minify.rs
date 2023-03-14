@@ -71,18 +71,17 @@ impl Minifier for JSONMinifier {
         if let Value::Object(xm) = &mut sv {
             uncomment_json_recursive(xm)
         }
-        let buf = serde_json::to_vec(&sv)?;
-        Ok(buf)
+        Ok(serde_json::to_vec(&sv)?)
     }
     fn compress_min(&self) -> usize { 48 }
 }
 fn uncomment_json_recursive(m: &mut serde_json::Map<String, Value>) {
     m.retain(|k, _| !k.starts_with('_'));
-    for v in m.values_mut() {
+    m.values_mut().for_each(|v| {
         if let Value::Object(xm) = v {
             uncomment_json_recursive(xm);
         }
-    }
+    });
 }
 
 pub struct PNGMinifier {
@@ -90,8 +89,7 @@ pub struct PNGMinifier {
 }
 impl Minifier for PNGMinifier {
     fn minify(&self, v: &Vec<u8>) -> ResultBytes {
-        let buf = oxipng::optimize_from_memory(&v, &self.opts)?;
-        Ok(buf)
+        Ok(oxipng::optimize_from_memory(&v, &self.opts)?)
     }
     fn compress_min(&self) -> usize { 512 }
 }
@@ -101,11 +99,10 @@ impl Minifier for TOMLMinifier {
     fn minify(&self, v: &Vec<u8>) -> ResultBytes {
         let fv = std::str::from_utf8(strip_bom(v))?;
         let table: toml::Table = toml::from_str(fv)?;
-        let buf = toml::to_string(&table)?
+        Ok(toml::to_string(&table)?
             .lines()
             .map(|l| l.replacen(" = ", "=", 1).into_bytes())
-            .collect::<Vec<_>>().join(&b'\n');
-        Ok(buf)
+            .collect::<Vec<_>>().join(&b'\n'))
     }
     fn compress_min(&self) -> usize { 48 }
 }
