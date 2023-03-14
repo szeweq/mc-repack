@@ -87,6 +87,7 @@ impl Optimizer {
     }
     fn check_file_by_name(&self, fname: &str) -> FileOp {
         use FileOp::*;
+        if fname.starts_with(".cache/") { return Ignore }
         if fname.ends_with('/') { return Retain }
         if fname.starts_with("META-INF/") {
             let sub = &fname[9..];
