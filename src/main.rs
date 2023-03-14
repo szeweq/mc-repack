@@ -32,7 +32,11 @@ struct CliArgs {
     /// Assume that the provided path is a "mods" directory (or its parent). This will make a new "mods" directory with repacked jars
     /// while the original ones will be stored in "mods_orig" directory. [Reserved for future use]
     #[arg(short = 'm', long)]
-    mods_dir: bool
+    mods_dir: bool,
+
+    /// Do not print file errors
+    #[arg(long)]
+    silent: bool
 }
 
 fn main() -> io::Result<()> {
@@ -107,7 +111,7 @@ fn process_file(ca: &CliArgs, fp: &Path) -> io::Result<(i64, i64)> {
     dsum += fsum;
     zsum += file_size_diff(&inf, &outf)?;
 
-    if !ev.is_empty() {
+    if !ca.silent && !ev.is_empty() {
         eprintln!("Errors found while repacking a file:");
         for (f, e) in ev {
             eprintln!("| # {}: {}", f, e);
@@ -159,7 +163,7 @@ fn process_dir(ca: &CliArgs, p: &Path) -> io::Result<(i64, i64)> {
     }
     mp.clear()?;
 
-    if !jev.is_empty() {
+    if !ca.silent && !jev.is_empty() {
         eprintln!("Errors found while repacking files:");
         for (f, v) in jev {
             eprintln!(" File: {}", f);
