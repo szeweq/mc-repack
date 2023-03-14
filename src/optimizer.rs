@@ -90,12 +90,14 @@ impl Optimizer {
         if fname.ends_with('/') { return Retain }
         if fname.starts_with("META-INF/") {
             let sub = &fname[9..];
-            return match sub {
-                "MANIFEST.MF" => Recompress(64),
-                "SIGNFILE.SF" | "SIGNFILE.DSA" => Warn(Box::new(StrError(ERR_SIGNFILE))),
-                x if x.starts_with("SIG-") || [".DSA", ".RSA", ".SF"].into_iter().any(|e| x.ends_with(e)) => Warn(Box::new(StrError(ERR_SIGNFILE))),
-                x if x.starts_with("services/") => Recompress(64),
-                _ => Retain
+            match sub {
+                "MANIFEST.MF" => {return Recompress(64) }
+                "SIGNFILE.SF" | "SIGNFILE.DSA" => { return Warn(Box::new(StrError(ERR_SIGNFILE))) }
+                x if x.starts_with("SIG-") || [".DSA", ".RSA", ".SF"].into_iter().any(|e| x.ends_with(e)) => {
+                    return Warn(Box::new(StrError(ERR_SIGNFILE)))
+                }
+                x if x.starts_with("services/") => { return Recompress(64) }
+                _ => {}
             }
         }
         let ftype = fname.rsplit_once('.').unzip().1.unwrap_or("");
