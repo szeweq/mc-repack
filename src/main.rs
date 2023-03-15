@@ -2,10 +2,12 @@ mod minify;
 mod optimizer;
 mod blacklist;
 mod fop;
+mod errors;
 
-use std::{fs::{File, self}, io, error::Error, path::{PathBuf, Path}, time::Instant};
+use std::{fs, io, path::{PathBuf, Path}, time::Instant};
 
 use clap::Parser;
+use errors::{ErrorCollector, SilentCollector};
 use indicatif::{ProgressBar, ProgressStyle, MultiProgress, HumanBytes};
 
 use crate::optimizer::*;
@@ -24,10 +26,6 @@ struct CliArgs {
     /// Use built-in blacklist for files
     #[arg(short = 'b', long)]
     use_blacklist: bool,
-
-    /// Try to recompress .class files (may produce larger files)
-    #[arg(long)]
-    optimize_class: bool,
 
     /// Assume that the provided path is a "mods" directory (or its parent). This will make a new "mods" directory with repacked jars
     /// while the original ones will be stored in "mods_orig" directory. [Reserved for future use]
@@ -96,22 +94,22 @@ fn process_file(ca: &CliArgs, fp: &Path) -> io::Result<(i64, i64)> {
         _ => {}
     }
 
-    let optim = Optimizer::new(ca.use_blacklist, ca.optimize_class);
+    let optim = Optimizer::new(ca.use_blacklist);
     let mut dsum = 0;
     let mut zsum = 0;
 
     let pb2 = file_progress_bar();
-    let mut ev: Vec<(String, Box<dyn Error>)> = Vec::new();
+    let mut ev: Vec<(String, String)> = Vec::new();
+    let mut sc = errors::SilentCollector;
+    let ec: &mut dyn ErrorCollector = if ca.silent { &mut sc } else { &mut ev };
     
     let nfp = file_name_repack(fp);
-    let inf = File::open(&fp)?;
-    let outf = File::create(&nfp)?;
-    let fsum = optim.optimize_archive(&inf, &outf, &pb2, &mut ev)
+    let fsum = optim.optimize_archive(fp.to_owned(), nfp.clone(), pb2, ec)
         .map_err(|e| io::Error::new(e.kind(), format!("{}: {}", fp.display(), e)))?;
     dsum += fsum;
-    zsum += file_size_diff(&inf, &outf)?;
+    zsum += file_size_diff(&fp, &nfp)?;
 
-    if !ca.silent && !ev.is_empty() {
+    if !ev.is_empty() {
         eprintln!("Errors found while repacking a file:");
         for (f, e) in ev {
             eprintln!("| # {}: {}", f, e);
@@ -125,7 +123,7 @@ fn process_dir(ca: &CliArgs, p: &Path) -> io::Result<(i64, i64)> {
     let mp = MultiProgress::new();
 
     let rd = fs::read_dir(p)?;
-    let optim = Optimizer::new(ca.use_blacklist, ca.optimize_class);
+    let optim = Optimizer::new(ca.use_blacklist);
     let mut dsum = 0;
     let mut zsum = 0;
     let pb = mp.add(ProgressBar::new_spinner().with_style(
@@ -133,8 +131,10 @@ fn process_dir(ca: &CliArgs, p: &Path) -> io::Result<(i64, i64)> {
     ));
     let pb2 = mp.add(file_progress_bar());
     
-    let mut ev: Vec<(String, Box<dyn Error>)> = Vec::new();
-    let mut jev: Vec<(String, Vec<(String, Box<dyn Error>)>)> = Vec::new();
+    let mut ev: Vec<(String, String)> = Vec::new();
+    let mut sc = SilentCollector;
+    let mut jev: Vec<(String, Vec<(String, String)>)> = Vec::new();
+    let ec: &mut dyn ErrorCollector = if ca.silent { &mut sc } else { &mut ev };
 
     for rde in rd {
         let rde = rde?;
@@ -148,17 +148,14 @@ fn process_dir(ca: &CliArgs, p: &Path) -> io::Result<(i64, i64)> {
             pb.set_message(fname.to_string());
             
             let nfp = file_name_repack(&fp);
-            let inf = File::open(&fp)?;
-            let outf = File::create(&nfp)?;
-            let fsum = optim.optimize_archive(&inf, &outf, &pb2, &mut ev)
+            let fsum = optim.optimize_archive(fp.clone(), nfp.clone(), pb2.clone(), ec)
                 .map_err(|e| io::Error::new(e.kind(), format!("{}: {}",  fp.display(), e)))?;
             dsum += fsum;
-            if !ev.is_empty() {
-                let nev = ev;
-                jev.push((fname.to_string(), nev));
-                ev = Vec::new();
+            let rev = ec.get_results();
+            if !rev.is_empty() {
+                jev.push((fname.to_string(), rev));
             }
-            zsum += file_size_diff(&inf, &outf)?;
+            zsum += file_size_diff(&fp, &nfp)?;
         }
     }
     mp.clear()?;
@@ -177,7 +174,7 @@ fn process_dir(ca: &CliArgs, p: &Path) -> io::Result<(i64, i64)> {
     Ok((dsum, zsum))
 }
 
-fn file_size_diff(a: &File, b: &File) -> io::Result<i64> {
+fn file_size_diff(a: &Path, b: &Path) -> io::Result<i64> {
     Ok((a.metadata()?.len() as i64) - (b.metadata()?.len() as i64))
 }
 

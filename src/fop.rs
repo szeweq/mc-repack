@@ -1,7 +1,9 @@
-use std::{io::{self, Read, Write, Seek}, error::Error};
+use std::{io::{self, Read, Write, Seek}};
 
 use flate2::bufread::DeflateEncoder;
 use zip::{CompressionMethod, ZipWriter, write::FileOptions};
+
+use crate::minify::MinifyType;
 
 
 pub const REPACKED: &str = "$repack";
@@ -18,13 +20,11 @@ pub fn check_file_type(s: &str) -> FileType {
     }
 }
 
-pub enum FileOp<'a> {
-    Retain,
+pub enum FileOp {
     Recompress(usize),
-    Minify(&'a Box<dyn crate::minify::Minifier>),
-    CheckContent,
+    Minify(MinifyType),
     Ignore,
-    Warn(Box<dyn Error>)
+    Warn(String)
 }
 
 pub fn pack_file<W: Write + Seek>(

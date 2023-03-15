@@ -1,4 +1,4 @@
-use std::{io::{Cursor, BufRead}, collections::HashMap, error::Error};
+use std::{io::{Cursor, BufRead}, error::Error};
 
 use json_comments::StripComments;
 use serde_json::Value;
@@ -20,35 +20,94 @@ fn find_brackets(b: &[u8]) -> Result<(usize, usize), Box<dyn Error>> {
     Ok((i, j))
 }
 
-const DUMMIES: &[&str] = &["fsh", "glsl", "html", "js", "kotlin_module", "md", "nbt", "ogg", "txt", "vert", "vsh", "xml"];
+const DUMMIES: &[&str] = &["glsl", "html", "js", "kotlin_module", "md", "nbt", "ogg", "txt", "vert", "xml"];
 
 pub fn only_recompress(ftype: &str) -> bool {
     DUMMIES.binary_search(&ftype).is_ok()
 }
 
-pub fn all_minifiers() -> HashMap<&'static str, Box<dyn Minifier>> {
+pub enum MinifyType {
+    PNG, JSON, TOML, Hash, Slash
+}
+impl MinifyType {
+    pub fn by_extension(ftype: &str) -> Option<MinifyType> {
+        use MinifyType::*;
+        match ftype {
+            "png" => Some(PNG),
+            "json" | "mcmeta" => Some(JSON),
+            "toml" => Some(TOML),
+            "cfg" | "obj" | "mtl" => Some(Hash),
+            "zs" | "fsh" | "vsh" => Some(Slash),
+            _ => None
+        }
+    }
+
+    pub fn minify(&self, v: &Vec<u8>) -> ResultBytes {
+        use MinifyType::*;
+        match self {
+            PNG => minify_png(v),
+            JSON => minify_json(v),
+            TOML => minify_toml(v),
+            Hash => remove_line_comments("#", v),
+            Slash => remove_line_comments("//", v)
+        }
+    }
+    pub fn compress_min(&self) -> usize {
+        use MinifyType::*;
+        match self {
+            PNG => 512,
+            JSON | TOML => 48,
+            _ => 4
+        }
+    }
+}
+
+pub type ResultBytes = Result<Vec<u8>, Box<dyn Error>>;
+
+fn minify_png(v: &Vec<u8>) -> ResultBytes {
     let mut popts = oxipng::Options::default();
     popts.fix_errors = true;
     popts.strip = oxipng::Headers::Safe;
     popts.optimize_alpha = true;
     popts.deflate = oxipng::Deflaters::Libdeflater { compression: 12 };
+    //popts.fast_evaluation = false;
+    popts.filter.insert(oxipng::RowFilter::Up);
+    popts.filter.insert(oxipng::RowFilter::Paeth);
+    //popts.filter.insert(oxipng::RowFilter::MinSum);
 
-    let mut minif: HashMap<&str, Box<dyn Minifier>> = HashMap::new();
-    minif.insert("png", Box::new(PNGMinifier { opts: popts }));
-    minif.insert("json", Box::new(JSONMinifier));
-    minif.insert("mcmeta", Box::new(JSONMinifier));
-    minif.insert("toml", Box::new(TOMLMinifier));
-    minif.insert("cfg", Box::new(HashCommentRemover));
-    minif.insert("obj", Box::new(HashCommentRemover));
-    minif.insert("mtl", Box::new(HashCommentRemover));
-    minif
+    Ok(oxipng::optimize_from_memory(&v, &popts)?)
 }
 
-pub type ResultBytes = Result<Vec<u8>, Box<dyn Error>>;
+fn minify_json(v: &Vec<u8>) -> ResultBytes {
+    let mut fv = strip_bom(v);
+    let (i, j) = find_brackets(fv)?;
+    fv = &fv[i..j+1];
+    let strip_comments = StripComments::new(Cursor::new(fv));
+    let mut sv: Value = serde_json::from_reader(strip_comments)?;
+    if let Value::Object(xm) = &mut sv {
+        uncomment_json_recursive(xm)
+    }
+    Ok(serde_json::to_vec(&sv)?)
+}
 
-pub trait Minifier {
-    fn minify(&self, v: &Vec<u8>) -> ResultBytes;
-    fn compress_min(&self) -> usize;
+fn minify_toml(v: &Vec<u8>) -> ResultBytes {
+    let fv = std::str::from_utf8(strip_bom(v))?;
+    let table: toml::Table = toml::from_str(fv)?;
+    Ok(toml::to_string(&table)?
+        .lines()
+        .map(|l| l.replacen(" = ", "=", 1).into_bytes())
+        .collect::<Vec<_>>().join(&b'\n'))
+}
+
+fn remove_line_comments(bs: &str, v: &Vec<u8>) -> ResultBytes {
+    Ok(v.lines().try_fold(Vec::new(), |mut buf, l| {
+        let l = l?;
+        if !(l.is_empty() || l.trim_start().starts_with(bs)) {
+            buf.extend(l.bytes());
+            buf.push(b'\n');
+        }
+        Ok::<_, std::io::Error>(buf)
+    })?)
 }
 
 #[derive(Debug)]
@@ -60,21 +119,6 @@ impl std::fmt::Display for JSONMinifierError {
     }
 }
 
-pub struct JSONMinifier;
-impl Minifier for JSONMinifier {
-    fn minify(&self, v: &Vec<u8>) -> ResultBytes {
-        let mut fv = strip_bom(v);
-        let (i, j) = find_brackets(fv)?;
-        fv = &fv[i..j+1];
-        let strip_comments = StripComments::new(Cursor::new(fv));
-        let mut sv: Value = serde_json::from_reader(strip_comments)?;
-        if let Value::Object(xm) = &mut sv {
-            uncomment_json_recursive(xm)
-        }
-        Ok(serde_json::to_vec(&sv)?)
-    }
-    fn compress_min(&self) -> usize { 48 }
-}
 fn uncomment_json_recursive(m: &mut serde_json::Map<String, Value>) {
     m.retain(|k, _| !k.starts_with('_'));
     m.values_mut().for_each(|v| {
@@ -82,43 +126,4 @@ fn uncomment_json_recursive(m: &mut serde_json::Map<String, Value>) {
             uncomment_json_recursive(xm);
         }
     });
-}
-
-pub struct PNGMinifier {
-    pub opts: oxipng::Options
-}
-impl Minifier for PNGMinifier {
-    fn minify(&self, v: &Vec<u8>) -> ResultBytes {
-        Ok(oxipng::optimize_from_memory(&v, &self.opts)?)
-    }
-    fn compress_min(&self) -> usize { 512 }
-}
-
-pub struct TOMLMinifier;
-impl Minifier for TOMLMinifier {
-    fn minify(&self, v: &Vec<u8>) -> ResultBytes {
-        let fv = std::str::from_utf8(strip_bom(v))?;
-        let table: toml::Table = toml::from_str(fv)?;
-        Ok(toml::to_string(&table)?
-            .lines()
-            .map(|l| l.replacen(" = ", "=", 1).into_bytes())
-            .collect::<Vec<_>>().join(&b'\n'))
-    }
-    fn compress_min(&self) -> usize { 48 }
-}
-
-pub struct HashCommentRemover;
-impl Minifier for HashCommentRemover {
-    fn minify(&self, v: &Vec<u8>) -> ResultBytes {
-        let mut buf = Vec::new();
-        for l in v.lines() {
-            let l = l?;
-            if !(l.is_empty() || l.starts_with('#')) {
-                buf.extend(l.bytes());
-                buf.push(b'\n');
-            }
-        }
-        Ok(buf)
-    }
-    fn compress_min(&self) -> usize { 4 }
 }
