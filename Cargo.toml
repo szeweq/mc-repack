@@ -6,7 +6,7 @@ authors = ["Szeweq"]
 license = "MIT"
 description = "A repacking tool for Minecraft mods and resource packs to optimize size and loading speed."
 readme = "README.md"
-homepage = "https://github.com/szeweq/mc-repack"
+homepage = "https://szeweq.xyz/mc-repack"
 repository = "https://github.com/szeweq/mc-repack"
 categories = ["command-line-utilities"]
 keywords = ["minecraft", "jar", "zip", "optimizer", "repack"]
@@ -18,13 +18,14 @@ criterion = "0.4"
 [dependencies]
 zip = {version = "0.6", default-features = false, features = ["deflate"]}
 serde_json = {version = "1.0", features = ["preserve_order"]}
-oxipng = "8.0"
+oxipng = {version = "8.0", default-features = false, features = ["parallel"]}
 flate2 = "1.0"
 indicatif = "0.17"
 json_comments = "0.2"
 toml = {version = "0.7", features = ["preserve_order"]}
 clap = {version = "4.1", features = ["derive", "cargo"]}
 dialoguer = "0.10"
+crossbeam-channel = "0.5"
 
 [profile.release]
 lto = true
