@@ -24,6 +24,7 @@ pub enum FileOp {
     Recompress(usize),
     Minify(MinifyType),
     Ignore,
+    Signfile,
     Warn(String)
 }
 

@@ -24,70 +24,74 @@ impl Optimizer {
         pb: ProgressBar,
         errors: &mut dyn ErrorCollector
     ) -> io::Result<i64> {
-        let (tx, rx) = bounded(1);
+        let (tx, rx) = bounded(2);
         let use_blacklist = self.use_blacklist;
         let t1 = thread::spawn(move || read_archive_entries(in_path, tx, use_blacklist));
-        let rsum = self.save_archive_entries(out_path, rx, errors, pb);
+        let rsum = save_archive_entries(out_path, rx, &self.file_opts, errors, pb);
         t1.join().unwrap()?;
         rsum
     }
+}
 
-    fn save_archive_entries(&self, out_path: PathBuf, rx: Receiver<EntryType>, ev: &mut dyn ErrorCollector, pb: ProgressBar) -> io::Result<i64> {
-        let fout = File::create(out_path)?;
-        let mut dsum = 0;
-        let mut zw = ZipWriter::new(BufWriter::new(fout));
-        let mut cnt = 0;
-        for et in rx {
-            match et {
-                EntryType::Count(u) => {
-                    pb.set_length(u);
+fn save_archive_entries(out_path: PathBuf, rx: Receiver<EntryType>, file_opts: &FileOptions, ev: &mut dyn ErrorCollector, pb: ProgressBar) -> io::Result<i64> {
+    let fout = File::create(out_path)?;
+    let mut dsum = 0;
+    let mut zw = ZipWriter::new(BufWriter::new(fout));
+    let mut cnt = 0;
+    for et in rx {
+        match et {
+            EntryType::Count(u) => {
+                pb.set_length(u);
+            }
+            EntryType::Directory(d) => {
+                if d != ".cache/" {
+                    zw.add_directory(d, file_opts.clone())?;
                 }
-                EntryType::Directory(d) => {
-                    if d != ".cache/" {
-                        zw.add_directory(d, self.file_opts.clone())?;
+            }
+            EntryType::File(fname, buf, fop) => {
+                use FileOp::*;
+                cnt += 1;
+                pb.set_position(cnt);
+                pb.set_message(fname.clone());
+                match fop {
+                    Recompress(cmin) => {
+                        pack_file(
+                            &mut zw,
+                            &fname,
+                            file_opts,
+                            &buf,
+                            cmin
+                        )?;
                     }
-                }
-                EntryType::File(fname, buf, fop) => {
-                    cnt += 1;
-                    pb.set_position(cnt);
-                    pb.set_message(fname.clone());
-                    match fop {
-                        FileOp::Recompress(cmin) => {
-                            pack_file(
-                                &mut zw,
-                                &fname,
-                                &self.file_opts,
-                                &buf,
-                                cmin
-                            )?;
-                        }
-                        FileOp::Minify(m) => {
-                            let fsz = buf.len() as i64;
-                            let buf = match m.minify(&buf) {
-                                Ok(x) => x,
-                                Err(e) => {
-                                    ev.collect(fname.to_string(), e);
-                                    buf
-                                }
-                            };
-                            dsum -= (buf.len() as i64) - fsz;
-                            pack_file(&mut zw, &fname, &self.file_opts, &buf, m.compress_min())?;
-                        }
-                        FileOp::Ignore => {
-                            ev.collect(fname.to_string(), Box::new(blacklist::BlacklistedFile));
-                        }
-                        FileOp::Warn(x) => {
-                            ev.collect(fname.to_string(), Box::new(StrError(x)));
-                            pack_file(&mut zw, &fname, &self.file_opts, &buf, 0)?;
-                        }
+                    Minify(m) => {
+                        let fsz = buf.len() as i64;
+                        let buf = match m.minify(&buf) {
+                            Ok(x) => x,
+                            Err(e) => {
+                                ev.collect(fname.to_string(), e);
+                                buf
+                            }
+                        };
+                        dsum -= (buf.len() as i64) - fsz;
+                        pack_file(&mut zw, &fname, file_opts, &buf, m.compress_min())?;
+                    }
+                    Ignore => {
+                        ev.collect(fname.to_string(), Box::new(blacklist::BlacklistedFile));
+                    }
+                    Warn(x) => {
+                        ev.collect(fname.to_string(), Box::new(StrError(x)));
+                        pack_file(&mut zw, &fname, file_opts, &buf, 0)?;
+                    }
+                    Signfile => {
+                        ev.collect(fname.to_string(), Box::new(StrError(ERR_SIGNFILE.to_string())));
                     }
                 }
             }
         }
-        pb.finish_with_message("Saving...");
-        zw.finish()?;
-        Ok(dsum)
     }
+    pb.finish_with_message("Saving...");
+    zw.finish()?;
+    Ok(dsum)
 }
 
 fn check_file_by_name(fname: &str, use_blacklist: bool) -> FileOp {
@@ -97,9 +101,9 @@ fn check_file_by_name(fname: &str, use_blacklist: bool) -> FileOp {
         let sub = &fname[9..];
         match sub {
             "MANIFEST.MF" => {return Recompress(64) }
-            "SIGNFILE.SF" | "SIGNFILE.DSA" => { return Warn(ERR_SIGNFILE.to_string()) }
+            "SIGNFILE.SF" | "SIGNFILE.DSA" => { return Signfile }
             x if x.starts_with("SIG-") || [".DSA", ".RSA", ".SF"].into_iter().any(|e| x.ends_with(e)) => {
-                return Warn(ERR_SIGNFILE.to_string())
+                return Signfile
             }
             x if x.starts_with("services/") => { return Recompress(64) }
             _ => {}
