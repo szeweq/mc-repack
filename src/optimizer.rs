@@ -136,6 +136,7 @@ fn read_archive_entries(in_path: PathBuf, tx: Sender<EntryType>, use_blacklist: 
             EntryType::Directory(fname)
         } else {
             let mut obuf = Vec::new();
+            obuf.reserve_exact(jf.size() as usize);
             jf.read_to_end(&mut obuf)?;
             let fop = check_file_by_name(&fname, use_blacklist);
             EntryType::File(fname, obuf, fop)
