@@ -24,7 +24,7 @@ indicatif = "0.17"
 json_comments = "0.2"
 toml = {version = "0.7", features = ["preserve_order"]}
 clap = {version = "4.1", features = ["derive", "cargo"]}
-dialoguer = "0.10"
+dialoguer = {version = "0.10", default-features = false}
 crossbeam-channel = "0.5"
 
 [profile.release]
