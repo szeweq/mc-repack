@@ -38,6 +38,7 @@ fn save_archive_entries(out_path: PathBuf, rx: Receiver<EntryType>, file_opts: &
     let mut dsum = 0;
     let mut zw = ZipWriter::new(BufWriter::new(fout));
     let mut cnt = 0;
+    let mut cv = Vec::new();
     for et in rx {
         match et {
             EntryType::Count(u) => {
@@ -65,15 +66,16 @@ fn save_archive_entries(out_path: PathBuf, rx: Receiver<EntryType>, file_opts: &
                     }
                     Minify(m) => {
                         let fsz = buf.len() as i64;
-                        let buf = match m.minify(&buf) {
-                            Ok(x) => x,
+                        let buf = match m.minify(&buf, &mut cv) {
+                            Ok(()) => &cv,
                             Err(e) => {
                                 ev.collect(fname.to_string(), e);
-                                buf
+                                &buf
                             }
                         };
                         dsum -= (buf.len() as i64) - fsz;
                         pack_file(&mut zw, &fname, file_opts, &buf, m.compress_min())?;
+                        cv.clear();
                     }
                     Ignore => {
                         ev.collect(fname.to_string(), Box::new(blacklist::BlacklistedFile));
@@ -116,12 +118,10 @@ fn check_file_by_name(fname: &str, use_blacklist: bool) -> FileOp {
     if only_recompress(ftype) {
         return Recompress(4)
     }
-    match MinifyType::by_extension(ftype) {
-        None => {
-            if use_blacklist && blacklist::can_ignore_type(ftype) { Ignore } else { Recompress(2) }
-        }
-        Some(x) => { Minify(x) }
+    if let Some(x) = MinifyType::by_extension(ftype) {
+        return Minify(x)
     }
+    if use_blacklist && blacklist::can_ignore_type(ftype) { Ignore } else { Recompress(2) }
 }
 
 fn read_archive_entries(in_path: PathBuf, tx: Sender<EntryType>, use_blacklist: bool) -> io::Result<()> {

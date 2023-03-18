@@ -42,14 +42,14 @@ impl MinifyType {
         }
     }
 
-    pub fn minify(&self, v: &[u8]) -> ResultBytes {
+    pub fn minify(&self, v: &[u8], vout: &mut Vec<u8>) -> ResultBytes {
         use MinifyType::*;
         match self {
-            PNG => minify_png(v),
-            JSON => minify_json(v),
-            TOML => minify_toml(v),
-            Hash => remove_line_comments("#", v),
-            Slash => remove_line_comments("//", v)
+            PNG => minify_png(v, vout),
+            JSON => minify_json(v, vout),
+            TOML => minify_toml(v, vout),
+            Hash => remove_line_comments("#", v, vout),
+            Slash => remove_line_comments("//", v, vout)
         }
     }
     pub fn compress_min(&self) -> usize {
@@ -62,9 +62,9 @@ impl MinifyType {
     }
 }
 
-pub type ResultBytes = Result<Vec<u8>, Box<dyn Error>>;
+pub type ResultBytes = Result<(), Box<dyn Error>>;
 
-fn minify_png(v: &[u8]) -> ResultBytes {
+fn minify_png(v: &[u8], vout: &mut Vec<u8>) -> ResultBytes {
     let mut popts = oxipng::Options::default();
     popts.fix_errors = true;
     popts.strip = oxipng::Headers::Safe;
@@ -75,10 +75,12 @@ fn minify_png(v: &[u8]) -> ResultBytes {
     popts.filter.insert(oxipng::RowFilter::Paeth);
     //popts.filter.insert(oxipng::RowFilter::MinSum);
 
-    Ok(oxipng::optimize_from_memory(&v, &popts)?)
+    let v = oxipng::optimize_from_memory(&v, &popts)?;
+    vout.extend_from_slice(&v);
+    Ok(())
 }
 
-fn minify_json(v: &[u8]) -> ResultBytes {
+fn minify_json(v: &[u8], vout: &mut Vec<u8>) -> ResultBytes {
     let mut fv = strip_bom(v);
     let (i, j) = find_brackets(fv)?;
     fv = &fv[i..j+1];
@@ -87,27 +89,30 @@ fn minify_json(v: &[u8]) -> ResultBytes {
     if let Value::Object(xm) = &mut sv {
         uncomment_json_recursive(xm)
     }
-    Ok(serde_json::to_vec(&sv)?)
+    serde_json::to_writer(vout, &sv)?;
+    Ok(())
 }
 
-fn minify_toml(v: &[u8]) -> ResultBytes {
+fn minify_toml(v: &[u8], vout: &mut Vec<u8>) -> ResultBytes {
     let fv = std::str::from_utf8(strip_bom(v))?;
     let table: toml::Table = toml::from_str(fv)?;
-    Ok(toml::to_string(&table)?
-        .lines()
-        .map(|l| l.replacen(" = ", "=", 1).into_bytes())
-        .collect::<Vec<_>>().join(&b'\n'))
+    toml::to_string(&table)?.lines().for_each(|l| {
+        vout.extend_from_slice(l.replacen(" = ", "=", 1).as_bytes());
+        vout.push(b'\n')
+    });
+    Ok(())
 }
 
-fn remove_line_comments(bs: &str, v: &[u8]) -> ResultBytes {
-    Ok(v.lines().try_fold(Vec::new(), |mut buf, l| {
+fn remove_line_comments(bs: &str, v: &[u8], vout: &mut Vec<u8>) -> ResultBytes {
+    v.lines().try_for_each(|l| {
         let l = l?;
         if !(l.is_empty() || l.trim_start().starts_with(bs)) {
-            buf.extend(l.bytes());
-            buf.push(b'\n');
+            vout.extend(l.bytes());
+            vout.push(b'\n');
         }
-        Ok::<_, std::io::Error>(buf)
-    })?)
+        Ok::<_, std::io::Error>(())
+    })?;
+    Ok(())
 }
 
 #[derive(Debug)]
