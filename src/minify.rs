@@ -42,7 +42,7 @@ impl MinifyType {
         }
     }
 
-    pub fn minify(&self, v: &Vec<u8>) -> ResultBytes {
+    pub fn minify(&self, v: &[u8]) -> ResultBytes {
         use MinifyType::*;
         match self {
             PNG => minify_png(v),
@@ -64,7 +64,7 @@ impl MinifyType {
 
 pub type ResultBytes = Result<Vec<u8>, Box<dyn Error>>;
 
-fn minify_png(v: &Vec<u8>) -> ResultBytes {
+fn minify_png(v: &[u8]) -> ResultBytes {
     let mut popts = oxipng::Options::default();
     popts.fix_errors = true;
     popts.strip = oxipng::Headers::Safe;
@@ -78,7 +78,7 @@ fn minify_png(v: &Vec<u8>) -> ResultBytes {
     Ok(oxipng::optimize_from_memory(&v, &popts)?)
 }
 
-fn minify_json(v: &Vec<u8>) -> ResultBytes {
+fn minify_json(v: &[u8]) -> ResultBytes {
     let mut fv = strip_bom(v);
     let (i, j) = find_brackets(fv)?;
     fv = &fv[i..j+1];
@@ -90,7 +90,7 @@ fn minify_json(v: &Vec<u8>) -> ResultBytes {
     Ok(serde_json::to_vec(&sv)?)
 }
 
-fn minify_toml(v: &Vec<u8>) -> ResultBytes {
+fn minify_toml(v: &[u8]) -> ResultBytes {
     let fv = std::str::from_utf8(strip_bom(v))?;
     let table: toml::Table = toml::from_str(fv)?;
     Ok(toml::to_string(&table)?
@@ -99,7 +99,7 @@ fn minify_toml(v: &Vec<u8>) -> ResultBytes {
         .collect::<Vec<_>>().join(&b'\n'))
 }
 
-fn remove_line_comments(bs: &str, v: &Vec<u8>) -> ResultBytes {
+fn remove_line_comments(bs: &str, v: &[u8]) -> ResultBytes {
     Ok(v.lines().try_fold(Vec::new(), |mut buf, l| {
         let l = l?;
         if !(l.is_empty() || l.trim_start().starts_with(bs)) {
