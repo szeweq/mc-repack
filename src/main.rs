@@ -1,17 +1,11 @@
-mod minify;
-mod optimizer;
-mod blacklist;
-mod fop;
-mod errors;
-
 use std::{fs, io, path::{PathBuf, Path}, time::Instant};
 
 use clap::Parser;
-use errors::{ErrorCollector, SilentCollector};
 use indicatif::{ProgressBar, ProgressStyle, MultiProgress, HumanBytes};
 
-use crate::optimizer::*;
-use crate::fop::*;
+use mc_repack::optimizer::*;
+use mc_repack::fop::*;
+use mc_repack::errors::{ErrorCollector, SilentCollector};
 
 #[derive(Debug, Parser)]
 #[command(version)]
@@ -100,7 +94,7 @@ fn process_file(ca: &CliArgs, fp: &Path) -> io::Result<(i64, i64)> {
 
     let pb2 = file_progress_bar();
     let mut ev: Vec<(String, String)> = Vec::new();
-    let mut sc = errors::SilentCollector;
+    let mut sc = SilentCollector;
     let ec: &mut dyn ErrorCollector = if ca.silent { &mut sc } else { &mut ev };
     
     let nfp = file_name_repack(fp);

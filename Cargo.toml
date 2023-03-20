@@ -10,7 +10,20 @@ homepage = "https://szeweq.xyz/mc-repack"
 repository = "https://github.com/szeweq/mc-repack"
 categories = ["command-line-utilities"]
 keywords = ["minecraft", "jar", "zip", "optimizer", "repack"]
-exclude = ["/.github"]
+exclude = ["/.github", "benches/*", "test-jars/*"]
+
+[[bin]]
+name = "mc-repack"
+path = "src/main.rs"
+required-features = ["cli"]
+
+[lib]
+name = "mc_repack"
+path = "src/lib.rs"
+
+[features]
+cli = ["clap", "dialoguer"]
+default = []
 
 [dev-dependencies]
 criterion = "0.4"
@@ -23,8 +36,8 @@ flate2 = "1.0"
 indicatif = "0.17"
 json_comments = "0.2"
 toml = {version = "0.7", features = ["preserve_order"]}
-clap = {version = "4.1", features = ["derive", "cargo"]}
-dialoguer = {version = "0.10", default-features = false}
+clap = {optional = true, version = "4.1", features = ["derive", "cargo"]}
+dialoguer = {optional = true, version = "0.10", default-features = false}
 crossbeam-channel = "0.5"
 
 [profile.release]

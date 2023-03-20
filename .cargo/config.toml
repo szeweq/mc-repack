@@ -1,2 +1,2 @@
 [alias]
-jars = "run --release -- test-jars"
+jars = "run --features cli --release -- test-jars"
