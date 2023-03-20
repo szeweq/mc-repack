@@ -1,4 +1,4 @@
-use std::{fs::File, io::{self, Read, BufReader, BufWriter}, error::Error, fmt, thread, path::PathBuf};
+use std::{fs::File, io::{self, Read, BufReader, BufWriter, Seek, Write}, error::Error, fmt, thread, path::PathBuf};
 
 use indicatif::ProgressBar;
 use zip::{ZipArchive, write::FileOptions, ZipWriter};
@@ -16,16 +16,26 @@ pub fn optimize_archive(
     use_blacklist: bool
 ) -> io::Result<i64> {
     let (tx, rx) = bounded(2);
-    let t1 = thread::spawn(move || read_archive_entries(in_path, tx, use_blacklist));
-    let rsum = save_archive_entries(out_path, rx, file_opts, errors, pb);
+    let t1 = thread::spawn(move || {
+        let fin = File::open(in_path)?;
+        read_archive_entries(fin, tx, use_blacklist)
+    });
+    let fout = File::create(out_path)?;
+    let rsum = save_archive_entries(fout, rx, file_opts, errors, pb);
     t1.join().unwrap()?;
     rsum
 }
 
-fn save_archive_entries(out_path: PathBuf, rx: Receiver<EntryType>, file_opts: &FileOptions, ev: &mut dyn ErrorCollector, pb: ProgressBar) -> io::Result<i64> {
-    let fout = File::create(out_path)?;
+/// Writes optimized ZIP entries into a specified writer.
+pub fn save_archive_entries<W: Write + Seek>(
+    w: W,
+    rx: Receiver<EntryType>,
+    file_opts: &FileOptions,
+    ev: &mut dyn ErrorCollector,
+    pb: ProgressBar
+) -> io::Result<i64> {
     let mut dsum = 0;
-    let mut zw = ZipWriter::new(BufWriter::new(fout));
+    let mut zw = ZipWriter::new(BufWriter::new(w));
     let mut cnt = 0;
     let mut cv = Vec::new();
     for et in rx {
@@ -113,9 +123,13 @@ fn check_file_by_name(fname: &str, use_blacklist: bool) -> FileOp {
     if use_blacklist && blacklist::can_ignore_type(ftype) { Ignore } else { Recompress(2) }
 }
 
-fn read_archive_entries(in_path: PathBuf, tx: Sender<EntryType>, use_blacklist: bool) -> io::Result<()> {
-    let fin = File::open(in_path)?;
-    let mut za = ZipArchive::new(BufReader::new(fin))?;
+/// Reads ZIP entries and sends data using a channel.
+pub fn read_archive_entries<R: Read + Seek>(
+    r: R,
+    tx: Sender<EntryType>,
+    use_blacklist: bool
+) -> io::Result<()> {
+    let mut za = ZipArchive::new(BufReader::new(r))?;
     let jfc = za.len() as u64;
     tx.send(EntryType::Count(jfc)).unwrap();
     for i in 0..jfc {
