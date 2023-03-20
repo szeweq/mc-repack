@@ -42,7 +42,3 @@ crossbeam-channel = "0.5"
 
 [profile.release]
 lto = true
-
-[[bench]]
-name = "repack_bench"
-harness = false
