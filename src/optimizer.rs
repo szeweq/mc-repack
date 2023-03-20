@@ -6,31 +6,20 @@ use crossbeam_channel::{bounded, Sender, Receiver};
 
 use crate::{minify::{only_recompress, MinifyType}, blacklist, fop::{FileOp, pack_file}, errors::ErrorCollector};
 
-pub struct Optimizer{
-    file_opts: FileOptions,
-    use_blacklist: bool,
-}
-impl Optimizer {
-    pub fn new(use_blacklist: bool) -> Self {
-        Self {
-            file_opts: FileOptions::default().compression_level(Some(9)),
-            use_blacklist
-        }
-    }
-    pub fn optimize_archive(
-        &self,
-        in_path: PathBuf,
-        out_path: PathBuf,
-        pb: ProgressBar,
-        errors: &mut dyn ErrorCollector
-    ) -> io::Result<i64> {
-        let (tx, rx) = bounded(2);
-        let use_blacklist = self.use_blacklist;
-        let t1 = thread::spawn(move || read_archive_entries(in_path, tx, use_blacklist));
-        let rsum = save_archive_entries(out_path, rx, &self.file_opts, errors, pb);
-        t1.join().unwrap()?;
-        rsum
-    }
+/// Optimizes an archive and saves repacked one in a new destination.
+pub fn optimize_archive(
+    in_path: PathBuf,
+    out_path: PathBuf,
+    pb: ProgressBar,
+    errors: &mut dyn ErrorCollector,
+    file_opts: &FileOptions,
+    use_blacklist: bool
+) -> io::Result<i64> {
+    let (tx, rx) = bounded(2);
+    let t1 = thread::spawn(move || read_archive_entries(in_path, tx, use_blacklist));
+    let rsum = save_archive_entries(out_path, rx, file_opts, errors, pb);
+    t1.join().unwrap()?;
+    rsum
 }
 
 fn save_archive_entries(out_path: PathBuf, rx: Receiver<EntryType>, file_opts: &FileOptions, ev: &mut dyn ErrorCollector, pb: ProgressBar) -> io::Result<i64> {

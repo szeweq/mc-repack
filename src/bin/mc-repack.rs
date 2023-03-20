@@ -6,6 +6,7 @@ use indicatif::{ProgressBar, ProgressStyle, MultiProgress, HumanBytes};
 use mc_repack::optimizer::*;
 use mc_repack::fop::*;
 use mc_repack::errors::{ErrorCollector, SilentCollector};
+use zip::write::FileOptions;
 
 #[derive(Debug, Parser)]
 #[command(version)]
@@ -88,7 +89,7 @@ fn process_file(ca: &CliArgs, fp: &Path) -> io::Result<(i64, i64)> {
         _ => {}
     }
 
-    let optim = Optimizer::new(ca.use_blacklist);
+    let file_opts = FileOptions::default().compression_level(Some(9));
     let mut dsum = 0;
     let mut zsum = 0;
 
@@ -98,7 +99,7 @@ fn process_file(ca: &CliArgs, fp: &Path) -> io::Result<(i64, i64)> {
     let ec: &mut dyn ErrorCollector = if ca.silent { &mut sc } else { &mut ev };
     
     let nfp = file_name_repack(fp);
-    let fsum = optim.optimize_archive(fp.to_owned(), nfp.clone(), pb2, ec)
+    let fsum = optimize_archive(fp.to_owned(), nfp.clone(), pb2, ec, &file_opts, ca.use_blacklist)
         .map_err(|e| io::Error::new(e.kind(), format!("{}: {}", fp.display(), e)))?;
     dsum += fsum;
     zsum += file_size_diff(&fp, &nfp)?;
@@ -117,7 +118,7 @@ fn process_dir(ca: &CliArgs, p: &Path) -> io::Result<(i64, i64)> {
     let mp = MultiProgress::new();
 
     let rd = fs::read_dir(p)?;
-    let optim = Optimizer::new(ca.use_blacklist);
+    let file_opts = FileOptions::default().compression_level(Some(9));
     let mut dsum = 0;
     let mut zsum = 0;
     let pb = mp.add(ProgressBar::new_spinner().with_style(
@@ -142,7 +143,7 @@ fn process_dir(ca: &CliArgs, p: &Path) -> io::Result<(i64, i64)> {
             pb.set_message(fname.to_string());
             
             let nfp = file_name_repack(&fp);
-            let fsum = optim.optimize_archive(fp.clone(), nfp.clone(), pb2.clone(), ec)
+            let fsum = optimize_archive(fp.clone(), nfp.clone(), pb2.clone(), ec, &file_opts, ca.use_blacklist)
                 .map_err(|e| io::Error::new(e.kind(), format!("{}: {}",  fp.display(), e)))?;
             dsum += fsum;
             let rev = ec.get_results();
