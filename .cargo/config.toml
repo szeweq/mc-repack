@@ -1,2 +1,2 @@
 [alias]
-jars = "run --features cli --release -- test-jars"
+jars = "run --bin mc-repack --release -- test-jars"

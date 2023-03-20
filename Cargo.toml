@@ -14,7 +14,6 @@ exclude = ["/.github", "benches/*", "test-jars/*"]
 
 [[bin]]
 name = "mc-repack"
-path = "src/main.rs"
 required-features = ["cli"]
 
 [lib]
@@ -23,7 +22,7 @@ path = "src/lib.rs"
 
 [features]
 cli = ["clap", "dialoguer"]
-default = []
+default = ["cli"]
 
 [dev-dependencies]
 criterion = "0.4"
