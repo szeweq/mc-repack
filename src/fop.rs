@@ -6,12 +6,20 @@ use zip::{CompressionMethod, ZipWriter, write::FileOptions};
 use crate::minify::MinifyType;
 
 
-pub const REPACKED: &str = "$repack";
+pub(crate) const REPACKED: &str = "$repack";
 
+/// A file type (not extension) that MC-Repack will check before repacking.
 #[derive(PartialEq)]
 pub enum FileType {
-    Other, Original, Repacked
+    /// Type for files which MC-Repack cannot repack.
+    Other,
+    /// A JAR or ZIP file which was not yet repacked.
+    Original,
+    /// A repacked file.
+    Repacked
 }
+
+/// Checks file type based on its file name.
 pub fn check_file_type(s: &str) -> FileType {
     use FileType::*;
     match s.rsplit_once('.') {
@@ -20,15 +28,21 @@ pub fn check_file_type(s: &str) -> FileType {
     }
 }
 
+/// A file operation needed before a file is saved in repacked archive
 pub enum FileOp {
+    /// Recompress data (check minimal size to determine if a file can be compressed or not).
     Recompress(usize),
+    /// Minify a file.
     Minify(MinifyType),
+    /// Ignore a file.
     Ignore,
+    /// A "Signfile" was found.
     Signfile,
+    /// Give a warning about a file.
     Warn(String)
 }
 
-pub fn pack_file<W: Write + Seek>(
+pub(crate) fn pack_file<W: Write + Seek>(
     z: &mut ZipWriter<W>,
     name: &str,
     opts: &FileOptions,
@@ -39,7 +53,7 @@ pub fn pack_file<W: Write + Seek>(
     z.write_all(data)
 }
 
-pub fn compress_check(b: &[u8], compress_min: usize) -> CompressionMethod {
+fn compress_check(b: &[u8], compress_min: usize) -> CompressionMethod {
     let lb = b.len();
     let nc = if lb > compress_min {
         let de = DeflateEncoder::new(b, flate2::Compression::best());

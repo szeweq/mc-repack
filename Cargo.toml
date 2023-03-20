@@ -14,6 +14,7 @@ exclude = ["/.github", "benches/*", "test-jars/*"]
 
 [[bin]]
 name = "mc-repack"
+doc = false
 required-features = ["cli"]
 
 [lib]

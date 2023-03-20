@@ -145,14 +145,18 @@ fn read_archive_entries(in_path: PathBuf, tx: Sender<EntryType>, use_blacklist: 
     Ok(())
 }
 
+/// An entry type based on extracted data from an archive
 pub enum EntryType {
+    /// Number of files stored in an archive
     Count(u64),
+    /// A directory with its path
     Directory(String),
+    /// A file with its path, data and file operation
     File(String, Vec<u8>, FileOp)
 }
 
 #[derive(Debug)]
-pub struct StrError(pub String);
+pub(crate) struct StrError(pub String);
 impl Error for StrError {}
 impl fmt::Display for StrError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
