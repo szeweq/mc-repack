@@ -1,4 +1,4 @@
-use std::{fs::File, io::{self, Read, BufReader, BufWriter, Seek, Write}, error::Error, fmt, thread, path::PathBuf};
+use std::{fs::{File, self}, io::{self, Read, BufReader, BufWriter, Seek, Write}, error::Error, fmt, thread, path::{PathBuf, Path}};
 
 use indicatif::ProgressBar;
 use zip::{ZipArchive, write::FileOptions, ZipWriter};
@@ -22,6 +22,26 @@ pub fn optimize_archive(
     });
     let fout = File::create(out_path)?;
     let rsum = save_archive_entries(fout, rx, file_opts, errors, pb);
+    t1.join().unwrap()?;
+    rsum
+}
+
+/// Optimizes files in directory and saves them in a new destination.
+pub fn optimize_fs_copy(
+    in_path: PathBuf,
+    out_path: PathBuf,
+    pb: ProgressBar,
+    errors: &mut dyn ErrorCollector,
+    use_blacklist: bool
+) -> io::Result<i64> {
+    if in_path == out_path {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, "The paths are the same"))
+    }
+    let (tx, rx) = bounded(2);
+    let t1 = thread::spawn(move || {
+        read_fs_entries(&in_path, tx, use_blacklist)
+    });
+    let rsum = save_fs_entries(&out_path, rx, errors, pb);
     t1.join().unwrap()?;
     rsum
 }
@@ -138,12 +158,111 @@ pub fn read_archive_entries<R: Read + Seek>(
         tx.send(if fname.ends_with('/') {
             EntryType::Directory(fname)
         } else {
-            let mut obuf = Vec::new();
-            obuf.reserve_exact(jf.size() as usize);
-            jf.read_to_end(&mut obuf)?;
             let fop = check_file_by_name(&fname, use_blacklist);
+            let mut obuf = Vec::new();
+            match fop {
+                FileOp::Ignore => {}
+                _ => {
+                    obuf.reserve_exact(jf.size() as usize);
+                    jf.read_to_end(&mut obuf)?;
+                }
+            }
             EntryType::File(fname, obuf, fop)
-        }).unwrap()
+        }).unwrap();
+    }
+    Ok(())
+}
+
+/// Writes optimized file system entries into a specified destination directory.
+pub fn save_fs_entries(
+    dest_dir: &Path,
+    rx: Receiver<EntryType>,
+    ev: &mut dyn ErrorCollector,
+    pb: ProgressBar
+) -> io::Result<i64> {
+    let mut dsum = 0;
+    let mut cnt = 0;
+    let mut cv = Vec::new();
+    for et in rx {
+        match et {
+            EntryType::Count(u) => {
+                pb.set_length(u);
+            }
+            EntryType::Directory(dir) => {
+                let mut dp = PathBuf::from(dest_dir);
+                dp.push(dir);
+                fs::create_dir(dp)?;
+            }
+            EntryType::File(fname, buf, fop) => {
+                use FileOp::*;
+                cnt += 1;
+                pb.set_position(cnt);
+                pb.set_message(fname.clone());
+                let mut fp = PathBuf::from(dest_dir);
+                fp.push(fname.clone());
+                match fop {
+                    Recompress(_) => {
+                        // Write in file system as-is
+                        fs::write(fp, buf)?;
+                    }
+                    Minify(m) => {
+                        let fsz = buf.len() as i64;
+                        let buf = match m.minify(&buf, &mut cv) {
+                            Ok(()) => &cv,
+                            Err(e) => {
+                                ev.collect(fname.to_string(), e);
+                                &buf
+                            }
+                        };
+                        dsum -= (buf.len() as i64) - fsz;
+                        fs::write(fp, buf)?;
+                        cv.clear();
+                    }
+                    Ignore => {
+                        ev.collect(fname, Box::new(blacklist::BlacklistedFile));
+                    }
+                    Warn(x) => {
+                        ev.collect(fname, Box::new(StrError(x)));
+                        fs::write(fp, buf)?;
+                    }
+                    Signfile => {
+                        ev.collect(fname, Box::new(StrError(ERR_SIGNFILE.to_string())));
+                    }
+                }
+            }
+        }
+    }
+    Ok(dsum)
+}
+
+/// Read file system entries from a source directory and sends data using a channel.
+pub fn read_fs_entries(
+    src_dir: &Path,
+    tx: Sender<EntryType>,
+    use_blacklist: bool
+) -> io::Result<()> {
+    let mut vdir = Vec::new();
+    vdir.push(src_dir.to_owned());
+    while let Some(px) = vdir.pop() {
+        let rd = fs::read_dir(px)?.collect::<Result<Vec<_>, _>>()?;
+        tx.send(EntryType::Count(rd.len() as u64)).unwrap();
+        for de in rd {
+            let meta = de.metadata()?;
+            if meta.is_dir() {
+                let dp = de.path();
+                let dname = dp.strip_prefix(src_dir).expect("Subdir not in source dir")
+                    .to_string_lossy().to_string();
+                vdir.push(dp);
+                tx.send(EntryType::Directory(dname)).unwrap();
+            } else if meta.is_file() {
+                let fp = de.path();
+                let fname = fp.strip_prefix(src_dir).expect("File not in source dir")
+                    .to_string_lossy().to_string();
+                let fop = check_file_by_name(&fname, use_blacklist);
+                let ff = fs::read(fp)?;
+                tx.send(EntryType::File(fname, ff, fop)).unwrap();
+            }
+        }
     }
     Ok(())
 }
