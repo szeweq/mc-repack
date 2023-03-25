@@ -20,7 +20,7 @@ struct CliArgs {
 
     /// (Optional) Destination path. It cannot be the same as the source!
     #[arg(long)]
-    output: Option<PathBuf>,
+    out: Option<PathBuf>,
 
     /// Optimize more file formats (potentially breaking their debugging) [Reserved for future use]
     #[arg(short, long)]
@@ -101,7 +101,7 @@ fn process_file(ca: &CliArgs, fp: &Path) -> io::Result<(i64, i64)> {
     let mut sc = SilentCollector;
     let ec: &mut dyn ErrorCollector = if ca.silent { &mut sc } else { &mut ev };
     
-    let nfp = if let Some(pp) = &ca.output { pp.clone() } else { file_name_repack(fp) };
+    let nfp = if let Some(pp) = &ca.out { pp.clone() } else { file_name_repack(fp) };
     let fsum = optimize_archive(fp.to_owned(), nfp.clone(), pb2, ec, &file_opts, ca.use_blacklist)
         .map_err(|e| io::Error::new(e.kind(), format!("{}: {}", fp.display(), e)))?;
     dsum += fsum;
@@ -125,7 +125,7 @@ fn process_dir(ca: &CliArgs, p: &Path) -> io::Result<(i64, i64)> {
     let mut dsum = 0;
     let mut zsum = 0;
 
-    let ren: &dyn NewPath = if let Some(pp) = &ca.output {
+    let ren: &dyn NewPath = if let Some(pp) = &ca.out {
         fs::create_dir_all(pp)?;
         pp
     } else { &() };
