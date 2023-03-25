@@ -14,6 +14,14 @@ struct CliArgs {
     /// (Optional) Path to a file/directory of archives (JAR and ZIP)
     path: Option<PathBuf>,
 
+    /// Use this option to optimize files from directory directly [Reserved for future use]
+    #[arg(short)]
+    g: bool,
+
+    /// (Optional) Destination path. It cannot be the same as the source!
+    #[arg(long)]
+    output: Option<PathBuf>,
+
     /// Optimize more file formats (potentially breaking their debugging) [Reserved for future use]
     #[arg(short, long)]
     aggressive: bool,
@@ -21,11 +29,6 @@ struct CliArgs {
     /// Use built-in blacklist for files
     #[arg(short = 'b', long)]
     use_blacklist: bool,
-
-    /// Assume that the provided path is a "mods" directory (or its parent). This will make a new "mods" directory with repacked jars
-    /// while the original ones will be stored in "mods_orig" directory. [Reserved for future use]
-    #[arg(short = 'm', long)]
-    mods_dir: bool,
 
     /// Do not print file errors
     #[arg(long)]
@@ -98,7 +101,7 @@ fn process_file(ca: &CliArgs, fp: &Path) -> io::Result<(i64, i64)> {
     let mut sc = SilentCollector;
     let ec: &mut dyn ErrorCollector = if ca.silent { &mut sc } else { &mut ev };
     
-    let nfp = file_name_repack(fp);
+    let nfp = if let Some(pp) = &ca.output { pp.clone() } else { file_name_repack(fp) };
     let fsum = optimize_archive(fp.to_owned(), nfp.clone(), pb2, ec, &file_opts, ca.use_blacklist)
         .map_err(|e| io::Error::new(e.kind(), format!("{}: {}", fp.display(), e)))?;
     dsum += fsum;
@@ -121,6 +124,12 @@ fn process_dir(ca: &CliArgs, p: &Path) -> io::Result<(i64, i64)> {
     let file_opts = FileOptions::default().compression_level(Some(9));
     let mut dsum = 0;
     let mut zsum = 0;
+
+    let ren: &dyn NewPath = if let Some(pp) = &ca.output {
+        fs::create_dir_all(pp)?;
+        pp
+    } else { &() };
+
     let pb = mp.add(ProgressBar::new_spinner().with_style(
         ProgressStyle::with_template("{wide_msg}").unwrap()
     ));
@@ -142,7 +151,7 @@ fn process_dir(ca: &CliArgs, p: &Path) -> io::Result<(i64, i64)> {
         if meta.is_file() && check_file_type(fname) == FileType::Original {
             pb.set_message(fname.to_string());
             
-            let nfp = file_name_repack(&fp);
+            let nfp = ren.new_path(&fp);
             let fsum = optimize_archive(fp.clone(), nfp.clone(), pb2.clone(), ec, &file_opts, ca.use_blacklist)
                 .map_err(|e| io::Error::new(e.kind(), format!("{}: {}",  fp.display(), e)))?;
             dsum += fsum;
@@ -178,6 +187,20 @@ fn file_name_repack(p: &Path) -> PathBuf {
     let ext = p.extension().unwrap_or_default().to_string_lossy();
     let x = stem + "$repack." + ext;
     p.with_file_name(x.to_string())
+}
+
+trait NewPath { fn new_path(&self, p: &Path) -> PathBuf; }
+impl NewPath for () {
+    fn new_path(&self, p: &Path) -> PathBuf {
+        file_name_repack(p)
+    }
+}
+impl NewPath for PathBuf {
+    fn new_path(&self, p: &Path) -> PathBuf {
+        let mut np = self.clone();
+        np.push(p.file_name().unwrap_or_default());
+        np
+    }
 }
 
 fn new_io_error(s: &str) -> io::Error {
