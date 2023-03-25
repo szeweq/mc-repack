@@ -46,6 +46,9 @@ When a file path is provided, then MC-Repack will repack the file contents (adds
 
 More options are provided by typing `mc-repack --help` in a shell/terminal.
 
+## Library
+MC-Repack can be also purposed for creating your own version of a repacking tool. See [Rust Docs](https://docs.rs/mc-repack/latest/mc_repack/) for more technical details.
+
 ## Why?
 MC-Repack is meant to show how many Minecraft mods and resource packs come with unoptimized files (and I don't mean just pretty-printed JSON files). You will be surprised that in some cases a PNG file's metadata added by Photoshop is much larger than its content.
 
