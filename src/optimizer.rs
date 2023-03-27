@@ -283,6 +283,7 @@ impl fmt::Display for StrError {
 const ERR_SIGNFILE: &str = "This file cannot be repacked since it contains SHA-256 digests for zipped entries";
 
 /// A progress state to update information about currently optimized entry
+#[derive(Debug, Clone)]
 pub enum ProgressState {
     /// Starts a progress with a step count
     Start(u64),
