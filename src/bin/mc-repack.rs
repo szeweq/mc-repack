@@ -1,6 +1,7 @@
-use std::{fs, io, path::{PathBuf, Path}, time::Instant};
+use std::{fs, io, path::{PathBuf, Path}, time::Instant, thread::{self, JoinHandle}};
 
 use clap::Parser;
+use crossbeam_channel::Sender;
 use indicatif::{ProgressBar, ProgressStyle, MultiProgress, HumanBytes};
 
 use mc_repack::optimizer::*;
@@ -100,10 +101,13 @@ fn process_file(ca: &CliArgs, fp: &Path) -> io::Result<(i64, i64)> {
     let mut ev: Vec<(String, String)> = Vec::new();
     let mut sc = SilentCollector;
     let ec: &mut dyn ErrorCollector = if ca.silent { &mut sc } else { &mut ev };
+    let (pj, ps) = thread_progress_bar(pb2);
     
     let nfp = if let Some(pp) = &ca.out { pp.clone() } else { file_name_repack(fp) };
-    let fsum = optimize_archive(fp.to_owned(), nfp.clone(), pb2, ec, &file_opts, ca.use_blacklist)
+    let fsum = optimize_archive(fp.to_owned(), nfp.clone(), &ps, ec, &file_opts, ca.use_blacklist)
         .map_err(|e| io::Error::new(e.kind(), format!("{}: {}", fp.display(), e)))?;
+    drop(ps);
+    pj.join().unwrap();
     dsum += fsum;
     zsum += file_size_diff(&fp, &nfp)?;
 
@@ -139,6 +143,7 @@ fn process_dir(ca: &CliArgs, p: &Path) -> io::Result<(i64, i64)> {
     let mut sc = SilentCollector;
     let mut jev: Vec<(String, Vec<(String, String)>)> = Vec::new();
     let ec: &mut dyn ErrorCollector = if ca.silent { &mut sc } else { &mut ev };
+    let (pj, ps) = thread_progress_bar(pb2);
 
     for rde in rd {
         let rde = rde?;
@@ -152,7 +157,7 @@ fn process_dir(ca: &CliArgs, p: &Path) -> io::Result<(i64, i64)> {
             pb.set_message(fname.to_string());
             
             let nfp = ren.new_path(&fp);
-            let fsum = optimize_archive(fp.clone(), nfp.clone(), pb2.clone(), ec, &file_opts, ca.use_blacklist)
+            let fsum = optimize_archive(fp.clone(), nfp.clone(), &ps, ec, &file_opts, ca.use_blacklist)
                 .map_err(|e| io::Error::new(e.kind(), format!("{}: {}",  fp.display(), e)))?;
             dsum += fsum;
             let rev = ec.get_results();
@@ -163,6 +168,8 @@ fn process_dir(ca: &CliArgs, p: &Path) -> io::Result<(i64, i64)> {
         }
     }
     mp.clear()?;
+    drop(ps);
+    pj.join().unwrap();
 
     if !ca.silent && !jev.is_empty() {
         eprintln!("Errors found while repacking files:");
@@ -205,4 +212,27 @@ impl NewPath for PathBuf {
 
 fn new_io_error(s: &str) -> io::Error {
     io::Error::new(io::ErrorKind::Other, s)
+}
+
+fn thread_progress_bar(pb: ProgressBar) -> (JoinHandle<()>, Sender<ProgressState>) {
+    let (ps, pr) = crossbeam_channel::unbounded();
+    let pj = thread::spawn(move || {
+        let mut cnt = 0;
+        use ProgressState::*;
+        for st in pr {
+            match st {
+                Start(u) => { pb.set_length(u); }
+                Push(msg) => {
+                    cnt += 1;
+                    pb.set_position(cnt);
+                    pb.set_message(msg);
+                }
+                Finish => {
+                    cnt = 0;
+                    pb.finish_with_message("Saving...");
+                }
+            }
+        }
+    });
+    (pj, ps)
 }

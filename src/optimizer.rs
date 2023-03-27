@@ -1,6 +1,5 @@
 use std::{fs::{File, self}, io::{self, Read, BufReader, BufWriter, Seek, Write}, error::Error, fmt, thread, path::{PathBuf, Path}};
 
-use indicatif::ProgressBar;
 use zip::{ZipArchive, write::FileOptions, ZipWriter};
 use crossbeam_channel::{bounded, Sender, Receiver};
 
@@ -10,7 +9,7 @@ use crate::{minify::{only_recompress, MinifyType}, blacklist, fop::{FileOp, pack
 pub fn optimize_archive(
     in_path: PathBuf,
     out_path: PathBuf,
-    pb: ProgressBar,
+    ps: &Sender<ProgressState>,
     errors: &mut dyn ErrorCollector,
     file_opts: &FileOptions,
     use_blacklist: bool
@@ -21,7 +20,7 @@ pub fn optimize_archive(
         read_archive_entries(fin, tx, use_blacklist)
     });
     let fout = File::create(out_path)?;
-    let rsum = save_archive_entries(fout, rx, file_opts, errors, pb);
+    let rsum = save_archive_entries(fout, rx, file_opts, errors, ps);
     t1.join().unwrap()?;
     rsum
 }
@@ -30,7 +29,7 @@ pub fn optimize_archive(
 pub fn optimize_fs_copy(
     in_path: PathBuf,
     out_path: PathBuf,
-    pb: ProgressBar,
+    ps: &Sender<ProgressState>,
     errors: &mut dyn ErrorCollector,
     use_blacklist: bool
 ) -> io::Result<i64> {
@@ -41,7 +40,7 @@ pub fn optimize_fs_copy(
     let t1 = thread::spawn(move || {
         read_fs_entries(&in_path, tx, use_blacklist)
     });
-    let rsum = save_fs_entries(&out_path, rx, errors, pb);
+    let rsum = save_fs_entries(&out_path, rx, errors, ps);
     t1.join().unwrap()?;
     rsum
 }
@@ -52,16 +51,15 @@ pub fn save_archive_entries<W: Write + Seek>(
     rx: Receiver<EntryType>,
     file_opts: &FileOptions,
     ev: &mut dyn ErrorCollector,
-    pb: ProgressBar
+    ps: &Sender<ProgressState>
 ) -> io::Result<i64> {
     let mut dsum = 0;
     let mut zw = ZipWriter::new(BufWriter::new(w));
-    let mut cnt = 0;
     let mut cv = Vec::new();
     for et in rx {
         match et {
             EntryType::Count(u) => {
-                pb.set_length(u);
+                ps.send(ProgressState::Start(u)).unwrap();
             }
             EntryType::Directory(d) => {
                 if d != ".cache/" {
@@ -70,9 +68,7 @@ pub fn save_archive_entries<W: Write + Seek>(
             }
             EntryType::File(fname, buf, fop) => {
                 use FileOp::*;
-                cnt += 1;
-                pb.set_position(cnt);
-                pb.set_message(fname.clone());
+                ps.send(ProgressState::Push(fname.clone())).unwrap();
                 match fop {
                     Recompress(cmin) => {
                         pack_file(
@@ -110,8 +106,8 @@ pub fn save_archive_entries<W: Write + Seek>(
             }
         }
     }
-    pb.finish_with_message("Saving...");
     zw.finish()?;
+    ps.send(ProgressState::Finish).unwrap();
     Ok(dsum)
 }
 
@@ -178,15 +174,14 @@ pub fn save_fs_entries(
     dest_dir: &Path,
     rx: Receiver<EntryType>,
     ev: &mut dyn ErrorCollector,
-    pb: ProgressBar
+    ps: &Sender<ProgressState>
 ) -> io::Result<i64> {
     let mut dsum = 0;
-    let mut cnt = 0;
     let mut cv = Vec::new();
     for et in rx {
         match et {
             EntryType::Count(u) => {
-                pb.set_length(u);
+                ps.send(ProgressState::Start(u)).unwrap();
             }
             EntryType::Directory(dir) => {
                 let mut dp = PathBuf::from(dest_dir);
@@ -195,9 +190,7 @@ pub fn save_fs_entries(
             }
             EntryType::File(fname, buf, fop) => {
                 use FileOp::*;
-                cnt += 1;
-                pb.set_position(cnt);
-                pb.set_message(fname.clone());
+                ps.send(ProgressState::Push(fname.clone())).unwrap();
                 let mut fp = PathBuf::from(dest_dir);
                 fp.push(fname.clone());
                 match fop {
@@ -232,6 +225,7 @@ pub fn save_fs_entries(
             }
         }
     }
+    ps.send(ProgressState::Finish).unwrap();
     Ok(dsum)
 }
 
@@ -287,3 +281,13 @@ impl fmt::Display for StrError {
 }
 
 const ERR_SIGNFILE: &str = "This file cannot be repacked since it contains SHA-256 digests for zipped entries";
+
+/// A progress state to update information about currently optimized entry
+pub enum ProgressState {
+    /// Starts a progress with a step count
+    Start(u64),
+    /// Pushes a new step with text
+    Push(String),
+    /// Marks a progress as finished
+    Finish
+}

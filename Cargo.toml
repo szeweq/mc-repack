@@ -22,7 +22,7 @@ name = "mc_repack"
 path = "src/lib.rs"
 
 [features]
-cli = ["clap", "dialoguer"]
+cli = ["clap", "dialoguer", "indicatif"]
 default = ["cli"]
 
 [dev-dependencies]
@@ -33,7 +33,7 @@ zip = {version = "0.6", default-features = false, features = ["deflate"]}
 serde_json = {version = "1.0", features = ["preserve_order"]}
 oxipng = {version = "8.0", default-features = false, features = ["parallel"]}
 flate2 = "1.0"
-indicatif = "0.17"
+indicatif = {optional = true, version = "0.17"}
 json_comments = "0.2"
 toml = {version = "0.7", features = ["preserve_order"]}
 clap = {optional = true, version = "4.1", features = ["derive", "cargo"]}
