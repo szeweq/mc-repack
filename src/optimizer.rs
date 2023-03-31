@@ -5,6 +5,23 @@ use crossbeam_channel::{bounded, Sender, Receiver};
 
 use crate::{minify::{only_recompress, MinifyType}, blacklist, fop::FileOp, errors::ErrorCollector, entry::{self, EntryReader, EntrySaver}};
 
+/// Optimizes entries using entry reader in saver in separate threads.
+pub fn optimize_with<R: EntryReader + Send + 'static, S: EntrySaver>(
+    reader: R,
+    saver: S,
+    ps: &Sender<ProgressState>,
+    errors: &mut dyn ErrorCollector,
+    use_blacklist: bool
+) -> io::Result<i64> {
+    let (tx, rx) = bounded(2);
+    let t1 = thread::spawn(move || {
+        reader.read_entries(tx, use_blacklist)
+    });
+    let rsum = saver.save_entries(rx, errors, ps);
+    t1.join().unwrap()?;
+    rsum
+}
+
 /// Optimizes an archive and saves repacked one in a new destination.
 pub fn optimize_archive(
     in_path: PathBuf,
