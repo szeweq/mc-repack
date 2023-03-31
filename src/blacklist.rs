@@ -2,7 +2,7 @@ use std::{error::Error, fmt::Display};
 
 const IGNORE_FILE_TYPES: &[&str] = &["blend", "blend1", "psd"];
 
-/// This method checks if a file extension can be ignored (likely not used) .
+/// This method checks if a file extension can be ignored (likely not used).
 pub fn can_ignore_type(s: &str) -> bool {
     IGNORE_FILE_TYPES.binary_search(&s).is_ok()
 }
