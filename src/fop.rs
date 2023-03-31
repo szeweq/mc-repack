@@ -1,10 +1,4 @@
-use std::{io::{self, Read, Write, Seek}};
-
-use flate2::bufread::DeflateEncoder;
-use zip::{CompressionMethod, ZipWriter, write::FileOptions};
-
 use crate::minify::MinifyType;
-
 
 pub(crate) const REPACKED: &str = "$repack";
 
@@ -40,25 +34,4 @@ pub enum FileOp {
     Signfile,
     /// Give a warning about a file.
     Warn(String)
-}
-
-pub(crate) fn pack_file<W: Write + Seek>(
-    z: &mut ZipWriter<W>,
-    name: &str,
-    opts: &FileOptions,
-    data: &[u8],
-    compress_min: usize
-) -> io::Result<()> {
-    z.start_file(name, opts.clone().compression_method(compress_check(data, compress_min)))?;
-    z.write_all(data)
-}
-
-fn compress_check(b: &[u8], compress_min: usize) -> CompressionMethod {
-    let lb = b.len();
-    let nc = if lb > compress_min {
-        let de = DeflateEncoder::new(b, flate2::Compression::best());
-        let sum = de.bytes().count();
-        sum < lb
-    } else { false };
-    if nc { CompressionMethod::DEFLATE } else { CompressionMethod::STORE }
 }

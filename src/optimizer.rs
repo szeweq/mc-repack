@@ -1,9 +1,9 @@
-use std::{fs::{File, self}, io::{self, Read, BufReader, BufWriter, Seek, Write}, error::Error, fmt, thread, path::{PathBuf, Path}};
+use std::{fs::File, io::{self, Read, Seek, Write}, error::Error, fmt, thread, path::{PathBuf, Path}};
 
-use zip::{ZipArchive, write::FileOptions, ZipWriter};
+use zip::write::FileOptions;
 use crossbeam_channel::{bounded, Sender, Receiver};
 
-use crate::{minify::{only_recompress, MinifyType}, blacklist, fop::{FileOp, pack_file}, errors::ErrorCollector};
+use crate::{minify::{only_recompress, MinifyType}, blacklist, fop::FileOp, errors::ErrorCollector, entry::{self, EntryReader, EntrySaver}};
 
 /// Optimizes an archive and saves repacked one in a new destination.
 pub fn optimize_archive(
@@ -17,10 +17,12 @@ pub fn optimize_archive(
     let (tx, rx) = bounded(2);
     let t1 = thread::spawn(move || {
         let fin = File::open(in_path)?;
-        read_archive_entries(fin, tx, use_blacklist)
+        entry::zip::ZipEntryReader::new(fin)
+            .read_entries(tx, use_blacklist)
     });
     let fout = File::create(out_path)?;
-    let rsum = save_archive_entries(fout, rx, file_opts, errors, ps);
+    let rsum = entry::zip::ZipEntrySaver::custom(fout, file_opts.clone())
+        .save_entries(rx, errors, ps);
     t1.join().unwrap()?;
     rsum
 }
@@ -38,14 +40,17 @@ pub fn optimize_fs_copy(
     }
     let (tx, rx) = bounded(2);
     let t1 = thread::spawn(move || {
-        read_fs_entries(&in_path, tx, use_blacklist)
+        entry::fs::FSEntryReader::new(in_path)
+            .read_entries(tx, use_blacklist)
     });
-    let rsum = save_fs_entries(&out_path, rx, errors, ps);
+    let rsum = entry::fs::FSEntrySaver::new(out_path)
+        .save_entries(rx, errors, ps);
     t1.join().unwrap()?;
     rsum
 }
 
 /// Writes optimized ZIP entries into a specified writer.
+#[deprecated = "Use `entry::zip::ZipEntrySaver`"]
 pub fn save_archive_entries<W: Write + Seek>(
     w: W,
     rx: Receiver<EntryType>,
@@ -53,65 +58,10 @@ pub fn save_archive_entries<W: Write + Seek>(
     ev: &mut dyn ErrorCollector,
     ps: &Sender<ProgressState>
 ) -> io::Result<i64> {
-    let mut dsum = 0;
-    let mut zw = ZipWriter::new(BufWriter::new(w));
-    let mut cv = Vec::new();
-    for et in rx {
-        match et {
-            EntryType::Count(u) => {
-                ps.send(ProgressState::Start(u)).unwrap();
-            }
-            EntryType::Directory(d) => {
-                if d != ".cache/" {
-                    zw.add_directory(d, file_opts.clone())?;
-                }
-            }
-            EntryType::File(fname, buf, fop) => {
-                use FileOp::*;
-                ps.send(ProgressState::Push(fname.clone())).unwrap();
-                match fop {
-                    Recompress(cmin) => {
-                        pack_file(
-                            &mut zw,
-                            &fname,
-                            file_opts,
-                            &buf,
-                            cmin
-                        )?;
-                    }
-                    Minify(m) => {
-                        let fsz = buf.len() as i64;
-                        let buf = match m.minify(&buf, &mut cv) {
-                            Ok(()) => &cv,
-                            Err(e) => {
-                                ev.collect(fname.to_string(), e);
-                                &buf
-                            }
-                        };
-                        dsum -= (buf.len() as i64) - fsz;
-                        pack_file(&mut zw, &fname, file_opts, &buf, m.compress_min())?;
-                        cv.clear();
-                    }
-                    Ignore => {
-                        ev.collect(fname.to_string(), Box::new(blacklist::BlacklistedFile));
-                    }
-                    Warn(x) => {
-                        ev.collect(fname.to_string(), Box::new(StrError(x)));
-                        pack_file(&mut zw, &fname, file_opts, &buf, 0)?;
-                    }
-                    Signfile => {
-                        ev.collect(fname.to_string(), Box::new(StrError(ERR_SIGNFILE.to_string())));
-                    }
-                }
-            }
-        }
-    }
-    zw.finish()?;
-    ps.send(ProgressState::Finish).unwrap();
-    Ok(dsum)
+    entry::zip::ZipEntrySaver::custom(w, file_opts.clone()).save_entries(rx, ev, ps)
 }
 
-fn check_file_by_name(fname: &str, use_blacklist: bool) -> FileOp {
+pub(crate) fn check_file_by_name(fname: &str, use_blacklist: bool) -> FileOp {
     use FileOp::*;
     if fname.starts_with(".cache/") { return Ignore }
     if fname.starts_with("META-INF/") {
@@ -140,125 +90,34 @@ fn check_file_by_name(fname: &str, use_blacklist: bool) -> FileOp {
 }
 
 /// Reads ZIP entries and sends data using a channel.
+#[deprecated = "Use `entry::zip::ZipEntryReader`"]
 pub fn read_archive_entries<R: Read + Seek>(
     r: R,
     tx: Sender<EntryType>,
     use_blacklist: bool
 ) -> io::Result<()> {
-    let mut za = ZipArchive::new(BufReader::new(r))?;
-    let jfc = za.len() as u64;
-    tx.send(EntryType::Count(jfc)).unwrap();
-    for i in 0..jfc {
-        let mut jf = za.by_index(i as usize)?;
-        let fname = jf.name().to_string();
-        tx.send(if fname.ends_with('/') {
-            EntryType::Directory(fname)
-        } else {
-            let fop = check_file_by_name(&fname, use_blacklist);
-            let mut obuf = Vec::new();
-            match fop {
-                FileOp::Ignore => {}
-                _ => {
-                    obuf.reserve_exact(jf.size() as usize);
-                    jf.read_to_end(&mut obuf)?;
-                }
-            }
-            EntryType::File(fname, obuf, fop)
-        }).unwrap();
-    }
-    Ok(())
+    entry::zip::ZipEntryReader::new(r).read_entries(tx, use_blacklist)
 }
 
 /// Writes optimized file system entries into a specified destination directory.
+#[deprecated = "Use `entry::fs::FSEntrySaver`"]
 pub fn save_fs_entries(
     dest_dir: &Path,
     rx: Receiver<EntryType>,
     ev: &mut dyn ErrorCollector,
     ps: &Sender<ProgressState>
 ) -> io::Result<i64> {
-    let mut dsum = 0;
-    let mut cv = Vec::new();
-    for et in rx {
-        match et {
-            EntryType::Count(u) => {
-                ps.send(ProgressState::Start(u)).unwrap();
-            }
-            EntryType::Directory(dir) => {
-                let mut dp = PathBuf::from(dest_dir);
-                dp.push(dir);
-                fs::create_dir(dp)?;
-            }
-            EntryType::File(fname, buf, fop) => {
-                use FileOp::*;
-                ps.send(ProgressState::Push(fname.clone())).unwrap();
-                let mut fp = PathBuf::from(dest_dir);
-                fp.push(fname.clone());
-                match fop {
-                    Recompress(_) => {
-                        // Write in file system as-is
-                        fs::write(fp, buf)?;
-                    }
-                    Minify(m) => {
-                        let fsz = buf.len() as i64;
-                        let buf = match m.minify(&buf, &mut cv) {
-                            Ok(()) => &cv,
-                            Err(e) => {
-                                ev.collect(fname.to_string(), e);
-                                &buf
-                            }
-                        };
-                        dsum -= (buf.len() as i64) - fsz;
-                        fs::write(fp, buf)?;
-                        cv.clear();
-                    }
-                    Ignore => {
-                        ev.collect(fname, Box::new(blacklist::BlacklistedFile));
-                    }
-                    Warn(x) => {
-                        ev.collect(fname, Box::new(StrError(x)));
-                        fs::write(fp, buf)?;
-                    }
-                    Signfile => {
-                        ev.collect(fname, Box::new(StrError(ERR_SIGNFILE.to_string())));
-                    }
-                }
-            }
-        }
-    }
-    ps.send(ProgressState::Finish).unwrap();
-    Ok(dsum)
+    entry::fs::FSEntrySaver::new(dest_dir.to_owned()).save_entries(rx, ev, ps)
 }
 
-/// Read file system entries from a source directory and sends data using a channel.
+/// Reads file system entries from a source directory and sends data using a channel.
+#[deprecated = "Use `entry::fs::FSEntryReader`"]
 pub fn read_fs_entries(
     src_dir: &Path,
     tx: Sender<EntryType>,
     use_blacklist: bool
 ) -> io::Result<()> {
-    let mut vdir = Vec::new();
-    vdir.push(src_dir.to_owned());
-    while let Some(px) = vdir.pop() {
-        let rd = fs::read_dir(px)?.collect::<Result<Vec<_>, _>>()?;
-        tx.send(EntryType::Count(rd.len() as u64)).unwrap();
-        for de in rd {
-            let meta = de.metadata()?;
-            if meta.is_dir() {
-                let dp = de.path();
-                let dname = dp.strip_prefix(src_dir).expect("Subdir not in source dir")
-                    .to_string_lossy().to_string();
-                vdir.push(dp);
-                tx.send(EntryType::Directory(dname)).unwrap();
-            } else if meta.is_file() {
-                let fp = de.path();
-                let fname = fp.strip_prefix(src_dir).expect("File not in source dir")
-                    .to_string_lossy().to_string();
-                let fop = check_file_by_name(&fname, use_blacklist);
-                let ff = fs::read(fp)?;
-                tx.send(EntryType::File(fname, ff, fop)).unwrap();
-            }
-        }
-    }
-    Ok(())
+    entry::fs::FSEntryReader::new(src_dir.to_owned()).read_entries(tx, use_blacklist)
 }
 
 /// An entry type based on extracted data from an archive
@@ -280,7 +139,7 @@ impl fmt::Display for StrError {
     }
 }
 
-const ERR_SIGNFILE: &str = "This file cannot be repacked since it contains SHA-256 digests for zipped entries";
+pub(crate) const ERR_SIGNFILE: &str = "This file cannot be repacked since it contains SHA-256 digests for zipped entries";
 
 /// A progress state to update information about currently optimized entry
 #[derive(Debug, Clone)]

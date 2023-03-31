@@ -12,3 +12,5 @@ pub mod blacklist;
 pub mod fop;
 /// Error collecting.
 pub mod errors;
+/// Reading and saving entries
+pub mod entry;
