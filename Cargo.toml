@@ -45,3 +45,5 @@ indicatif = {optional = true, version = "0.17"}
 
 [profile.release]
 lto = true
+codegen-units = 1
+strip = "symbols"
