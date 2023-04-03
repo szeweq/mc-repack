@@ -3,7 +3,7 @@ use crossbeam_channel::{Sender, Receiver};
 use flate2::bufread::DeflateEncoder;
 use zip::{ZipArchive, ZipWriter, write::FileOptions, CompressionMethod};
 
-use crate::{entry::{EntryReader, EntrySaver}, optimizer::{EntryType, ProgressState, check_file_by_name, StrError, ERR_SIGNFILE}, fop::FileOp, errors::ErrorCollector, blacklist};
+use crate::{entry::{EntryReader, EntrySaver}, optimizer::{EntryType, ProgressState, StrError, ERR_SIGNFILE}, fop::{FileOp, check_file_by_name}, errors::ErrorCollector, blacklist};
 
 /// An entry reader implementation for ZIP archive. It reads its contents from a provided reader (with seeking).
 pub struct ZipEntryReader<R: Read + Seek> {

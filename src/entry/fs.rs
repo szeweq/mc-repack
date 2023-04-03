@@ -1,6 +1,6 @@
 use std::{path::PathBuf, fs};
 use crossbeam_channel::{Receiver, Sender};
-use crate::{optimizer::{EntryType, check_file_by_name, ProgressState, StrError, ERR_SIGNFILE}, fop::FileOp, blacklist};
+use crate::{optimizer::{EntryType, ProgressState, StrError, ERR_SIGNFILE}, fop::{FileOp, check_file_by_name}, blacklist};
 use super::{EntryReader, EntrySaver};
 
 /// An entry reader implementation for a file system. It reads a file tree from a provided directory.

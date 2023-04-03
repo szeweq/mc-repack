@@ -3,7 +3,7 @@ use std::{fs::File, io::{self, Read, Seek, Write}, error::Error, fmt, thread, pa
 use zip::write::FileOptions;
 use crossbeam_channel::{bounded, Sender, Receiver};
 
-use crate::{minify::{only_recompress, MinifyType}, blacklist, fop::FileOp, errors::ErrorCollector, entry::{self, EntryReader, EntrySaver}};
+use crate::{fop::FileOp, errors::ErrorCollector, entry::{self, EntryReader, EntrySaver}};
 
 /// Optimizes entries using entry reader in saver in separate threads.
 pub fn optimize_with<R: EntryReader + Send + 'static, S: EntrySaver>(
@@ -76,34 +76,6 @@ pub fn save_archive_entries<W: Write + Seek>(
     ps: &Sender<ProgressState>
 ) -> io::Result<i64> {
     entry::zip::ZipEntrySaver::custom(w, file_opts.clone()).save_entries(rx, ev, ps)
-}
-
-pub(crate) fn check_file_by_name(fname: &str, use_blacklist: bool) -> FileOp {
-    use FileOp::*;
-    if fname.starts_with(".cache/") { return Ignore }
-    if fname.starts_with("META-INF/") {
-        let sub = &fname[9..];
-        match sub {
-            "MANIFEST.MF" => {return Recompress(64) }
-            "SIGNFILE.SF" | "SIGNFILE.DSA" => { return Signfile }
-            x if x.starts_with("SIG-") || [".DSA", ".RSA", ".SF"].into_iter().any(|e| x.ends_with(e)) => {
-                return Signfile
-            }
-            x if x.starts_with("services/") => { return Recompress(64) }
-            _ => {}
-        }
-    }
-    let ftype = fname.rsplit_once('.').unzip().1.unwrap_or("");
-    if ftype == "class" {
-        return Recompress(64)
-    }
-    if only_recompress(ftype) {
-        return Recompress(4)
-    }
-    if let Some(x) = MinifyType::by_extension(ftype) {
-        return Minify(x)
-    }
-    if use_blacklist && blacklist::can_ignore_type(ftype) { Ignore } else { Recompress(2) }
 }
 
 /// Reads ZIP entries and sends data using a channel.
