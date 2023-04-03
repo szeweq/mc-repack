@@ -80,12 +80,13 @@ impl MinifyType {
 type Result_ = Result<(), Box<dyn Error>>;
 
 fn minify_png(v: &[u8], vout: &mut Vec<u8>) -> Result_ {
-    let mut popts = oxipng::Options::default();
-    popts.fix_errors = true;
-    popts.strip = oxipng::Headers::Safe;
-    popts.optimize_alpha = true;
-    popts.deflate = oxipng::Deflaters::Libdeflater { compression: 12 };
-    //popts.fast_evaluation = false;
+    let mut popts = oxipng::Options {
+        fix_errors: true,
+        strip: oxipng::Headers::Safe,
+        optimize_alpha: true,
+        deflate: oxipng::Deflaters::Libdeflater { compression: 12 },
+        ..Default::default()
+    };
     popts.filter.insert(oxipng::RowFilter::Up);
     popts.filter.insert(oxipng::RowFilter::Paeth);
     //popts.filter.insert(oxipng::RowFilter::MinSum);
