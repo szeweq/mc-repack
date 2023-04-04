@@ -1,7 +1,7 @@
-use std::{fs::File, io::{self, Read, Seek, Write}, error::Error, fmt, thread, path::{PathBuf, Path}};
+use std::{fs::File, io::{self}, error::Error, fmt, thread, path::{PathBuf}};
 
 use zip::write::FileOptions;
-use crossbeam_channel::{bounded, Sender, Receiver};
+use crossbeam_channel::{bounded, Sender};
 
 use crate::{fop::FileOp, errors::ErrorCollector, entry::{self, EntryReader, EntrySaver}};
 
@@ -64,49 +64,6 @@ pub fn optimize_fs_copy(
         .save_entries(rx, errors, ps);
     t1.join().unwrap()?;
     rsum
-}
-
-/// Writes optimized ZIP entries into a specified writer.
-#[deprecated = "Use `entry::zip::ZipEntrySaver`"]
-pub fn save_archive_entries<W: Write + Seek>(
-    w: W,
-    rx: Receiver<EntryType>,
-    file_opts: &FileOptions,
-    ev: &mut dyn ErrorCollector,
-    ps: &Sender<ProgressState>
-) -> io::Result<i64> {
-    entry::zip::ZipEntrySaver::custom(w, file_opts.clone()).save_entries(rx, ev, ps)
-}
-
-/// Reads ZIP entries and sends data using a channel.
-#[deprecated = "Use `entry::zip::ZipEntryReader`"]
-pub fn read_archive_entries<R: Read + Seek>(
-    r: R,
-    tx: Sender<EntryType>,
-    use_blacklist: bool
-) -> io::Result<()> {
-    entry::zip::ZipEntryReader::new(r).read_entries(tx, use_blacklist)
-}
-
-/// Writes optimized file system entries into a specified destination directory.
-#[deprecated = "Use `entry::fs::FSEntrySaver`"]
-pub fn save_fs_entries(
-    dest_dir: &Path,
-    rx: Receiver<EntryType>,
-    ev: &mut dyn ErrorCollector,
-    ps: &Sender<ProgressState>
-) -> io::Result<i64> {
-    entry::fs::FSEntrySaver::new(dest_dir.to_owned()).save_entries(rx, ev, ps)
-}
-
-/// Reads file system entries from a source directory and sends data using a channel.
-#[deprecated = "Use `entry::fs::FSEntryReader`"]
-pub fn read_fs_entries(
-    src_dir: &Path,
-    tx: Sender<EntryType>,
-    use_blacklist: bool
-) -> io::Result<()> {
-    entry::fs::FSEntryReader::new(src_dir.to_owned()).read_entries(tx, use_blacklist)
 }
 
 /// An entry type based on extracted data from an archive
