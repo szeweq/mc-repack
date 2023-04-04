@@ -36,30 +36,32 @@ pub enum FileOp {
     Warn(String)
 }
 
-pub(crate) fn check_file_by_name(fname: &str, use_blacklist: bool) -> FileOp {
-    use FileOp::*;
-    if fname.starts_with(".cache/") { return Ignore }
-    if fname.starts_with("META-INF/") {
-        let sub = &fname[9..];
-        match sub {
-            "MANIFEST.MF" => {return Recompress(64) }
-            "SIGNFILE.SF" | "SIGNFILE.DSA" => { return Signfile }
-            x if x.starts_with("SIG-") || [".DSA", ".RSA", ".SF"].into_iter().any(|e| x.ends_with(e)) => {
-                return Signfile
+impl FileOp {
+    pub(crate) fn by_name(fname: &str, use_blacklist: bool) -> Self {
+        use FileOp::*;
+        if fname.starts_with(".cache/") { return Ignore }
+        if fname.starts_with("META-INF/") {
+            let sub = &fname[9..];
+            match sub {
+                "MANIFEST.MF" => {return Recompress(64) }
+                "SIGNFILE.SF" | "SIGNFILE.DSA" => { return Signfile }
+                x if x.starts_with("SIG-") || [".DSA", ".RSA", ".SF"].into_iter().any(|e| x.ends_with(e)) => {
+                    return Signfile
+                }
+                x if x.starts_with("services/") => { return Recompress(64) }
+                _ => {}
             }
-            x if x.starts_with("services/") => { return Recompress(64) }
-            _ => {}
         }
+        let ftype = fname.rsplit_once('.').unzip().1.unwrap_or("");
+        if ftype == "class" {
+            return Recompress(64)
+        }
+        if only_recompress(ftype) {
+            return Recompress(4)
+        }
+        if let Some(x) = MinifyType::by_extension(ftype) {
+            return Minify(x)
+        }
+        if use_blacklist && crate::blacklist::can_ignore_type(ftype) { Ignore } else { Recompress(2) }
     }
-    let ftype = fname.rsplit_once('.').unzip().1.unwrap_or("");
-    if ftype == "class" {
-        return Recompress(64)
-    }
-    if only_recompress(ftype) {
-        return Recompress(4)
-    }
-    if let Some(x) = MinifyType::by_extension(ftype) {
-        return Minify(x)
-    }
-    if use_blacklist && crate::blacklist::can_ignore_type(ftype) { Ignore } else { Recompress(2) }
 }

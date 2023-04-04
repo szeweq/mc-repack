@@ -1,6 +1,6 @@
 use std::{path::PathBuf, fs};
 use crossbeam_channel::{Receiver, Sender};
-use crate::{optimizer::{EntryType, ProgressState, StrError, ERR_SIGNFILE}, fop::{FileOp, check_file_by_name}, blacklist};
+use crate::{optimizer::{EntryType, ProgressState, StrError, ERR_SIGNFILE}, fop::{FileOp}, blacklist};
 use super::{EntryReader, EntrySaver};
 
 /// An entry reader implementation for a file system. It reads a file tree from a provided directory.
@@ -36,7 +36,7 @@ impl EntryReader for FSEntryReader {
                     let fp = de.path();
                     let fname = fp.strip_prefix(&self.src_dir).expect("File not in source dir")
                         .to_string_lossy().to_string();
-                    let fop = check_file_by_name(&fname, use_blacklist);
+                    let fop = FileOp::by_name(&fname, use_blacklist);
                     let ff = fs::read(fp)?;
                     tx.send(EntryType::File(fname, ff, fop)).unwrap();
                 }

@@ -3,7 +3,7 @@ use crossbeam_channel::{Sender, Receiver};
 use flate2::bufread::DeflateEncoder;
 use zip::{ZipArchive, ZipWriter, write::FileOptions, CompressionMethod};
 
-use crate::{entry::{EntryReader, EntrySaver}, optimizer::{EntryType, ProgressState, StrError, ERR_SIGNFILE}, fop::{FileOp, check_file_by_name}, errors::ErrorCollector, blacklist};
+use crate::{entry::{EntryReader, EntrySaver}, optimizer::{EntryType, ProgressState, StrError, ERR_SIGNFILE}, fop::FileOp, errors::ErrorCollector, blacklist};
 
 /// An entry reader implementation for ZIP archive. It reads its contents from a provided reader (with seeking).
 pub struct ZipEntryReader<R: Read + Seek> {
@@ -30,7 +30,7 @@ impl <R: Read + Seek> EntryReader for ZipEntryReader<R> {
             tx.send(if fname.ends_with('/') {
                 EntryType::Directory(fname)
             } else {
-                let fop = check_file_by_name(&fname, use_blacklist);
+                let fop = FileOp::by_name(&fname, use_blacklist);
                 let mut obuf = Vec::new();
                 match fop {
                     FileOp::Ignore => {}
