@@ -3,12 +3,12 @@ use std::{fs::File, io::{self}, error::Error, fmt, thread, path::{PathBuf}};
 use zip::write::FileOptions;
 use crossbeam_channel::{bounded, Sender};
 
-use crate::{fop::FileOp, errors::ErrorCollector, entry::{self, EntryReader, EntrySaver}};
+use crate::{fop::FileOp, errors::ErrorCollector, entry::{self, EntryReader, EntrySaver, EntrySaverSpec}};
 
 /// Optimizes entries using entry reader in saver in separate threads.
-pub fn optimize_with<R: EntryReader + Send + 'static, S: EntrySaver>(
+pub fn optimize_with<R: EntryReader + Send + 'static, S: EntrySaverSpec>(
     reader: R,
-    saver: S,
+    saver: EntrySaver<S>,
     ps: &Sender<ProgressState>,
     errors: &mut dyn ErrorCollector,
     use_blacklist: bool

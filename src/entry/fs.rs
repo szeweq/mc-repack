@@ -1,7 +1,7 @@
 use std::{path::PathBuf, fs};
-use crossbeam_channel::{Receiver, Sender};
-use crate::{optimizer::{EntryType, ProgressState, StrError, ERR_SIGNFILE}, fop::{FileOp}, blacklist};
-use super::{EntryReader, EntrySaver};
+use crossbeam_channel::Sender;
+use crate::{optimizer::EntryType, fop::FileOp};
+use super::{EntryReader, EntrySaver, EntrySaverSpec};
 
 /// An entry reader implementation for a file system. It reads a file tree from a provided directory.
 pub struct FSEntryReader {
@@ -52,67 +52,19 @@ pub struct FSEntrySaver {
 }
 impl FSEntrySaver {
     /// Creates an entry saver with a destination directory path.
-    pub fn new(dest_dir: PathBuf) -> Self {
-        Self { dest_dir }
+    pub fn new(dest_dir: PathBuf) -> EntrySaver<Self> {
+        EntrySaver(Self { dest_dir })
     }
 }
-impl EntrySaver for FSEntrySaver {
-    fn save_entries(
-        self,
-        rx: Receiver<EntryType>,
-        ev: &mut dyn crate::errors::ErrorCollector,
-        ps: &Sender<crate::optimizer::ProgressState>
-    ) -> std::io::Result<i64> {
-        let mut dsum = 0;
-        let mut cv = Vec::new();
-        for et in rx {
-            match et {
-                EntryType::Count(u) => {
-                    ps.send(ProgressState::Start(u)).unwrap();
-                }
-                EntryType::Directory(dir) => {
-                    let mut dp = self.dest_dir.clone();
-                    dp.push(dir);
-                    fs::create_dir(dp)?;
-                }
-                EntryType::File(fname, buf, fop) => {
-                    use FileOp::*;
-                    ps.send(ProgressState::Push(fname.clone())).unwrap();
-                    let mut fp = self.dest_dir.clone();
-                    fp.push(fname.clone());
-                    match fop {
-                        Recompress(_) => {
-                            // Write in file system as-is
-                            fs::write(fp, buf)?;
-                        }
-                        Minify(m) => {
-                            let fsz = buf.len() as i64;
-                            let buf = match m.minify(&buf, &mut cv) {
-                                Ok(()) => &cv,
-                                Err(e) => {
-                                    ev.collect(&fname, e);
-                                    &buf
-                                }
-                            };
-                            dsum -= (buf.len() as i64) - fsz;
-                            fs::write(fp, buf)?;
-                            cv.clear();
-                        }
-                        Ignore => {
-                            ev.collect(&fname, Box::new(blacklist::BlacklistedFile));
-                        }
-                        Warn(x) => {
-                            ev.collect(&fname, Box::new(StrError(x)));
-                            fs::write(fp, buf)?;
-                        }
-                        Signfile => {
-                            ev.collect(&fname, Box::new(StrError(ERR_SIGNFILE.to_string())));
-                        }
-                    }
-                }
-            }
-        }
-        ps.send(ProgressState::Finish).unwrap();
-        Ok(dsum)
+impl EntrySaverSpec for FSEntrySaver {
+    fn save_dir(&mut self, dir: &str) -> std::io::Result<()> {
+        let mut dp = self.dest_dir.clone();
+        dp.push(dir);
+        fs::create_dir(dp)
+    }
+    fn save_file(&mut self, fname: &str, buf: &[u8], _: usize) -> std::io::Result<()> {
+        let mut fp = self.dest_dir.clone();
+        fp.push(fname.clone());
+        fs::write(fp, buf)
     }
 }

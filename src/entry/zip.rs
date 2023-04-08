@@ -1,9 +1,10 @@
 use std::io::{self, Read, Seek, BufReader, Write, BufWriter};
-use crossbeam_channel::{Sender, Receiver};
+use crossbeam_channel::Sender;
 use flate2::bufread::DeflateEncoder;
 use zip::{ZipArchive, ZipWriter, write::FileOptions, CompressionMethod};
 
-use crate::{entry::{EntryReader, EntrySaver}, optimizer::{EntryType, ProgressState, StrError, ERR_SIGNFILE}, fop::FileOp, errors::ErrorCollector, blacklist};
+use crate::{optimizer::EntryType, fop::FileOp};
+use super::{EntryReader, EntrySaverSpec, EntrySaver};
 
 /// An entry reader implementation for ZIP archive. It reads its contents from a provided reader (with seeking).
 pub struct ZipEntryReader<R: Read + Seek> {
@@ -53,87 +54,31 @@ pub struct ZipEntrySaver<W: Write + Seek> {
 }
 impl <W: Write + Seek> ZipEntrySaver<W> {
     /// Creates an entry saver with a seekable writer.
-    pub fn new(w: W) -> Self {
-        Self {
+    pub fn new(w: W) -> EntrySaver<Self> {
+        EntrySaver(Self {
             w: ZipWriter::new(BufWriter::new(w)),
             file_opts: FileOptions::default().compression_level(Some(9))
-        }
+        })
     }
     /// Creates an entry saver with custom file options for ZIP archive and seekable writer.
-    pub fn custom(w: W, file_opts: FileOptions) -> Self {
-        Self {
+    pub fn custom(w: W, file_opts: FileOptions) -> EntrySaver<Self> {
+        EntrySaver(Self {
             w: ZipWriter::new(BufWriter::new(w)), file_opts
-        }
+        })
     }
-
-    fn pack_file(&mut self, name: &str, data: &[u8], compress_min: usize) -> io::Result<()> {
+}
+impl <W: Write + Seek> EntrySaverSpec for ZipEntrySaver<W> {
+    fn save_dir(&mut self, dir: &str) -> io::Result<()> {
+        Ok(if dir != "./cache" {
+            self.w.add_directory(dir, self.file_opts.clone())?
+        } else { () })
+    }
+    fn save_file(&mut self, name: &str, data: &[u8], compress_min: usize) -> io::Result<()> {
         let z = &mut self.w;
         z.start_file(name, self.file_opts.clone()
             .compression_method(compress_check(data, compress_min))
         )?;
         z.write_all(data)
-    }
-}
-impl <W: Write + Seek> EntrySaver for ZipEntrySaver<W> {
-    fn save_entries(
-        mut self,
-        rx: Receiver<EntryType>,
-        ev: &mut dyn ErrorCollector,
-        ps: &Sender<ProgressState>
-    ) -> io::Result<i64> {
-        let mut dsum = 0;
-        let mut cv = Vec::new();
-        for et in rx {
-            match et {
-                EntryType::Count(u) => {
-                    ps.send(ProgressState::Start(u)).unwrap();
-                }
-                EntryType::Directory(d) => {
-                    if d != ".cache/" {
-                        self.w.add_directory(d, self.file_opts.clone())?;
-                    }
-                }
-                EntryType::File(fname, buf, fop) => {
-                    use FileOp::*;
-                    ps.send(ProgressState::Push(fname.clone())).unwrap();
-                    match fop {
-                        Recompress(cmin) => {
-                            self.pack_file(
-                                &fname,
-                                &buf,
-                                cmin
-                            )?;
-                        }
-                        Minify(m) => {
-                            let fsz = buf.len() as i64;
-                            let buf = match m.minify(&buf, &mut cv) {
-                                Ok(()) => &cv,
-                                Err(e) => {
-                                    ev.collect(&fname, e);
-                                    &buf
-                                }
-                            };
-                            dsum -= (buf.len() as i64) - fsz;
-                            self.pack_file(&fname, &buf, m.compress_min())?;
-                            cv.clear();
-                        }
-                        Ignore => {
-                            ev.collect(&fname, Box::new(blacklist::BlacklistedFile));
-                        }
-                        Warn(x) => {
-                            ev.collect(&fname, Box::new(StrError(x)));
-                            self.pack_file(&fname, &buf, 0)?;
-                        }
-                        Signfile => {
-                            ev.collect(&fname, Box::new(StrError(ERR_SIGNFILE.to_string())));
-                        }
-                    }
-                }
-            }
-        }
-        self.w.finish()?;
-        ps.send(ProgressState::Finish).unwrap();
-        Ok(dsum)
     }
 }
 
