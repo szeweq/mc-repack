@@ -1,5 +1,6 @@
 # MC-Repack
 [![Rust Build](https://github.com/szeweq/mc-repack/actions/workflows/rust-build.yml/badge.svg)](https://github.com/szeweq/mc-repack/actions/workflows/rust-build.yml)
+[![dependency status](https://deps.rs/repo/github/szeweq/mc-repack/status.svg)](https://deps.rs/repo/github/szeweq/mc-repack)
 
 A repacking tool for Minecraft mods and resource packs to optimize size and loading speed.
 
