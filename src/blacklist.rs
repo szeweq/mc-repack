@@ -14,6 +14,6 @@ pub struct BlacklistedFile;
 impl Error for BlacklistedFile {}
 impl Display for BlacklistedFile {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "WHY IS THIS FILE HERE?")
+        write!(f, "Blacklisted file")
     }
 }
