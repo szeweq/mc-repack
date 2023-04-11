@@ -93,7 +93,7 @@ pub enum ProgressState {
     /// Starts a progress with a step count
     Start(u64),
     /// Pushes a new step with text
-    Push(String),
+    Push(u64, String),
     /// Marks a progress as finished
     Finish
 }

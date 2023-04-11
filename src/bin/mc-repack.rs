@@ -217,18 +217,15 @@ fn new_io_error(s: &str) -> io::Error {
 fn thread_progress_bar(pb: ProgressBar) -> (JoinHandle<()>, Sender<ProgressState>) {
     let (ps, pr) = crossbeam_channel::unbounded();
     let pj = thread::spawn(move || {
-        let mut cnt = 0;
         use ProgressState::*;
         for st in pr {
             match st {
                 Start(u) => { pb.set_length(u); }
-                Push(msg) => {
-                    cnt += 1;
-                    pb.set_position(cnt);
+                Push(num, msg) => {
+                    pb.set_position(num);
                     pb.set_message(msg);
                 }
                 Finish => {
-                    cnt = 0;
                     pb.finish_with_message("Saving...");
                 }
             }

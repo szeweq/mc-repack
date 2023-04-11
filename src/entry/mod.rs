@@ -44,6 +44,7 @@ impl<T: EntrySaverSpec> EntrySaver<T> {
     ) -> io::Result<i64> {
         let mut dsum = 0;
         let mut cv = Vec::new();
+        let mut n = 0;
         for et in rx {
             match et {
                 EntryType::Count(u) => {
@@ -53,6 +54,8 @@ impl<T: EntrySaverSpec> EntrySaver<T> {
                     self.0.save_dir(&dir)?;
                 }
                 EntryType::File(fname, buf, fop) => {
+                    ps.send(ProgressState::Push(n, fname.clone())).unwrap();
+                    n += 1;
                     use fop::FileOp::*;
                     match fop {
                         Ignore => {
