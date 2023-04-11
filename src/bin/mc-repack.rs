@@ -19,6 +19,10 @@ struct CliArgs {
     #[arg(short)]
     g: bool,
 
+    /// Use this option to pack optimized files into a JAR/ZIP file (only works with -g)
+    #[arg(short)]
+    z: bool,
+
     /// (Optional) Destination path. It cannot be the same as the source!
     #[arg(long)]
     out: Option<PathBuf>,
