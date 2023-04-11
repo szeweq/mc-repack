@@ -71,7 +71,7 @@ fn main() -> io::Result<()> {
     Ok(())
 }
 
-const PB_STYLE_ZIP: &str = "# {bar} {pos}/{len} {wide_msg}";
+const PB_STYLE_ZIP: &str = "# {pos}/{len} {wide_msg}";
 
 const ERR_FNAME_INVALID: &str = "Invalid file name";
 
