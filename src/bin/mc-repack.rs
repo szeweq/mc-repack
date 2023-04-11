@@ -56,15 +56,8 @@ fn main() -> io::Result<()> {
         PathBuf::from(fstr)
     });
 
-    let path_meta = fpath.metadata()?;
-
-    let sums = if path_meta.is_dir() {
-        process_dir(&cli_args, &fpath)
-    } else if path_meta.is_file() {
-        process_file(&cli_args, &fpath)
-    } else {
-        Err(new_io_error("Not a file or directory"))
-    }?;
+    let sums = process_task_from(&cli_args, &fpath)?
+        .process(&fpath, cli_args.out)?;
 
     let dsum = sums.0.max(0) as u64;
     let zsum = sums.1.max(0) as u64;
@@ -85,108 +78,138 @@ fn file_progress_bar() -> ProgressBar {
     )
 }
 
-fn process_file(ca: &CliArgs, fp: &Path) -> io::Result<(i64, i64)> {
-    let fname = if let Some(x) = fp.file_name() {
-        x.to_string_lossy()
+fn process_task_from(ca: &CliArgs, fp: &Path) -> io::Result<Box<dyn ProcessTask>> {
+    let CliArgs { silent, use_blacklist , ..} = *ca;
+    let fmeta = fp.metadata()?;
+    if fmeta.is_dir() {
+        Ok(Box::new(JarDirRepackTask { silent, use_blacklist }))
+    } else if fmeta.is_file() {
+        Ok(Box::new(JarRepackTask { silent, use_blacklist }))
     } else {
-        return Err(new_io_error(ERR_FNAME_INVALID))
-    };
-    match check_file_type(&fname) {
-        FileType::Other => { return Err(new_io_error("File is not an JAR/ZIP archive")) }
-        FileType::Repacked => { return Err(new_io_error("This archive is marked as repacked, no re-repacking needed")) }
-        _ => {}
+        Err(new_io_error("Not a file or directory"))
     }
-
-    let file_opts = FileOptions::default().compression_level(Some(9));
-    let mut dsum = 0;
-    let mut zsum = 0;
-
-    let pb2 = file_progress_bar();
-    let mut ev: Vec<(String, String)> = Vec::new();
-    let mut sc = SilentCollector;
-    let ec: &mut dyn ErrorCollector = if ca.silent { &mut sc } else { &mut ev };
-    let (pj, ps) = thread_progress_bar(pb2);
-    
-    let nfp = if let Some(pp) = &ca.out { pp.clone() } else { file_name_repack(fp) };
-    let fsum = optimize_archive(fp.to_owned(), nfp.clone(), &ps, ec, &file_opts, ca.use_blacklist)
-        .map_err(|e| io::Error::new(e.kind(), format!("{}: {}", fp.display(), e)))?;
-    drop(ps);
-    pj.join().unwrap();
-    dsum += fsum;
-    zsum += file_size_diff(&fp, &nfp)?;
-
-    if !ev.is_empty() {
-        eprintln!("Errors found while repacking a file:");
-        for (f, e) in ev {
-            eprintln!("| # {}: {}", f, e);
-        }
-    }
-
-    Ok((dsum, zsum))
 }
 
-fn process_dir(ca: &CliArgs, p: &Path) -> io::Result<(i64, i64)> {
-    let mp = MultiProgress::new();
+trait ProcessTask {
+    fn process(&self, fp: &Path, out: Option<PathBuf>) -> io::Result<(i64, i64)>;
+}
 
-    let rd = fs::read_dir(p)?;
-    let file_opts = FileOptions::default().compression_level(Some(9));
-    let mut dsum = 0;
-    let mut zsum = 0;
-
-    let ren: &dyn NewPath = if let Some(pp) = &ca.out {
-        fs::create_dir_all(pp)?;
-        pp
-    } else { &() };
-
-    let pb = mp.add(ProgressBar::new_spinner().with_style(
-        ProgressStyle::with_template("{wide_msg}").unwrap()
-    ));
-    let pb2 = mp.add(file_progress_bar());
-    
-    let mut ev: Vec<(String, String)> = Vec::new();
-    let mut sc = SilentCollector;
-    let mut jev: Vec<(String, Vec<(String, String)>)> = Vec::new();
-    let ec: &mut dyn ErrorCollector = if ca.silent { &mut sc } else { &mut ev };
-    let (pj, ps) = thread_progress_bar(pb2);
-
-    for rde in rd {
-        let rde = rde?;
-        let fp = rde.path();
-        let rfn = rde.file_name();
-        let Some(fname) = rfn.to_str() else {
+struct JarRepackTask {
+    silent: bool,
+    use_blacklist: bool
+}
+impl ProcessTask for JarRepackTask {
+    fn process(&self, fp: &Path, out: Option<PathBuf>) -> io::Result<(i64, i64)> {
+        let Self { silent, use_blacklist } = *self;
+        let fname = if let Some(x) = fp.file_name() {
+            x.to_string_lossy()
+        } else {
             return Err(new_io_error(ERR_FNAME_INVALID))
         };
-        let meta = fp.metadata()?;
-        if meta.is_file() && check_file_type(fname) == FileType::Original {
-            pb.set_message(fname.to_string());
-            
-            let nfp = ren.new_path(&fp);
-            let fsum = optimize_archive(fp.clone(), nfp.clone(), &ps, ec, &file_opts, ca.use_blacklist)
-                .map_err(|e| io::Error::new(e.kind(), format!("{}: {}",  fp.display(), e)))?;
-            dsum += fsum;
-            let rev = ec.get_results();
-            if !rev.is_empty() {
-                jev.push((fname.to_string(), rev));
-            }
-            zsum += file_size_diff(&fp, &nfp)?;
+        match check_file_type(&fname) {
+            FileType::Other => { return Err(new_io_error("File is not an JAR/ZIP archive")) }
+            FileType::Repacked => { return Err(new_io_error("This archive is marked as repacked, no re-repacking needed")) }
+            _ => {}
         }
-    }
-    mp.clear()?;
-    drop(ps);
-    pj.join().unwrap();
-
-    if !ca.silent && !jev.is_empty() {
-        eprintln!("Errors found while repacking files:");
-        for (f, v) in jev {
-            eprintln!(" File: {}", f);
-            for (pf, e) in v {
-                eprintln!(" # {}: {}", pf, e);
+    
+        let file_opts = FileOptions::default().compression_level(Some(9));
+        let mut dsum = 0;
+        let mut zsum = 0;
+    
+        let pb2 = file_progress_bar();
+        let mut ev: Vec<(String, String)> = Vec::new();
+        let mut sc = SilentCollector;
+        let ec: &mut dyn ErrorCollector = if silent { &mut sc } else { &mut ev };
+        let (pj, ps) = thread_progress_bar(pb2);
+        
+        let nfp = if let Some(pp) = out { pp.to_owned() } else { file_name_repack(fp) };
+        let fsum = optimize_archive(fp.to_owned(), nfp.clone(), &ps, ec, &file_opts, use_blacklist)
+            .map_err(|e| io::Error::new(e.kind(), format!("{}: {}", fp.display(), e)))?;
+        drop(ps);
+        pj.join().unwrap();
+        dsum += fsum;
+        zsum += file_size_diff(&fp, &nfp)?;
+    
+        if !ev.is_empty() {
+            eprintln!("Errors found while repacking a file:");
+            for (f, e) in ev {
+                eprintln!("| # {}: {}", f, e);
             }
-            eprintln!();
         }
+    
+        Ok((dsum, zsum))
     }
+}
 
-    Ok((dsum, zsum))
+struct JarDirRepackTask {
+    silent: bool,
+    use_blacklist: bool,
+}
+impl ProcessTask for JarDirRepackTask {
+    fn process(&self, fp: &Path, out: Option<PathBuf>) -> io::Result<(i64, i64)> {
+        let Self { silent, use_blacklist } = *self;
+        let mp = MultiProgress::new();
+
+        let rd = fs::read_dir(fp)?;
+        let file_opts = FileOptions::default().compression_level(Some(9));
+        let mut dsum = 0;
+        let mut zsum = 0;
+
+        let ren: &dyn NewPath = if let Some(pp) = &out {
+            fs::create_dir_all(pp)?;
+            pp
+        } else { &() };
+
+        let pb = mp.add(ProgressBar::new_spinner().with_style(
+            ProgressStyle::with_template("{wide_msg}").unwrap()
+        ));
+        let pb2 = mp.add(file_progress_bar());
+        
+        let mut ev: Vec<(String, String)> = Vec::new();
+        let mut sc = SilentCollector;
+        let mut jev: Vec<(String, Vec<(String, String)>)> = Vec::new();
+        let ec: &mut dyn ErrorCollector = if silent { &mut sc } else { &mut ev };
+        let (pj, ps) = thread_progress_bar(pb2);
+
+        for rde in rd {
+            let rde = rde?;
+            let fp = rde.path();
+            let rfn = rde.file_name();
+            let Some(fname) = rfn.to_str() else {
+                return Err(new_io_error(ERR_FNAME_INVALID))
+            };
+            let meta = fp.metadata()?;
+            if meta.is_file() && check_file_type(fname) == FileType::Original {
+                pb.set_message(fname.to_string());
+                
+                let nfp = ren.new_path(&fp);
+                let fsum = optimize_archive(fp.clone(), nfp.clone(), &ps, ec, &file_opts, use_blacklist)
+                    .map_err(|e| io::Error::new(e.kind(), format!("{}: {}",  fp.display(), e)))?;
+                dsum += fsum;
+                let rev = ec.get_results();
+                if !rev.is_empty() {
+                    jev.push((fname.to_string(), rev));
+                }
+                zsum += file_size_diff(&fp, &nfp)?;
+            }
+        }
+        mp.clear()?;
+        drop(ps);
+        pj.join().unwrap();
+
+        if !silent && !jev.is_empty() {
+            eprintln!("Errors found while repacking files:");
+            for (f, v) in jev {
+                eprintln!(" File: {}", f);
+                for (pf, e) in v {
+                    eprintln!(" # {}: {}", pf, e);
+                }
+                eprintln!();
+            }
+        }
+
+        Ok((dsum, zsum))
+    }
 }
 
 fn file_size_diff(a: &Path, b: &Path) -> io::Result<i64> {
