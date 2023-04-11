@@ -64,10 +64,6 @@ impl<T: EntrySaverSpec> EntrySaver<T> {
                         Signfile => {
                             ev.collect(&fname, Box::new(StrError(ERR_SIGNFILE.to_string())));
                         }
-                        Warn(x) => {
-                            ev.collect(&fname, Box::new(StrError(x)));
-                            self.0.save_file(&fname, &buf, 0)?;
-                        }
                         Minify(m) => {
                             let fsz = buf.len() as i64;
                             let buf = match m.minify(&buf, &mut cv) {

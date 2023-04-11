@@ -31,9 +31,7 @@ pub enum FileOp {
     /// Ignore a file.
     Ignore,
     /// A "Signfile" was found.
-    Signfile,
-    /// Give a warning about a file.
-    Warn(String)
+    Signfile
 }
 
 impl FileOp {
