@@ -2,7 +2,7 @@ use std::{fs, io, path::{PathBuf, Path}, time::Instant, thread::{self, JoinHandl
 
 use clap::Parser;
 use crossbeam_channel::Sender;
-use indicatif::{ProgressBar, ProgressStyle, MultiProgress, HumanBytes};
+use indicatif::{ProgressBar, ProgressStyle, MultiProgress};
 
 use mc_repack::optimizer::*;
 use mc_repack::fop::*;
@@ -22,15 +22,10 @@ fn main() -> io::Result<()> {
 
     let fpath = args.actual_path();
 
-    let sums = process_task_from(&args, &fpath)?
+    process_task_from(&args, &fpath)?
         .process(&fpath, args.out)?;
 
-    let dsum = sums.0.max(0) as u64;
-    let zsum = sums.1.max(0) as u64;
-
-    println!("Bytes saved: {} by minifying, {} by repacking", HumanBytes(dsum), HumanBytes(zsum));
     println!("Done in: {:.3?}", dt.elapsed());
-
     Ok(())
 }
 
