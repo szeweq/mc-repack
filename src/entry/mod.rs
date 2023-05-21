@@ -41,8 +41,7 @@ impl<T: EntrySaverSpec> EntrySaver<T> {
         rx: Receiver<EntryType>,
         ev: &mut dyn ErrorCollector,
         ps: &Sender<ProgressState>
-    ) -> io::Result<i64> {
-        let mut dsum = 0;
+    ) -> io::Result<()> {
         let mut cv = Vec::new();
         let mut n = 0;
         for et in rx {
@@ -65,7 +64,6 @@ impl<T: EntrySaverSpec> EntrySaver<T> {
                             ev.collect(&fname, Box::new(StrError(ERR_SIGNFILE.to_string())));
                         }
                         Minify(m) => {
-                            let fsz = buf.len() as i64;
                             let buf = match m.minify(&buf, &mut cv) {
                                 Ok(()) => &cv,
                                 Err(e) => {
@@ -73,7 +71,6 @@ impl<T: EntrySaverSpec> EntrySaver<T> {
                                     &buf
                                 }
                             };
-                            dsum -= (buf.len() as i64) - fsz;
                             self.0.save_file(&fname, buf, m.compress_min())?;
                             cv.clear();
                         }
@@ -85,7 +82,7 @@ impl<T: EntrySaverSpec> EntrySaver<T> {
             }
         }
         ps.send(ProgressState::Finish).unwrap();
-        Ok(dsum)
+        Ok(())
     }
 }
 
