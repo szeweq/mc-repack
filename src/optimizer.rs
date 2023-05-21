@@ -12,14 +12,14 @@ pub fn optimize_with<R: EntryReader + Send + 'static, S: EntrySaverSpec>(
     ps: &Sender<ProgressState>,
     errors: &mut dyn ErrorCollector,
     use_blacklist: bool
-) -> io::Result<i64> {
+) -> io::Result<()> {
     let (tx, rx) = bounded(2);
     let t1 = thread::spawn(move || {
         reader.read_entries(tx, use_blacklist)
     });
-    let rsum = saver.save_entries(rx, errors, ps);
+    saver.save_entries(rx, errors, ps)?;
     t1.join().unwrap()?;
-    rsum
+    Ok(())
 }
 
 /// Optimizes an archive and saves repacked one in a new destination.
@@ -30,18 +30,17 @@ pub fn optimize_archive(
     errors: &mut dyn ErrorCollector,
     file_opts: &FileOptions,
     use_blacklist: bool
-) -> io::Result<i64> {
+) -> io::Result<()> {
+    use entry::zip::*;
     let (tx, rx) = bounded(2);
     let t1 = thread::spawn(move || {
         let fin = File::open(in_path)?;
-        entry::zip::ZipEntryReader::new(fin)
-            .read_entries(tx, use_blacklist)
+        ZipEntryReader::new(fin).read_entries(tx, use_blacklist)
     });
     let fout = File::create(out_path)?;
-    let rsum = entry::zip::ZipEntrySaver::custom(fout, file_opts.clone())
-        .save_entries(rx, errors, ps);
+    ZipEntrySaver::custom(fout, file_opts.clone()).save_entries(rx, errors, ps)?;
     t1.join().unwrap()?;
-    rsum
+    Ok(())
 }
 
 /// Optimizes files in directory and saves them in a new destination.
@@ -51,19 +50,18 @@ pub fn optimize_fs_copy(
     ps: &Sender<ProgressState>,
     errors: &mut dyn ErrorCollector,
     use_blacklist: bool
-) -> io::Result<i64> {
+) -> io::Result<()> {
+    use entry::fs::*;
     if in_path == out_path {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, "The paths are the same"))
     }
     let (tx, rx) = bounded(2);
     let t1 = thread::spawn(move || {
-        entry::fs::FSEntryReader::new(in_path)
-            .read_entries(tx, use_blacklist)
+        FSEntryReader::new(in_path).read_entries(tx, use_blacklist)
     });
-    let rsum = entry::fs::FSEntrySaver::new(out_path)
-        .save_entries(rx, errors, ps);
+    FSEntrySaver::new(out_path).save_entries(rx, errors, ps)?;
     t1.join().unwrap()?;
-    rsum
+    Ok(())
 }
 
 /// An entry type based on extracted data from an archive

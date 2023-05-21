@@ -52,7 +52,7 @@ fn process_task_from(ca: &cli_args::Args, fp: &Path) -> io::Result<Box<dyn Proce
 }
 
 trait ProcessTask {
-    fn process(&self, fp: &Path, out: Option<PathBuf>) -> io::Result<(i64, i64)>;
+    fn process(&self, fp: &Path, out: Option<PathBuf>) -> io::Result<()>;
 }
 
 struct JarRepackTask {
@@ -60,7 +60,7 @@ struct JarRepackTask {
     use_blacklist: bool
 }
 impl ProcessTask for JarRepackTask {
-    fn process(&self, fp: &Path, out: Option<PathBuf>) -> io::Result<(i64, i64)> {
+    fn process(&self, fp: &Path, out: Option<PathBuf>) -> io::Result<()> {
         let Self { silent, use_blacklist } = *self;
         let fname = if let Some(x) = fp.file_name() {
             x.to_string_lossy()
@@ -74,8 +74,6 @@ impl ProcessTask for JarRepackTask {
         }
     
         let file_opts = FileOptions::default().compression_level(Some(9));
-        let mut dsum = 0;
-        let mut zsum = 0;
     
         let pb2 = file_progress_bar();
         let mut ev: Vec<(String, String)> = Vec::new();
@@ -84,12 +82,10 @@ impl ProcessTask for JarRepackTask {
         let (pj, ps) = thread_progress_bar(pb2);
         
         let nfp = if let Some(pp) = out { pp.to_owned() } else { file_name_repack(fp) };
-        let fsum = optimize_archive(fp.to_owned(), nfp.clone(), &ps, ec, &file_opts, use_blacklist)
+        optimize_archive(fp.to_owned(), nfp.clone(), &ps, ec, &file_opts, use_blacklist)
             .map_err(|e| io::Error::new(e.kind(), format!("{}: {}", fp.display(), e)))?;
         drop(ps);
         pj.join().unwrap();
-        dsum += fsum;
-        zsum += file_size_diff(&fp, &nfp)?;
     
         if !ev.is_empty() {
             eprintln!("Errors found while repacking a file:");
@@ -98,7 +94,7 @@ impl ProcessTask for JarRepackTask {
             }
         }
     
-        Ok((dsum, zsum))
+        Ok(())
     }
 }
 
@@ -107,14 +103,12 @@ struct JarDirRepackTask {
     use_blacklist: bool,
 }
 impl ProcessTask for JarDirRepackTask {
-    fn process(&self, fp: &Path, out: Option<PathBuf>) -> io::Result<(i64, i64)> {
+    fn process(&self, fp: &Path, out: Option<PathBuf>) -> io::Result<()> {
         let Self { silent, use_blacklist } = *self;
         let mp = MultiProgress::new();
 
         let rd = fs::read_dir(fp)?;
         let file_opts = FileOptions::default().compression_level(Some(9));
-        let mut dsum = 0;
-        let mut zsum = 0;
 
         let ren: &dyn NewPath = if let Some(pp) = &out {
             fs::create_dir_all(pp)?;
@@ -144,14 +138,12 @@ impl ProcessTask for JarDirRepackTask {
                 pb.set_message(fname.to_string());
                 
                 let nfp = ren.new_path(&fp);
-                let fsum = optimize_archive(fp.clone(), nfp.clone(), &ps, ec, &file_opts, use_blacklist)
+                optimize_archive(fp.clone(), nfp.clone(), &ps, ec, &file_opts, use_blacklist)
                     .map_err(|e| io::Error::new(e.kind(), format!("{}: {}",  fp.display(), e)))?;
-                dsum += fsum;
                 let rev = ec.get_results();
                 if !rev.is_empty() {
                     jev.push((fname.to_string(), rev));
                 }
-                zsum += file_size_diff(&fp, &nfp)?;
             }
         }
         mp.clear()?;
@@ -169,12 +161,8 @@ impl ProcessTask for JarDirRepackTask {
             }
         }
 
-        Ok((dsum, zsum))
+        Ok(())
     }
-}
-
-fn file_size_diff(a: &Path, b: &Path) -> io::Result<i64> {
-    Ok((a.metadata()?.len() as i64) - (b.metadata()?.len() as i64))
 }
 
 fn file_name_repack(p: &Path) -> PathBuf {
