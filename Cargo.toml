@@ -1,6 +1,6 @@
 [package]
 name = "mc-repack"
-version = "0.11.0"
+version = "0.12.0"
 edition = "2021"
 authors = ["Szeweq"]
 license = "MIT"
@@ -9,7 +9,7 @@ readme = "README.md"
 homepage = "https://szeweq.xyz/mc-repack"
 repository = "https://github.com/szeweq/mc-repack"
 categories = ["command-line-utilities"]
-keywords = ["minecraft", "jar", "zip", "optimizer", "repack"]
+keywords = ["minecraft", "jar", "processing", "optimizer", "repack"]
 exclude = ["/.github", "benches/*", "test-jars/*"]
 
 [[bin]]
