@@ -9,39 +9,10 @@ use mc_repack::fop::*;
 use mc_repack::errors::{ErrorCollector, SilentCollector};
 use zip::write::FileOptions;
 
-#[derive(Debug, Parser)]
-#[command(version)]
-struct CliArgs {
-    /// (Optional) Path to a file/directory of archives (JAR and ZIP)
-    path: Option<PathBuf>,
-
-    /// Use this option to optimize files from directory directly [Reserved for future use]
-    #[arg(short)]
-    g: bool,
-
-    /// Use this option to pack optimized files into a JAR/ZIP file (only works with -g)
-    #[arg(short)]
-    z: bool,
-
-    /// (Optional) Destination path. It cannot be the same as the source!
-    #[arg(long)]
-    out: Option<PathBuf>,
-
-    /// Optimize more file formats (potentially breaking their debugging) [Reserved for future use]
-    #[arg(short, long)]
-    aggressive: bool,
-
-    /// Use built-in blacklist for files
-    #[arg(short = 'b', long)]
-    use_blacklist: bool,
-
-    /// Do not print file errors
-    #[arg(long)]
-    silent: bool
-}
+mod cli_args;
 
 fn main() -> io::Result<()> {
-    let cli_args = CliArgs::parse();
+    let args = cli_args::Args::parse();
 
     println!(r"
     █▀▄▀█ █▀▀ ▄▄ █▀█ █▀▀ █▀█ ▄▀█ █▀▀ █▄▀
@@ -49,15 +20,10 @@ fn main() -> io::Result<()> {
     ");
     let dt = Instant::now();
 
-    let fpath = cli_args.path.clone().unwrap_or_else(|| {
-        use dialoguer::{theme::ColorfulTheme, Input};
-        let fstr: String = Input::with_theme(&ColorfulTheme::default())
-            .with_prompt("Path to a file/directory").interact_text().unwrap();
-        PathBuf::from(fstr)
-    });
+    let fpath = args.actual_path();
 
-    let sums = process_task_from(&cli_args, &fpath)?
-        .process(&fpath, cli_args.out)?;
+    let sums = process_task_from(&args, &fpath)?
+        .process(&fpath, args.out)?;
 
     let dsum = sums.0.max(0) as u64;
     let zsum = sums.1.max(0) as u64;
@@ -78,8 +44,8 @@ fn file_progress_bar() -> ProgressBar {
     )
 }
 
-fn process_task_from(ca: &CliArgs, fp: &Path) -> io::Result<Box<dyn ProcessTask>> {
-    let CliArgs { silent, use_blacklist , ..} = *ca;
+fn process_task_from(ca: &cli_args::Args, fp: &Path) -> io::Result<Box<dyn ProcessTask>> {
+    let cli_args::Args { silent, use_blacklist , ..} = *ca;
     let fmeta = fp.metadata()?;
     if fmeta.is_dir() {
         Ok(Box::new(JarDirRepackTask { silent, use_blacklist }))
