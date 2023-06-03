@@ -27,6 +27,8 @@ These mods are tested and repacked by MC-Repack with the following results:
 | thermal_foundation-1.19.2-10.2.0.47.jar | 4.58 MB | 4.38 MB |
 | cfm-7.0.0-pre35-1.19.3.jar | 2.11 MB | 1.92 MB |
 
+More mods are available on [My Website](https://szeweq.xyz/mc-repack/mods).
+
 ## Installation
 Currently the only way to get this app is to use Cargo:
 ```sh
