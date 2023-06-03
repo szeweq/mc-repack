@@ -1,4 +1,4 @@
-use std::{fs, io, path::{PathBuf, Path}, time::Instant, thread::{self, JoinHandle}};
+use std::{fs, io, path::{PathBuf, Path}, thread::{self, JoinHandle}};
 
 use clap::Parser;
 use crossbeam_channel::Sender;
@@ -14,18 +14,13 @@ mod cli_args;
 fn main() -> io::Result<()> {
     let args = cli_args::Args::parse();
 
-    println!(r"
-    █▀▄▀█ █▀▀ ▄▄ █▀█ █▀▀ █▀█ ▄▀█ █▀▀ █▄▀
-    █ ▀ █ █▄▄    █▀▄ ██▄ █▀▀ █▀█ █▄▄ █ █
-    ");
-    let dt = Instant::now();
+    println!("█▀▄▀█ █▀▀ ▄▄ █▀█ █▀▀ █▀█ ▄▀█ █▀▀ █▄▀\n█ ▀ █ █▄▄    █▀▄ ██▄ █▀▀ █▀█ █▄▄ █ █\n");
 
     let fpath = args.actual_path();
 
     process_task_from(&args, &fpath)?
         .process(&fpath, args.out)?;
 
-    println!("Done in: {:.3?}", dt.elapsed());
     Ok(())
 }
 
