@@ -1,6 +1,6 @@
 [package]
 name = "mc-repack"
-version = "0.12.0"
+version = "0.12.1"
 edition = "2021"
 authors = ["Szeweq"]
 license = "MIT"
@@ -26,7 +26,7 @@ cli = ["clap", "dialoguer", "indicatif"]
 default = ["cli"]
 
 [dev-dependencies]
-criterion = "0.4"
+criterion = "0.5"
 
 [dependencies]
 zip = {version = "0.6", default-features = false, features = ["deflate"]}
@@ -38,7 +38,7 @@ toml = {version = "0.7", features = ["preserve_order"]}
 crossbeam-channel = "0.5"
 
 # CLI Dependencies
-clap = {optional = true, version = "4.2", features = ["derive", "cargo"]}
+clap = {optional = true, version = "4.3", features = ["derive", "cargo"]}
 dialoguer = {optional = true, version = "0.10", default-features = false}
 indicatif = {optional = true, version = "0.17"}
 
