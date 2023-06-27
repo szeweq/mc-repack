@@ -64,7 +64,7 @@ impl EntrySaverSpec for FSEntrySaver {
     }
     fn save_file(&mut self, fname: &str, buf: &[u8], _: usize) -> std::io::Result<()> {
         let mut fp = self.dest_dir.clone();
-        fp.push(fname.clone());
+        fp.push(fname);
         fs::write(fp, buf)
     }
 }

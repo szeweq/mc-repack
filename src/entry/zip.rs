@@ -71,7 +71,7 @@ impl <W: Write + Seek> EntrySaverSpec for ZipEntrySaver<W> {
     fn save_dir(&mut self, dir: &str) -> io::Result<()> {
         Ok(if dir != "./cache" {
             self.w.add_directory(dir, self.file_opts.clone())?
-        } else { () })
+        } else {  })
     }
     fn save_file(&mut self, name: &str, data: &[u8], compress_min: usize) -> io::Result<()> {
         let z = &mut self.w;

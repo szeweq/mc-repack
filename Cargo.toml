@@ -31,7 +31,7 @@ criterion = "0.5"
 [dependencies]
 zip = {version = "^0.6.6", default-features = false, features = ["deflate"]}
 serde_json = {version = "^1.0.93", features = ["preserve_order"]}
-oxipng = {version = "*", default-features = false, features = ["parallel"]}
+oxipng = {git = "https://github.com/shssoichiro/oxipng", default-features = false, features = ["parallel"]}
 libdeflater = "^0.14"
 flate2 = "^1.0.26"
 json_comments = "0.2"
@@ -42,9 +42,6 @@ crossbeam-channel = "^0.5.8"
 clap = {optional = true, version = "4.3", features = ["derive", "cargo"]}
 dialoguer = {optional = true, version = "0.10", default-features = false}
 indicatif = {optional = true, version = "0.17"}
-
-[patch.crates-io]
-oxipng = {git = "https://github.com/shssoichiro/oxipng.git"}
 
 [profile.release]
 lto = true
