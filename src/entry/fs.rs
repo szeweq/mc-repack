@@ -9,7 +9,7 @@ pub struct FSEntryReader {
 }
 impl FSEntryReader {
     /// Creates an entry reader with a source directory path.
-    pub fn new(src_dir: PathBuf) -> Self {
+    pub const fn new(src_dir: PathBuf) -> Self {
         Self { src_dir }
     }
 }
@@ -52,7 +52,7 @@ pub struct FSEntrySaver {
 }
 impl FSEntrySaver {
     /// Creates an entry saver with a destination directory path.
-    pub fn new(dest_dir: PathBuf) -> EntrySaver<Self> {
+    pub const fn new(dest_dir: PathBuf) -> EntrySaver<Self> {
         EntrySaver(Self { dest_dir })
     }
 }

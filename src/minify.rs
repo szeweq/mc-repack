@@ -67,7 +67,7 @@ impl MinifyType {
     }
 
     /// Define a minimal size for file compression. Files with lower sizes will be stored as-is.
-    pub fn compress_min(&self) -> usize {
+    pub const fn compress_min(&self) -> usize {
         use MinifyType::*;
         match self {
             PNG => 512,
@@ -91,7 +91,7 @@ fn minify_png(v: &[u8], vout: &mut Vec<u8>) -> Result_ {
     popts.filter.insert(oxipng::RowFilter::Paeth);
     //popts.filter.insert(oxipng::RowFilter::MinSum);
 
-    let v = oxipng::optimize_from_memory(&v, &popts)?;
+    let v = oxipng::optimize_from_memory(v, &popts)?;
     vout.extend_from_slice(&v);
     Ok(())
 }

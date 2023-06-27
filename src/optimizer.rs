@@ -38,7 +38,7 @@ pub fn optimize_archive(
         ZipEntryReader::new(fin).read_entries(tx, use_blacklist)
     });
     let fout = File::create(out_path)?;
-    ZipEntrySaver::custom(fout, file_opts.clone()).save_entries(rx, errors, ps)?;
+    ZipEntrySaver::custom(fout, *file_opts).save_entries(rx, errors, ps)?;
     t1.join().unwrap()?;
     Ok(())
 }

@@ -2,10 +2,7 @@ use std::{error::Error, fmt::Display};
 
 /// This method checks if a file extension can be ignored (likely not used).
 pub fn can_ignore_type(s: &str) -> bool {
-    match s {
-        "blend" | "blend1" | "psd" => true,
-        _ => false
-    }
+    matches!(s, "blend" | "blend1" | "psd")
 }
 
 /// An error struct informing that processed file is blacklisted.

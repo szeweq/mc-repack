@@ -12,7 +12,7 @@ pub struct ZipEntryReader<R: Read + Seek> {
 }
 impl <R: Read + Seek> ZipEntryReader<R> {
     /// Creates an entry reader with a specified reader.
-    pub fn new(r: R) -> Self {
+    pub const fn new(r: R) -> Self {
         Self { r }
     }
 }
@@ -69,13 +69,14 @@ impl <W: Write + Seek> ZipEntrySaver<W> {
 }
 impl <W: Write + Seek> EntrySaverSpec for ZipEntrySaver<W> {
     fn save_dir(&mut self, dir: &str) -> io::Result<()> {
-        Ok(if dir != "./cache" {
-            self.w.add_directory(dir, self.file_opts.clone())?
-        } else {  })
+        if dir != "./cache" {
+            self.w.add_directory(dir, self.file_opts)?
+        }
+        Ok(())
     }
     fn save_file(&mut self, name: &str, data: &[u8], compress_min: usize) -> io::Result<()> {
         let z = &mut self.w;
-        z.start_file(name, self.file_opts.clone()
+        z.start_file(name, self.file_opts
             .compression_method(compress_check(data, compress_min))
         )?;
         z.write_all(data)

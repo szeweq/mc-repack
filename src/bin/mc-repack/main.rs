@@ -76,8 +76,8 @@ impl ProcessTask for JarRepackTask {
         let ec: &mut dyn ErrorCollector = if silent { &mut sc } else { &mut ev };
         let (pj, ps) = thread_progress_bar(pb2);
         
-        let nfp = if let Some(pp) = out { pp.to_owned() } else { file_name_repack(fp) };
-        optimize_archive(fp.to_owned(), nfp.clone(), &ps, ec, &file_opts, use_blacklist)
+        let nfp = if let Some(pp) = out { pp } else { file_name_repack(fp) };
+        optimize_archive(fp.to_owned(), nfp, &ps, ec, &file_opts, use_blacklist)
             .map_err(|e| io::Error::new(e.kind(), format!("{}: {}", fp.display(), e)))?;
         drop(ps);
         pj.join().unwrap();

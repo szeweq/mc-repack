@@ -3,7 +3,7 @@ use crate::minify::{MinifyType, only_recompress};
 pub(crate) const REPACKED: &str = "$repack";
 
 /// A file type (not extension) that MC-Repack will check before repacking.
-#[derive(PartialEq)]
+#[derive(PartialEq, Eq)]
 pub enum FileType {
     /// Type for files which MC-Repack cannot repack.
     Other,
@@ -38,8 +38,7 @@ impl FileOp {
     pub(crate) fn by_name(fname: &str, use_blacklist: bool) -> Self {
         use FileOp::*;
         if fname.starts_with(".cache/") { return Ignore }
-        if fname.starts_with("META-INF/") {
-            let sub = &fname[9..];
+        if let Some(sub) =  fname.strip_prefix("META-INF/") {
             match sub {
                 "MANIFEST.MF" => {return Recompress(64) }
                 "SIGNFILE.SF" | "SIGNFILE.DSA" => { return Signfile }
