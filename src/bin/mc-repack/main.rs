@@ -18,7 +18,7 @@ fn main() -> io::Result<()> {
 
     let fpath = args.actual_path();
 
-    process_task_from(&args, &fpath)?
+    process_task_from(&args, fpath.metadata()?)?
         .process(&fpath, args.out)?;
 
     Ok(())
@@ -34,9 +34,8 @@ fn file_progress_bar() -> ProgressBar {
     )
 }
 
-fn process_task_from(ca: &cli_args::Args, fp: &Path) -> io::Result<Box<dyn ProcessTask>> {
+fn process_task_from(ca: &cli_args::Args, fmeta: fs::Metadata) -> io::Result<Box<dyn ProcessTask>> {
     let cli_args::Args { silent, use_blacklist , ..} = *ca;
-    let fmeta = fp.metadata()?;
     if fmeta.is_dir() {
         Ok(Box::new(JarDirRepackTask { silent, use_blacklist }))
     } else if fmeta.is_file() {
