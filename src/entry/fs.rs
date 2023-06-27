@@ -1,5 +1,5 @@
-use std::{path::PathBuf, fs};
-use crossbeam_channel::Sender;
+use std::{path::PathBuf, fs, io};
+use crossbeam_channel::{Sender, SendError};
 use crate::{optimizer::EntryType, fop::FileOp};
 use super::{EntryReader, EntrySaver, EntrySaverSpec};
 
@@ -18,12 +18,15 @@ impl EntryReader for FSEntryReader {
         self,
         tx: Sender<crate::optimizer::EntryType>,
         use_blacklist: bool
-    ) -> std::io::Result<()> {
+    ) -> io::Result<()> {
+        const SEND_ERR: fn(SendError<EntryType>) -> io::Error = |e: SendError<EntryType>| {
+            io::Error::new(io::ErrorKind::Other, e)
+        };
         let mut vdir = Vec::new();
         vdir.push(self.src_dir.clone());
         while let Some(px) = vdir.pop() {
             let rd = fs::read_dir(px)?.collect::<Result<Vec<_>, _>>()?;
-            tx.send(EntryType::Count(rd.len() as u64)).unwrap();
+            tx.send(EntryType::Count(rd.len() as u64)).map_err(SEND_ERR)?;
             for de in rd {
                 let meta = de.metadata()?;
                 if meta.is_dir() {
@@ -31,14 +34,14 @@ impl EntryReader for FSEntryReader {
                     let dname = dp.strip_prefix(&self.src_dir).expect("Subdir not in source dir")
                         .to_string_lossy().to_string();
                     vdir.push(dp);
-                    tx.send(EntryType::Directory(dname)).unwrap();
+                    tx.send(EntryType::Directory(dname)).map_err(SEND_ERR)?;
                 } else if meta.is_file() {
                     let fp = de.path();
                     let fname = fp.strip_prefix(&self.src_dir).expect("File not in source dir")
                         .to_string_lossy().to_string();
                     let fop = FileOp::by_name(&fname, use_blacklist);
                     let ff = fs::read(fp)?;
-                    tx.send(EntryType::File(fname, ff, fop)).unwrap();
+                    tx.send(EntryType::File(fname, ff, fop)).map_err(SEND_ERR)?;
                 }
             }
         }

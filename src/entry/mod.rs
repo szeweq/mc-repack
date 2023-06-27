@@ -7,7 +7,7 @@ pub mod zip;
 use std::io;
 use crate::{optimizer::{EntryType, ProgressState, StrError, ERR_SIGNFILE}, errors::ErrorCollector, fop};
 
-use crossbeam_channel::{Sender, Receiver};
+use crossbeam_channel::{Sender, Receiver, SendError};
 
 /// Trait for reading entries for further optimization. Typically used with `EntrySaver`.
 /// Any function that matches these arguments (excluding self) can be used as custom entry reader.
@@ -42,18 +42,21 @@ impl<T: EntrySaverSpec> EntrySaver<T> {
         ev: &mut dyn ErrorCollector,
         ps: &Sender<ProgressState>
     ) -> io::Result<()> {
+        const SEND_ERR: fn(SendError<ProgressState>) -> io::Error = |e: SendError<ProgressState>| {
+            io::Error::new(io::ErrorKind::Other, e)
+        };
         let mut cv = Vec::new();
         let mut n = 0;
         for et in rx {
             match et {
                 EntryType::Count(u) => {
-                    ps.send(ProgressState::Start(u)).unwrap();
+                    ps.send(ProgressState::Start(u)).map_err(SEND_ERR)?;
                 }
                 EntryType::Directory(dir) => {
                     self.0.save_dir(&dir)?;
                 }
                 EntryType::File(fname, buf, fop) => {
-                    ps.send(ProgressState::Push(n, fname.clone())).unwrap();
+                    ps.send(ProgressState::Push(n, fname.clone())).map_err(SEND_ERR)?;
                     n += 1;
                     use fop::FileOp::*;
                     match fop {
@@ -81,7 +84,7 @@ impl<T: EntrySaverSpec> EntrySaver<T> {
                 }
             }
         }
-        ps.send(ProgressState::Finish).unwrap();
+        ps.send(ProgressState::Finish).map_err(SEND_ERR)?;
         Ok(())
     }
 }

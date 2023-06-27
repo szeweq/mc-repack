@@ -1,5 +1,5 @@
 use std::io::{self, Read, Seek, BufReader, Write, BufWriter};
-use crossbeam_channel::Sender;
+use crossbeam_channel::{Sender, SendError};
 use flate2::bufread::DeflateEncoder;
 use zip::{ZipArchive, ZipWriter, write::FileOptions, CompressionMethod};
 
@@ -22,9 +22,12 @@ impl <R: Read + Seek> EntryReader for ZipEntryReader<R> {
         tx: Sender<EntryType>,
         use_blacklist: bool
     ) -> io::Result<()> {
+        const SEND_ERR: fn(SendError<EntryType>) -> io::Error = |e: SendError<EntryType>| {
+            io::Error::new(io::ErrorKind::Other, e)
+        };
         let mut za = ZipArchive::new(BufReader::new(self.r))?;
         let jfc = za.len() as u64;
-        tx.send(EntryType::Count(jfc)).unwrap();
+        tx.send(EntryType::Count(jfc)).map_err(SEND_ERR)?;
         for i in 0..jfc {
             let mut jf = za.by_index(i as usize)?;
             let fname = jf.name().to_string();
@@ -41,7 +44,7 @@ impl <R: Read + Seek> EntryReader for ZipEntryReader<R> {
                     }
                 }
                 EntryType::File(fname, obuf, fop)
-            }).unwrap();
+            }).map_err(SEND_ERR)?;
         }
         Ok(())
     }

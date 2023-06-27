@@ -1,4 +1,4 @@
-use std::{fs, io, path::{PathBuf, Path}, thread::{self, JoinHandle}};
+use std::{fs, io, path::{PathBuf, Path}, thread::{self, JoinHandle}, any::Any};
 
 use clap::Parser;
 use crossbeam_channel::Sender;
@@ -49,6 +49,7 @@ fn process_task_from(ca: &cli_args::Args, fp: &Path) -> io::Result<Box<dyn Proce
 trait ProcessTask {
     fn process(&self, fp: &Path, out: Option<PathBuf>) -> io::Result<()>;
 }
+const TASK_ERR: fn(Box<dyn Any + Send>) -> io::Error = |_| new_io_error("Task failed");
 
 struct JarRepackTask {
     silent: bool,
@@ -80,7 +81,7 @@ impl ProcessTask for JarRepackTask {
         optimize_archive(fp.to_owned(), nfp, &ps, ec, &file_opts, use_blacklist)
             .map_err(|e| io::Error::new(e.kind(), format!("{}: {}", fp.display(), e)))?;
         drop(ps);
-        pj.join().unwrap();
+        pj.join().map_err(TASK_ERR)?;
     
         if !ev.is_empty() {
             eprintln!("Errors found while repacking a file:");
@@ -143,7 +144,7 @@ impl ProcessTask for JarDirRepackTask {
         }
         mp.clear()?;
         drop(ps);
-        pj.join().unwrap();
+        pj.join().map_err(TASK_ERR)?;
 
         if !silent && !jev.is_empty() {
             eprintln!("Errors found while repacking files:");

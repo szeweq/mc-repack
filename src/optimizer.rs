@@ -1,9 +1,13 @@
-use std::{fs::File, io::{self}, error::Error, fmt, thread, path::{PathBuf}};
+use std::{fs::File, io::{self}, error::Error, fmt, thread, path::{PathBuf}, any::Any};
 
 use zip::write::FileOptions;
 use crossbeam_channel::{bounded, Sender};
 
 use crate::{fop::FileOp, errors::ErrorCollector, entry::{self, EntryReader, EntrySaver, EntrySaverSpec}};
+
+const JOIN_ERR: fn(Box<dyn Any + Send>) -> io::Error = |_| {
+    io::Error::new(io::ErrorKind::Other, "Thread join failed")
+};
 
 /// Optimizes entries using entry reader in saver in separate threads.
 pub fn optimize_with<R: EntryReader + Send + 'static, S: EntrySaverSpec>(
@@ -18,8 +22,7 @@ pub fn optimize_with<R: EntryReader + Send + 'static, S: EntrySaverSpec>(
         reader.read_entries(tx, use_blacklist)
     });
     saver.save_entries(rx, errors, ps)?;
-    t1.join().unwrap()?;
-    Ok(())
+    t1.join().map_err(JOIN_ERR)?
 }
 
 /// Optimizes an archive and saves repacked one in a new destination.
@@ -39,8 +42,7 @@ pub fn optimize_archive(
     });
     let fout = File::create(out_path)?;
     ZipEntrySaver::custom(fout, *file_opts).save_entries(rx, errors, ps)?;
-    t1.join().unwrap()?;
-    Ok(())
+    t1.join().map_err(JOIN_ERR)?
 }
 
 /// Optimizes files in directory and saves them in a new destination.
@@ -60,8 +62,7 @@ pub fn optimize_fs_copy(
         FSEntryReader::new(in_path).read_entries(tx, use_blacklist)
     });
     FSEntrySaver::new(out_path).save_entries(rx, errors, ps)?;
-    t1.join().unwrap()?;
-    Ok(())
+    t1.join().map_err(JOIN_ERR)?
 }
 
 /// An entry type based on extracted data from an archive
