@@ -31,7 +31,7 @@ criterion = "0.5"
 [dependencies]
 zip = {version = "^0.6.6", default-features = false, features = ["deflate"]}
 serde_json = {version = "^1.0.93", features = ["preserve_order"]}
-oxipng = {git = "https://github.com/shssoichiro/oxipng", default-features = false, features = ["parallel"]}
+oxipng = {git = "https://github.com/shssoichiro/oxipng", version = "^8.0.0", default-features = false, features = ["parallel"]}
 libdeflater = "^0.14"
 flate2 = "^1.0.26"
 json_comments = "0.2"
