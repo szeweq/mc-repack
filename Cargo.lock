@@ -553,7 +553,6 @@ dependencies = [
  "flate2",
  "indicatif",
  "json_comments",
- "libdeflater",
  "oxipng",
  "serde_json",
  "toml",
