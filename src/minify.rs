@@ -42,7 +42,7 @@ pub enum MinifyType {
 }
 impl MinifyType {
     /// Return a MinifyType based on file extension.
-    pub fn by_extension(ftype: &str) -> Option<MinifyType> {
+    pub fn by_extension(ftype: &str) -> Option<Self> {
         use MinifyType::*;
         match ftype {
             "png" => Some(PNG),
