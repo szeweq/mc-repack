@@ -18,10 +18,7 @@ fn main() -> io::Result<()> {
 
     let fpath = args.actual_path();
 
-    process_task_from(&args, fpath.metadata()?)?
-        .process(&fpath, args.out)?;
-
-    Ok(())
+    process_task_from(args, &fpath)
 }
 
 const PB_STYLE_ZIP: &str = "# {pos}/{len} {wide_msg}";
@@ -34,15 +31,17 @@ fn file_progress_bar() -> ProgressBar {
     )
 }
 
-fn process_task_from(ca: &cli_args::Args, fmeta: fs::Metadata) -> io::Result<Box<dyn ProcessTask>> {
-    let cli_args::Args { silent, use_blacklist , ..} = *ca;
-    if fmeta.is_dir() {
-        Ok(Box::new(JarDirRepackTask { silent, use_blacklist }))
+fn process_task_from(ca: cli_args::Args, fp: &Path) -> io::Result<()> {
+    let cli_args::Args { silent, use_blacklist, ..} = ca;
+    let fmeta = fp.metadata()?;
+    let task: Box<dyn ProcessTask> = if fmeta.is_dir() {
+        Box::new(JarDirRepackTask { silent, use_blacklist })
     } else if fmeta.is_file() {
-        Ok(Box::new(JarRepackTask { silent, use_blacklist }))
+        Box::new(JarRepackTask { silent, use_blacklist })
     } else {
-        Err(new_io_error("Not a file or directory"))
-    }
+        return Err(new_io_error("Not a file or directory"))
+    };
+    task.process(fp, ca.out)
 }
 
 trait ProcessTask {
