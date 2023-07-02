@@ -20,12 +20,11 @@ fn find_brackets(b: &[u8]) -> Result<(usize, usize), BracketsError> {
     Ok((i, j))
 }
 
-const DUMMIES: &[&str] = &["glsl", "html", "js", "kotlin_module", "md", "nbt", "ogg", "txt", "vert", "xml"];
-
 /// Checks if a file can be recompressed (not minified) depending on its extension
 pub fn only_recompress(ftype: &str) -> bool {
-    DUMMIES.binary_search(&ftype).is_ok()
+    matches!(ftype, "glsl" | "html" | "js" | "kotlin_module" | "md" | "nbt" | "ogg" | "txt" | "vert" | "xml")
 }
+
 
 /// A type to determine a minifying method and minimum compress size for file data.
 pub enum MinifyType {
