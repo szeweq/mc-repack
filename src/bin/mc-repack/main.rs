@@ -48,7 +48,7 @@ fn process_task_from(ca: &cli_args::Args, fmeta: fs::Metadata) -> io::Result<Box
 trait ProcessTask {
     fn process(&self, fp: &Path, out: Option<PathBuf>) -> io::Result<()>;
 }
-const TASK_ERR: fn(Box<dyn Any + Send>) -> io::Error = |_| new_io_error("Task failed");
+fn task_err(_: Box<dyn Any + Send>) -> io::Error { new_io_error("Task failed") }
 
 struct JarRepackTask {
     silent: bool,
@@ -80,12 +80,12 @@ impl ProcessTask for JarRepackTask {
         optimize_archive(fp.to_owned(), nfp, &ps, ec, &file_opts, use_blacklist)
             .map_err(|e| io::Error::new(e.kind(), format!("{}: {}", fp.display(), e)))?;
         drop(ps);
-        pj.join().map_err(TASK_ERR)?;
+        pj.join().map_err(task_err)?;
     
         if !ev.is_empty() {
-            eprintln!("Errors found while repacking a file:");
+            eprintln!("Errors found in file entries:");
             for (f, e) in ev {
-                eprintln!("| # {}: {}", f, e);
+                eprintln!(" # {}: {}", f, e);
             }
         }
     
@@ -143,12 +143,12 @@ impl ProcessTask for JarDirRepackTask {
         }
         mp.clear()?;
         drop(ps);
-        pj.join().map_err(TASK_ERR)?;
+        pj.join().map_err(task_err)?;
 
         if !silent && !jev.is_empty() {
-            eprintln!("Errors found while repacking files:");
+            eprintln!("Errors found in file entries:");
             for (f, v) in jev {
-                eprintln!(" File: {}", f);
+                eprintln!(" In: {}", f);
                 for (pf, e) in v {
                     eprintln!(" # {}: {}", pf, e);
                 }
