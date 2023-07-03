@@ -26,9 +26,6 @@ jobs:
     runs-on: ${{ matrix.os || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@v3
-      - uses: taiki-e/github-actions/install-rust@main
-        with:
-          toolchain: stable
       - uses: taiki-e/upload-rust-binary-action@v1
         with:
           bin: mc-repack
