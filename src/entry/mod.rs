@@ -39,7 +39,7 @@ impl<T: EntrySaverSpec> EntrySaver<T> {
     pub fn save_entries(
         mut self,
         rx: Receiver<EntryType>,
-        ev: &mut dyn ErrorCollector,
+        ev: &mut ErrorCollector,
         ps: &Sender<ProgressState>
     ) -> io::Result<()> {
         const SEND_ERR: fn(SendError<ProgressState>) -> io::Error = |e: SendError<ProgressState>| {

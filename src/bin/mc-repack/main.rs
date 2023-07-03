@@ -1,12 +1,10 @@
-use std::{fs, io, path::{PathBuf, Path}, thread::{self, JoinHandle}, any::Any};
+use std::{fs, io, path::{PathBuf, Path}, thread::{self, JoinHandle}, any::Any, error::Error};
 
 use clap::Parser;
 use crossbeam_channel::Sender;
 use indicatif::{ProgressBar, ProgressStyle, MultiProgress};
 
-use mc_repack::optimizer::*;
-use mc_repack::fop::*;
-use mc_repack::errors::{ErrorCollector, SilentCollector};
+use mc_repack::{optimizer::*, fop::*, errors::{EntryRepackError, ErrorCollector}};
 use zip::write::FileOptions;
 
 mod cli_args;
@@ -41,11 +39,12 @@ fn process_task_from(ca: cli_args::Args, fp: &Path) -> io::Result<()> {
     } else {
         return Err(new_io_error("Not a file or directory"))
     };
-    task.process(fp, ca.out)
+    print_entry_errors(task.process(fp, ca.out)?.results());
+    Ok(())
 }
 
 trait ProcessTask {
-    fn process(&self, fp: &Path, out: Option<PathBuf>) -> io::Result<()>;
+    fn process(&self, fp: &Path, out: Option<PathBuf>) -> io::Result<ErrorCollector>;
 }
 fn task_err(_: Box<dyn Any + Send>) -> io::Error { new_io_error("Task failed") }
 
@@ -54,7 +53,7 @@ struct JarRepackTask {
     use_blacklist: bool
 }
 impl ProcessTask for JarRepackTask {
-    fn process(&self, fp: &Path, out: Option<PathBuf>) -> io::Result<()> {
+    fn process(&self, fp: &Path, out: Option<PathBuf>) -> io::Result<ErrorCollector> {
         let Self { silent, use_blacklist } = *self;
         let fname = if let Some(x) = fp.file_name() {
             x.to_string_lossy()
@@ -70,25 +69,16 @@ impl ProcessTask for JarRepackTask {
         let file_opts = FileOptions::default().compression_level(Some(9));
     
         let pb2 = file_progress_bar();
-        let mut ev: Vec<(String, String)> = Vec::new();
-        let mut sc = SilentCollector;
-        let ec: &mut dyn ErrorCollector = if silent { &mut sc } else { &mut ev };
+        let mut ec = ErrorCollector::new(silent);
         let (pj, ps) = thread_progress_bar(pb2);
         
         let nfp = out.unwrap_or_else(|| file_name_repack(fp));
-        optimize_archive(fp.to_owned(), nfp, &ps, ec, &file_opts, use_blacklist)
+        optimize_archive(fp.to_owned(), nfp, &ps, &mut ec, &file_opts, use_blacklist)
             .map_err(|e| io::Error::new(e.kind(), format!("{}: {}", fp.display(), e)))?;
         drop(ps);
         pj.join().map_err(task_err)?;
     
-        if !ev.is_empty() {
-            eprintln!("Errors found in file entries:");
-            for (f, e) in ev {
-                eprintln!(" # {}: {}", f, e);
-            }
-        }
-    
-        Ok(())
+        Ok(ec)
     }
 }
 
@@ -97,7 +87,7 @@ struct JarDirRepackTask {
     use_blacklist: bool,
 }
 impl ProcessTask for JarDirRepackTask {
-    fn process(&self, fp: &Path, out: Option<PathBuf>) -> io::Result<()> {
+    fn process(&self, fp: &Path, out: Option<PathBuf>) -> io::Result<ErrorCollector> {
         let Self { silent, use_blacklist } = *self;
         let mp = MultiProgress::new();
 
@@ -114,10 +104,7 @@ impl ProcessTask for JarDirRepackTask {
         ));
         let pb2 = mp.add(file_progress_bar());
         
-        let mut ev: Vec<(String, String)> = Vec::new();
-        let mut sc = SilentCollector;
-        let mut jev: Vec<(String, Vec<(String, String)>)> = Vec::new();
-        let ec: &mut dyn ErrorCollector = if silent { &mut sc } else { &mut ev };
+        let mut ec = ErrorCollector::new(silent);
         let (pj, ps) = thread_progress_bar(pb2);
 
         for rde in rd {
@@ -129,33 +116,19 @@ impl ProcessTask for JarDirRepackTask {
             };
             let meta = fp.metadata()?;
             if meta.is_file() && check_file_type(fname) == FileType::Original {
+                ec.rename(&fname);
                 pb.set_message(fname.to_string());
                 
                 let nfp = ren.new_path(&fp);
-                optimize_archive(fp.clone(), nfp.clone(), &ps, ec, &file_opts, use_blacklist)
+                optimize_archive(fp.clone(), nfp.clone(), &ps, &mut ec, &file_opts, use_blacklist)
                     .map_err(|e| io::Error::new(e.kind(), format!("{}: {}",  fp.display(), e)))?;
-                let rev = ec.get_results();
-                if !rev.is_empty() {
-                    jev.push((fname.to_string(), rev));
-                }
             }
         }
         mp.clear()?;
         drop(ps);
         pj.join().map_err(task_err)?;
 
-        if !silent && !jev.is_empty() {
-            eprintln!("Errors found in file entries:");
-            for (f, v) in jev {
-                eprintln!(" In: {}", f);
-                for (pf, e) in v {
-                    eprintln!(" # {}: {}", pf, e);
-                }
-                eprintln!();
-            }
-        }
-
-        Ok(())
+        Ok(ec)
     }
 }
 
@@ -202,4 +175,13 @@ fn thread_progress_bar(pb: ProgressBar) -> (JoinHandle<()>, Sender<ProgressState
         }
     });
     (pj, ps)
+}
+
+fn print_entry_errors(v: &[EntryRepackError]) {
+    if !v.is_empty() {
+        eprintln!("Errors found in file entries:");
+        for ere in v {
+            eprintln!(" # {}: {}", ere.name(), ere.source().map_or("no error".to_string(), |e| e.to_string()));
+        }
+    }
 }

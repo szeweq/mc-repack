@@ -14,7 +14,7 @@ pub fn optimize_with<R: EntryReader + Send + 'static, S: EntrySaverSpec>(
     reader: R,
     saver: EntrySaver<S>,
     ps: &Sender<ProgressState>,
-    errors: &mut dyn ErrorCollector,
+    errors: &mut ErrorCollector,
     use_blacklist: bool
 ) -> io::Result<()> {
     let (tx, rx) = bounded(2);
@@ -30,7 +30,7 @@ pub fn optimize_archive(
     in_path: PathBuf,
     out_path: PathBuf,
     ps: &Sender<ProgressState>,
-    errors: &mut dyn ErrorCollector,
+    errors: &mut ErrorCollector,
     file_opts: &FileOptions,
     use_blacklist: bool
 ) -> io::Result<()> {
@@ -50,7 +50,7 @@ pub fn optimize_fs_copy(
     in_path: PathBuf,
     out_path: PathBuf,
     ps: &Sender<ProgressState>,
-    errors: &mut dyn ErrorCollector,
+    errors: &mut ErrorCollector,
     use_blacklist: bool
 ) -> io::Result<()> {
     use entry::fs::*;
