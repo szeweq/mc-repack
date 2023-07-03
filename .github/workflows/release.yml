@@ -8,24 +8,32 @@ permissions:
 jobs:
   release:
     name: Release for ${{ matrix.target }}
-    runs-on: ubuntu-latest
     strategy:
-      fail-fast: false
       matrix:
         include:
-          - target: x86_64-pc-windows-gnu
-            archive: zip
+          - target: aarch64-unknown-linux-gnu
+          - target: aarch64-unknown-linux-musl
+          - target: x86_64-unknown-linux-gnu
           - target: x86_64-unknown-linux-musl
-            archive: tar.gz
+          - target: aarch64-apple-darwin
+            os: macos-11
           - target: x86_64-apple-darwin
-            archive: zip
+            os: macos-10.15
+          - target: aarch64-pc-windows-msvc
+            os: windows-2019
+          - target: x86_64-pc-windows-msvc
+            os: windows-2019
+    runs-on: ${{ matrix.os || 'ubuntu-latest' }}
     steps:
-      - uses: actions/checkout@master
-      - name: Compile and release
-        uses: rust-build/rust-build.action@v1.4.0
+      - uses: actions/checkout@v3
+      - uses: taiki-e/github-actions/install-rust@main
+        with:
+          toolchain: stable
+      - uses: taiki-e/upload-rust-binary-action@v1.12
+        with:
+          bin: mc-repack
+          target: ${{ matrix.target }}
+          tar: all
+          zip: windows
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          RUSTTARGET: ${{ matrix.target }}
-          ARCHIVE_TYPES: ${{ matrix.archive }}
-          TOOLCHAIN_VERSION: 1.70.0
