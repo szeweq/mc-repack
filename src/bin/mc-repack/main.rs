@@ -28,36 +28,39 @@ fn file_progress_bar() -> ProgressBar {
 fn process_task_from(ca: cli_args::Args) -> io::Result<()> {
     let cli_args::Args { silent, use_blacklist, ..} = ca;
     let fmeta = ca.path.metadata()?;
+    let ropts = RepackOpts { silent, use_blacklist };
     let task: Box<dyn ProcessTask> = if fmeta.is_dir() {
-        Box::new(JarDirRepackTask { silent, use_blacklist })
+        Box::new(JarDirRepackTask)
     } else if fmeta.is_file() {
-        Box::new(JarRepackTask { silent, use_blacklist })
+        Box::new(JarRepackTask)
     } else {
         return Err(new_io_error("Not a file or directory"))
     };
-    print_entry_errors(task.process(&ca.path, ca.out)?.results());
+    print_entry_errors(task.process(&ca.path, ca.out, &ropts)?.results());
     Ok(())
 }
 
-trait ProcessTask {
-    fn process(&self, fp: &Path, out: Option<PathBuf>) -> io::Result<ErrorCollector>;
-}
-fn task_err(_: Box<dyn Any + Send>) -> io::Error { new_io_error("Task failed") }
-
-struct JarRepackTask {
+struct RepackOpts {
     silent: bool,
     use_blacklist: bool
 }
+
+trait ProcessTask {
+    fn process(&self, fp: &Path, out: Option<PathBuf>, opts: &RepackOpts) -> io::Result<ErrorCollector>;
+}
+fn task_err(_: Box<dyn Any + Send>) -> io::Error { new_io_error("Task failed") }
+
+struct JarRepackTask;
 impl ProcessTask for JarRepackTask {
-    fn process(&self, fp: &Path, out: Option<PathBuf>) -> io::Result<ErrorCollector> {
-        let Self { silent, use_blacklist } = *self;
+    fn process(&self, fp: &Path, out: Option<PathBuf>, opts: &RepackOpts) -> io::Result<ErrorCollector> {
+        let RepackOpts { silent, use_blacklist } = *opts;
         let fname = if let Some(x) = fp.file_name() {
             x.to_string_lossy()
         } else {
             return Err(new_io_error(ERR_FNAME_INVALID))
         };
         match check_file_type(&fname) {
-            FileType::Other => { return Err(new_io_error("File is not an JAR/ZIP archive")) }
+            FileType::Other => { return Err(new_io_error("Not a JAR/ZIP archive")) }
             FileType::Repacked => { return Err(new_io_error("This archive is marked as repacked, no re-repacking needed")) }
             _ => {}
         }
@@ -78,13 +81,10 @@ impl ProcessTask for JarRepackTask {
     }
 }
 
-struct JarDirRepackTask {
-    silent: bool,
-    use_blacklist: bool,
-}
+struct JarDirRepackTask;
 impl ProcessTask for JarDirRepackTask {
-    fn process(&self, fp: &Path, out: Option<PathBuf>) -> io::Result<ErrorCollector> {
-        let Self { silent, use_blacklist } = *self;
+    fn process(&self, fp: &Path, out: Option<PathBuf>, opts: &RepackOpts) -> io::Result<ErrorCollector> {
+        let RepackOpts { silent, use_blacklist } = *opts;
         let mp = MultiProgress::new();
 
         let rd = fs::read_dir(fp)?;
