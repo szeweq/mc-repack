@@ -5,8 +5,8 @@ use clap::Parser;
 #[derive(Debug, Parser)]
 #[command(version)]
 pub struct Args {
-    /// (Optional) Path to a file/directory of archives (JAR and ZIP)
-    pub path: Option<PathBuf>,
+    /// (Required) Path to a file/directory of archives (JAR and ZIP)
+    pub path: PathBuf,
 
     /// Use this option to optimize files from directory directly [Reserved for future use]
     #[arg(short)]
@@ -31,15 +31,4 @@ pub struct Args {
     /// Do not print file errors
     #[arg(long)]
     pub silent: bool
-}
-
-impl Args {
-    pub fn actual_path(&self) -> PathBuf {
-        self.path.clone().unwrap_or_else(|| {
-            use dialoguer::{theme::ColorfulTheme, Input};
-            let fstr: String = Input::with_theme(&ColorfulTheme::default())
-                .with_prompt("Path to a file/directory").interact_text().unwrap();
-            PathBuf::from(fstr)
-        })
-    }
 }

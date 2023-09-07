@@ -11,12 +11,8 @@ mod cli_args;
 
 fn main() -> io::Result<()> {
     let args = cli_args::Args::parse();
-
     println!("█▀▄▀█ █▀▀ ▄▄ █▀█ █▀▀ █▀█ ▄▀█ █▀▀ █▄▀\n█ ▀ █ █▄▄    █▀▄ ██▄ █▀▀ █▀█ █▄▄ █ █\n");
-
-    let fpath = args.actual_path();
-
-    process_task_from(args, &fpath)
+    process_task_from(args)
 }
 
 const PB_STYLE_ZIP: &str = "# {pos}/{len} {wide_msg}";
@@ -29,9 +25,9 @@ fn file_progress_bar() -> ProgressBar {
     )
 }
 
-fn process_task_from(ca: cli_args::Args, fp: &Path) -> io::Result<()> {
+fn process_task_from(ca: cli_args::Args) -> io::Result<()> {
     let cli_args::Args { silent, use_blacklist, ..} = ca;
-    let fmeta = fp.metadata()?;
+    let fmeta = ca.path.metadata()?;
     let task: Box<dyn ProcessTask> = if fmeta.is_dir() {
         Box::new(JarDirRepackTask { silent, use_blacklist })
     } else if fmeta.is_file() {
@@ -39,7 +35,7 @@ fn process_task_from(ca: cli_args::Args, fp: &Path) -> io::Result<()> {
     } else {
         return Err(new_io_error("Not a file or directory"))
     };
-    print_entry_errors(task.process(fp, ca.out)?.results());
+    print_entry_errors(task.process(&ca.path, ca.out)?.results());
     Ok(())
 }
 
