@@ -60,8 +60,8 @@ impl MinifyType {
             PNG => minify_png(v, vout),
             JSON => minify_json(v, vout),
             TOML => minify_toml(v, vout),
-            Hash => remove_line_comments("#", v, vout),
-            Slash => remove_line_comments("//", v, vout)
+            Hash => Ok(remove_line_comments("#", v, vout)?),
+            Slash => Ok(remove_line_comments("//", v, vout)?)
         }
     }
 
@@ -91,7 +91,7 @@ fn minify_png(v: &[u8], vout: &mut Vec<u8>) -> Result_ {
     //popts.filter.insert(oxipng::RowFilter::MinSum);
 
     let v = oxipng::optimize_from_memory(v, &popts)?;
-    vout.extend_from_slice(&v);
+    let _ = std::mem::replace(vout, v);
     Ok(())
 }
 
@@ -118,16 +118,15 @@ fn minify_toml(v: &[u8], vout: &mut Vec<u8>) -> Result_ {
     Ok(())
 }
 
-fn remove_line_comments(bs: &str, v: &[u8], vout: &mut Vec<u8>) -> Result_ {
+fn remove_line_comments(bs: &str, v: &[u8], vout: &mut Vec<u8>) -> Result<(), std::io::Error> {
     v.lines().try_for_each(|l| {
         let l = l?;
         if !(l.is_empty() || l.trim_start().starts_with(bs)) {
-            vout.extend(l.bytes());
+            vout.extend_from_slice(l.as_bytes());
             vout.push(b'\n');
         }
         Ok::<_, std::io::Error>(())
-    })?;
-    Ok(())
+    })
 }
 
 /// An error indicating that a file has mismatched pair of brackets
@@ -136,7 +135,7 @@ pub struct BracketsError;
 impl Error for BracketsError {}
 impl std::fmt::Display for BracketsError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "The file has improper opening and/or closing brackets")
+        write!(f, "File has improper opening/closing brackets")
     }
 }
 
