@@ -1,6 +1,6 @@
 [package]
 name = "mc-repack"
-version = "0.14.1"
+version = "0.15.0"
 edition = "2021"
 authors = ["Szeweq"]
 license = "MIT"
@@ -38,7 +38,7 @@ toml = {version = "^0.7.4", features = ["preserve_order"]}
 crossbeam-channel = "^0.5.8"
 
 # CLI Dependencies
-clap = {optional = true, version = "4.3", features = ["derive", "cargo"]}
+clap = {optional = true, version = "4.4", features = ["derive", "cargo"]}
 indicatif = {optional = true, version = "0.17"}
 
 [profile.release]
