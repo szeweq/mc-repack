@@ -162,7 +162,7 @@ fn thread_progress_bar(pb: ProgressBar) -> (JoinHandle<()>, Sender<ProgressState
                 Start(u) => { pb.set_length(u); }
                 Push(num, msg) => {
                     pb.set_position(num);
-                    pb.set_message(msg);
+                    pb.set_message(msg.to_string());
                 }
                 Finish => {
                     pb.finish_with_message("Saving...");

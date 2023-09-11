@@ -1,4 +1,4 @@
-use std::{fs::File, io::{self}, error::Error, fmt, thread, path::{PathBuf}, any::Any};
+use std::{fs::File, io::{self}, error::Error, fmt, thread, path::{PathBuf}, any::Any, sync::Arc};
 
 use zip::write::FileOptions;
 use crossbeam_channel::{bounded, Sender};
@@ -70,9 +70,9 @@ pub enum EntryType {
     /// Number of files stored in an archive
     Count(u64),
     /// A directory with its path
-    Directory(String),
+    Directory(Arc<str>),
     /// A file with its path, data and file operation
-    File(String, Vec<u8>, FileOp)
+    File(Arc<str>, Vec<u8>, FileOp)
 }
 
 #[derive(Debug)]
@@ -92,7 +92,7 @@ pub enum ProgressState {
     /// Starts a progress with a step count
     Start(u64),
     /// Pushes a new step with text
-    Push(u64, String),
+    Push(u64, Arc<str>),
     /// Marks a progress as finished
     Finish
 }

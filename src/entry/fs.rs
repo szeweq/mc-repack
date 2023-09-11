@@ -34,14 +34,14 @@ impl EntryReader for FSEntryReader {
                     let dname = dp.strip_prefix(&self.src_dir).expect("Subdir not in source dir")
                         .to_string_lossy().to_string();
                     vdir.push(dp);
-                    tx.send(EntryType::Directory(dname)).map_err(SEND_ERR)?;
+                    tx.send(EntryType::Directory(dname.into())).map_err(SEND_ERR)?;
                 } else if meta.is_file() {
                     let fp = de.path();
                     let fname = fp.strip_prefix(&self.src_dir).expect("File not in source dir")
                         .to_string_lossy().to_string();
                     let fop = FileOp::by_name(&fname, use_blacklist);
                     let ff = fs::read(fp)?;
-                    tx.send(EntryType::File(fname, ff, fop)).map_err(SEND_ERR)?;
+                    tx.send(EntryType::File(fname.into(), ff, fop)).map_err(SEND_ERR)?;
                 }
             }
         }
