@@ -1,4 +1,4 @@
-use std::{fs::File, io::{self}, error::Error, fmt, thread, path::{PathBuf}, any::Any, sync::Arc};
+use std::{fs::File, io::{self}, error::Error, fmt, thread, path::Path, any::Any, sync::Arc};
 
 use zip::write::FileOptions;
 use crossbeam_channel::{bounded, Sender};
@@ -27,8 +27,8 @@ pub fn optimize_with<R: EntryReader + Send + 'static, S: EntrySaverSpec>(
 
 /// Optimizes an archive and saves repacked one in a new destination.
 pub fn optimize_archive(
-    in_path: PathBuf,
-    out_path: PathBuf,
+    in_path: Box<Path>,
+    out_path: Box<Path>,
     ps: &Sender<ProgressState>,
     errors: &mut ErrorCollector,
     file_opts: &FileOptions,
@@ -47,8 +47,8 @@ pub fn optimize_archive(
 
 /// Optimizes files in directory and saves them in a new destination.
 pub fn optimize_fs_copy(
-    in_path: PathBuf,
-    out_path: PathBuf,
+    in_path: Box<Path>,
+    out_path: Box<Path>,
     ps: &Sender<ProgressState>,
     errors: &mut ErrorCollector,
     use_blacklist: bool

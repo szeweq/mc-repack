@@ -72,7 +72,7 @@ impl ProcessTask for JarRepackTask {
         let (pj, ps) = thread_progress_bar(pb2);
         
         let nfp = out.unwrap_or_else(|| file_name_repack(fp));
-        optimize_archive(fp.to_owned(), nfp, &ps, &mut ec, &file_opts, use_blacklist)
+        optimize_archive(fp.to_owned().into_boxed_path(), nfp.into_boxed_path(), &ps, &mut ec, &file_opts, use_blacklist)
             .map_err(|e| io::Error::new(e.kind(), format!("{}: {}", fp.display(), e)))?;
         drop(ps);
         pj.join().map_err(task_err)?;
@@ -89,11 +89,6 @@ impl ProcessTask for JarDirRepackTask {
 
         let rd = fs::read_dir(fp)?;
         let file_opts = FileOptions::default().compression_level(Some(9));
-
-        let ren: &dyn NewPath = if let Some(pp) = &out {
-            fs::create_dir_all(pp)?;
-            pp
-        } else { &() };
 
         let pb = mp.add(ProgressBar::new_spinner().with_style(
             ProgressStyle::with_template("{wide_msg}").unwrap()
@@ -115,9 +110,9 @@ impl ProcessTask for JarDirRepackTask {
                 ec.rename(&fname);
                 pb.set_message(fname.to_string());
                 
-                let nfp = ren.new_path(&fp);
-                optimize_archive(fp.clone(), nfp.clone(), &ps, &mut ec, &file_opts, use_blacklist)
-                    .map_err(|e| io::Error::new(e.kind(), format!("{}: {}",  fp.display(), e)))?;
+                let nfp = new_path(out.as_ref(), &fp);
+                optimize_archive(fp.into_boxed_path(), nfp.into_boxed_path(), &ps, &mut ec, &file_opts, use_blacklist)
+                    .map_err(|e| io::Error::new(e.kind(), format!("{}: {}",  rde.path().display(), e)))?;
             }
         }
         mp.clear()?;
@@ -135,17 +130,14 @@ fn file_name_repack(p: &Path) -> PathBuf {
     p.with_file_name(x.to_string())
 }
 
-trait NewPath { fn new_path(&self, p: &Path) -> PathBuf; }
-impl NewPath for () {
-    fn new_path(&self, p: &Path) -> PathBuf {
-        file_name_repack(p)
-    }
-}
-impl NewPath for PathBuf {
-    fn new_path(&self, p: &Path) -> PathBuf {
-        let mut np = self.clone();
-        np.push(p.file_name().unwrap_or_default());
-        np
+fn new_path(src: Option<&PathBuf>, p: &Path) -> PathBuf {
+    match src {
+        None => file_name_repack(p),
+        Some(x) => {
+            let mut np = x.clone();
+            np.push(p.file_name().unwrap_or_default());
+            np
+        }
     }
 }
 

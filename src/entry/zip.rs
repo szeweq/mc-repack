@@ -1,4 +1,4 @@
-use std::io::{self, Read, Seek, BufReader, Write, BufWriter};
+use std::{io::{self, Read, Seek, BufReader, Write, BufWriter}, sync::Arc};
 use crossbeam_channel::{Sender, SendError};
 use flate2::bufread::DeflateEncoder;
 use zip::{ZipArchive, ZipWriter, write::FileOptions, CompressionMethod};
@@ -30,9 +30,9 @@ impl <R: Read + Seek> EntryReader for ZipEntryReader<R> {
         tx.send(EntryType::Count(jfc)).map_err(SEND_ERR)?;
         for i in 0..jfc {
             let mut jf = za.by_index(i as usize)?;
-            let fname = jf.name().to_string();
+            let fname: Arc<str> = jf.name().into();
             tx.send(if fname.ends_with('/') {
-                EntryType::Directory(fname.into())
+                EntryType::Directory(fname)
             } else {
                 let fop = FileOp::by_name(&fname, use_blacklist);
                 let mut obuf = Vec::new();
@@ -43,7 +43,7 @@ impl <R: Read + Seek> EntryReader for ZipEntryReader<R> {
                         jf.read_to_end(&mut obuf)?;
                     }
                 }
-                EntryType::File(fname.into(), obuf, fop)
+                EntryType::File(fname, obuf, fop)
             }).map_err(SEND_ERR)?;
         }
         Ok(())
