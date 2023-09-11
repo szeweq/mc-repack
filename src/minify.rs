@@ -119,14 +119,14 @@ fn minify_toml(v: &[u8], vout: &mut Vec<u8>) -> Result_ {
 }
 
 fn remove_line_comments(bs: &str, v: &[u8], vout: &mut Vec<u8>) -> Result<(), std::io::Error> {
-    v.lines().try_for_each(|l| {
+    for l in v.lines() {
         let l = l?;
         if !(l.is_empty() || l.trim_start().starts_with(bs)) {
             vout.extend_from_slice(l.as_bytes());
             vout.push(b'\n');
         }
-        Ok::<_, std::io::Error>(())
-    })
+    }
+    Ok(())
 }
 
 /// An error indicating that a file has mismatched pair of brackets
@@ -141,9 +141,9 @@ impl std::fmt::Display for BracketsError {
 
 fn uncomment_json_recursive(m: &mut serde_json::Map<String, Value>) {
     m.retain(|k, _| !k.starts_with('_'));
-    m.values_mut().for_each(|v| {
+    for v in m.values_mut() {
         if let Value::Object(xm) = v {
             uncomment_json_recursive(xm);
         }
-    });
+    }
 }
