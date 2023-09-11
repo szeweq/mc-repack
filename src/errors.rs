@@ -4,7 +4,7 @@ use std::{error::Error, fmt::Display};
 pub struct ErrorCollector {
     silent: bool,
     vec: Vec<EntryRepackError>,
-    name: Option<String>,
+    name: Option<Box<str>>,
 }
 impl ErrorCollector {
     /// Creates a new `ErrorCollector` with a `silent` option.
@@ -12,14 +12,14 @@ impl ErrorCollector {
 
     /// Sets the new prefix name for collected entries. 
     pub fn rename(&mut self, name: &dyn Display)  {
-        self.name = Some(name.to_string());
+        self.name = Some(name.to_string().into_boxed_str());
     }
 
     /// Collects errors for files based on their name (path).
     pub fn collect(&mut self, name: &dyn Display, e: Box<dyn Error>) {
         if !self.silent {
             self.vec.push(EntryRepackError {
-                name: self.name.as_ref().map_or_else(|| name.to_string(), |n| format!("{n}/{name}")),
+                name: self.name.as_ref().map_or_else(|| name.to_string(), |n| format!("{n}/{name}")).into_boxed_str(),
                 inner: e
             })
         }
@@ -34,7 +34,8 @@ impl ErrorCollector {
 /// An error struct that wraps an inner error thrown while a file was processed. 
 #[derive(Debug)]
 pub struct EntryRepackError {
-    name: String,
+    /// An associated file name from the error.
+    pub name: Box<str>,
     inner: Box<dyn Error>
 }
 impl Error for EntryRepackError {
@@ -45,11 +46,5 @@ impl Error for EntryRepackError {
 impl Display for EntryRepackError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.name)
-    }
-}
-impl EntryRepackError {
-    /// Borrows an associated file name from the error.
-    pub fn name(&self) -> &str {
-        &self.name
     }
 }

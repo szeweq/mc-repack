@@ -76,7 +76,7 @@ pub enum EntryType {
 }
 
 #[derive(Debug)]
-pub(crate) struct StrError(pub String);
+pub(crate) struct StrError(pub Box<str>);
 impl Error for StrError {}
 impl fmt::Display for StrError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

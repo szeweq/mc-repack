@@ -177,7 +177,7 @@ fn print_entry_errors(v: &[EntryRepackError]) {
     if !v.is_empty() {
         eprintln!("Errors found in file entries:");
         for ere in v {
-            eprintln!(" # {}: {}", ere.name(), ere.source().map_or("no error".to_string(), |e| e.to_string()));
+            eprintln!(" # {}: {}", ere.name, ere.source().map_or("no error".to_string(), |e| e.to_string()));
         }
     }
 }

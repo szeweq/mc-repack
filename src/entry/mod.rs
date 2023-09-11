@@ -64,7 +64,7 @@ impl<T: EntrySaverSpec> EntrySaver<T> {
                             ev.collect(&fname, Box::new(crate::blacklist::BlacklistedFile));
                         }
                         Signfile => {
-                            ev.collect(&fname, Box::new(StrError(ERR_SIGNFILE.to_string())));
+                            ev.collect(&fname, Box::new(StrError(ERR_SIGNFILE.into())));
                         }
                         Minify(m) => {
                             let buf = match m.minify(&buf, &mut cv) {
