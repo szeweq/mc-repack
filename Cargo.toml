@@ -25,9 +25,6 @@ path = "src/lib.rs"
 cli = ["clap", "indicatif"]
 default = ["cli"]
 
-[dev-dependencies]
-criterion = "0.5"
-
 [dependencies]
 zip = {version = "^0.6.6", default-features = false, features = ["deflate"]}
 serde_json = {version = "^1.0.93", features = ["preserve_order"]}
