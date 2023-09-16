@@ -107,7 +107,7 @@ impl ProcessTask for JarDirRepackTask {
             };
             let meta = fp.metadata()?;
             if meta.is_file() && check_file_type(fname) == FileType::Original {
-                ec.rename(&fname);
+                ec.rename(fname);
                 pb.set_message(fname.to_string());
                 
                 let nfp = new_path(out.as_ref(), &fp);

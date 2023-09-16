@@ -11,12 +11,12 @@ impl ErrorCollector {
     pub const fn new(silent: bool) -> Self { Self { silent, vec: Vec::new(), name: None } }
 
     /// Sets the new prefix name for collected entries. 
-    pub fn rename(&mut self, name: &dyn Display)  {
+    pub fn rename(&mut self, name: &str)  {
         self.name = Some(name.to_string().into_boxed_str());
     }
 
     /// Collects errors for files based on their name (path).
-    pub fn collect(&mut self, name: &dyn Display, e: Box<dyn Error>) {
+    pub fn collect(&mut self, name: &str, e: Box<dyn Error>) {
         if !self.silent {
             self.vec.push(EntryRepackError {
                 name: self.name.as_ref().map_or_else(|| name.to_string(), |n| format!("{n}/{name}")).into_boxed_str(),
