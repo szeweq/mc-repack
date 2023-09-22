@@ -61,7 +61,7 @@ impl<T: EntrySaverSpec> EntrySaver<T> {
                     use fop::FileOp::*;
                     match fop {
                         Ignore => {
-                            ev.collect(&fname, Box::new(crate::blacklist::BlacklistedFile));
+                            ev.collect(&fname, Box::new(crate::errors::BlacklistedFile));
                         }
                         Signfile => {
                             ev.collect(&fname, Box::new(StrError(ERR_SIGNFILE.into())));

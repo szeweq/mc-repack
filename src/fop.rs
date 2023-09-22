@@ -59,6 +59,10 @@ impl FileOp {
         if let Some(x) = MinifyType::by_extension(ftype) {
             return Minify(x)
         }
-        if use_blacklist && crate::blacklist::can_ignore_type(ftype) { Ignore } else { Recompress(2) }
+        if use_blacklist && can_ignore_type(ftype) { Ignore } else { Recompress(2) }
     }
+}
+
+fn can_ignore_type(s: &str) -> bool {
+    matches!(s, "blend" | "blend1" | "psd")
 }

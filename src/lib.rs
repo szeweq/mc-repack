@@ -13,8 +13,6 @@
 pub mod minify;
 /// Optimizer (file system or ZIP archive).
 pub mod optimizer;
-/// A blacklist for files which should be ignore (like project files).
-pub mod blacklist;
 /// File operations used for repacking.
 pub mod fop;
 /// Error collecting for entries.
