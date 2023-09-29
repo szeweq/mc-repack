@@ -38,6 +38,12 @@ pub struct EntryRepackError {
     pub name: Box<str>,
     inner: Box<dyn Error>
 }
+impl EntryRepackError {
+    /// Returns the inner error.
+    pub fn inner_error(&self) -> &dyn Error {
+        &*self.inner
+    }
+}
 impl Error for EntryRepackError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         Some(&*self.inner)
@@ -45,7 +51,7 @@ impl Error for EntryRepackError {
 }
 impl Display for EntryRepackError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.name)
+        write!(f, "{}: {}", self.name, self.inner)
     }
 }
 
@@ -56,6 +62,6 @@ pub struct BlacklistedFile;
 impl Error for BlacklistedFile {}
 impl Display for BlacklistedFile {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Blacklisted")
+        f.write_str("Blacklisted")
     }
 }

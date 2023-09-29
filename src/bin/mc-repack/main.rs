@@ -11,7 +11,7 @@ mod cli_args;
 
 fn main() -> io::Result<()> {
     let args = cli_args::Args::parse();
-    println!("█▀▄▀█ █▀▀ ▄▄ █▀█ █▀▀ █▀█ ▄▀█ █▀▀ █▄▀\n█ ▀ █ █▄▄    █▀▄ ██▄ █▀▀ █▀█ █▄▄ █ █\n");
+    println!("█▀▄▀█ █▀▀ ▄▄ █▀█ █▀▀ █▀█ ▄▀█ █▀▀ █▄▀\n█ ▀ █ █▄▄    █▀▄ ██▄ █▀▀ █▀█ █▄▄ █ █ by Szeweq\n");
     process_task_from(args)
 }
 
@@ -167,9 +167,9 @@ fn thread_progress_bar(pb: ProgressBar) -> (JoinHandle<()>, Sender<ProgressState
 
 fn print_entry_errors(v: &[EntryRepackError]) {
     if !v.is_empty() {
-        eprintln!("Errors found in file entries:");
+        eprintln!("Errors found in files:");
         for ere in v {
-            eprintln!(" # {}: {}", ere.name, ere.source().map_or("no error".to_string(), |e| e.to_string()));
+            eprintln!(" # {ere}");
         }
     }
 }
