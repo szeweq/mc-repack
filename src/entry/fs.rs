@@ -16,7 +16,7 @@ impl FSEntryReader {
 impl EntryReader for FSEntryReader {
     fn read_entries(
         self,
-        tx: Sender<crate::optimizer::EntryType>,
+        tx: Sender<EntryType>,
         use_blacklist: bool
     ) -> io::Result<()> {
         const SEND_ERR: fn(SendError<EntryType>) -> io::Error = |e: SendError<EntryType>| {
@@ -29,20 +29,29 @@ impl EntryReader for FSEntryReader {
             tx.send(EntryType::Count(rd.len() as u64)).map_err(SEND_ERR)?;
             for de in rd {
                 let meta = de.metadata()?;
-                if meta.is_dir() {
+                let et = if meta.is_dir() {
                     let dp = de.path();
-                    let dname = dp.strip_prefix(&self.src_dir).expect("Subdir not in source dir")
-                        .to_string_lossy().to_string();
+                    let dname = if let Ok(d) = dp.strip_prefix(&self.src_dir) {
+                        d.to_string_lossy().to_string()
+                    } else {
+                        continue
+                    };
                     vdir.push(dp);
-                    tx.send(EntryType::Directory(dname.into())).map_err(SEND_ERR)?;
+                    EntryType::Directory(dname.into())
                 } else if meta.is_file() {
                     let fp = de.path();
-                    let fname = fp.strip_prefix(&self.src_dir).expect("File not in source dir")
-                        .to_string_lossy();
+                    let fname = if let Ok(d) = fp.strip_prefix(&self.src_dir) {
+                        d.to_string_lossy().to_string()
+                    } else {
+                        continue
+                    };
                     let fop = FileOp::by_name(&fname, use_blacklist);
                     let ff = fs::read(&fp)?;
-                    tx.send(EntryType::File(fname.into(), ff, fop)).map_err(SEND_ERR)?;
-                }
+                    EntryType::File(fname.into(), ff, fop)
+                } else {
+                    continue
+                };
+                tx.send(et).map_err(SEND_ERR)?;
             }
         }
         Ok(())
