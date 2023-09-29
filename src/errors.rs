@@ -19,7 +19,7 @@ impl ErrorCollector {
     pub fn collect(&mut self, name: &str, e: Box<dyn Error>) {
         if !self.silent {
             self.vec.push(EntryRepackError {
-                name: self.name.as_ref().map_or_else(|| name.to_string(), |n| format!("{n}/{name}")).into_boxed_str(),
+                name: self.name.to_owned().map_or_else(|| name.to_string(), |n| format!("{n}/{name}")).into_boxed_str(),
                 inner: e
             })
         }
@@ -55,13 +55,21 @@ impl Display for EntryRepackError {
     }
 }
 
-/// An error struct informing that processed file is blacklisted.
+/// An error indicating a reason why a file cannot be repacked
 #[derive(Debug)]
-pub struct BlacklistedFile;
+pub enum FileIgnoreError {
+    /// A processed file is blacklisted.
+    Blacklisted,
+    /// A processed file contains SHA-256 hashes of zipped entries
+    Signfile
+}
 
-impl Error for BlacklistedFile {}
-impl Display for BlacklistedFile {
+impl Error for FileIgnoreError {}
+impl Display for FileIgnoreError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str("Blacklisted")
+        f.write_str(match self {
+            Self::Blacklisted => "blacklisted",
+            Self::Signfile => "file cannot be repacked since it contains SHA-256 hashes of zipped entries",
+        })
     }
 }

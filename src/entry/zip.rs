@@ -37,7 +37,7 @@ impl <R: Read + Seek> EntryReader for ZipEntryReader<R> {
                 let fop = FileOp::by_name(&fname, use_blacklist);
                 let mut obuf = Vec::new();
                 match fop {
-                    FileOp::Ignore => {}
+                    FileOp::Ignore(_) => {}
                     _ => {
                         obuf.reserve_exact(jf.size() as usize);
                         jf.read_to_end(&mut obuf)?;
@@ -77,10 +77,10 @@ impl <W: Write + Seek> EntrySaverSpec for ZipEntrySaver<W> {
         }
         Ok(())
     }
-    fn save_file(&mut self, name: &str, data: &[u8], compress_min: usize) -> io::Result<()> {
+    fn save_file(&mut self, name: &str, data: &[u8], compress_min: u32) -> io::Result<()> {
         let z = &mut self.w;
         z.start_file(name, self.file_opts
-            .compression_method(compress_check(data, compress_min))
+            .compression_method(compress_check(data, compress_min as usize))
         )?;
         z.write_all(data)
     }

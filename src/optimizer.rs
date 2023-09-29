@@ -1,4 +1,4 @@
-use std::{fs::File, io::{self}, error::Error, fmt, thread, path::Path, any::Any, sync::Arc};
+use std::{fs::File, io::{self}, thread, path::Path, any::Any, sync::Arc};
 
 use zip::write::FileOptions;
 use crossbeam_channel::{bounded, Sender};
@@ -74,17 +74,6 @@ pub enum EntryType {
     /// A file with its path, data and file operation
     File(Arc<str>, Vec<u8>, FileOp)
 }
-
-#[derive(Debug)]
-pub(crate) struct StrError(pub Box<str>);
-impl Error for StrError {}
-impl fmt::Display for StrError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.0)
-    }
-}
-
-pub(crate) const ERR_SIGNFILE: &str = "This file cannot be repacked since it contains SHA-256 digests for zipped entries";
 
 /// A progress state to update information about currently optimized entry
 #[derive(Debug, Clone)]

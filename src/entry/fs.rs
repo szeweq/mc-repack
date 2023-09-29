@@ -65,7 +65,7 @@ impl EntrySaverSpec for FSEntrySaver {
         dp.push(dir);
         fs::create_dir(dp)
     }
-    fn save_file(&mut self, fname: &str, buf: &[u8], _: usize) -> std::io::Result<()> {
+    fn save_file(&mut self, fname: &str, buf: &[u8], _: u32) -> std::io::Result<()> {
         let mut fp = self.dest_dir.to_path_buf();
         fp.push(fname);
         fs::write(fp, buf)

@@ -66,7 +66,7 @@ impl MinifyType {
     }
 
     /// Define a minimal size for file compression. Files with lower sizes will be stored as-is.
-    pub const fn compress_min(&self) -> usize {
+    pub const fn compress_min(&self) -> u32 {
         use MinifyType::*;
         match self {
             PNG => 512,

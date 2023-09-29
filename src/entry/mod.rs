@@ -5,7 +5,7 @@ pub mod fs;
 pub mod zip;
 
 use std::io;
-use crate::{optimizer::{EntryType, ProgressState, StrError, ERR_SIGNFILE}, errors::ErrorCollector, fop};
+use crate::{optimizer::{EntryType, ProgressState}, errors::ErrorCollector, fop};
 
 use crossbeam_channel::{Sender, Receiver, SendError};
 
@@ -30,7 +30,7 @@ pub trait EntrySaverSpec {
     /// Saves a directory.
     fn save_dir(&mut self, dir: &str) -> io::Result<()>;
     /// Saves a file with a minimum file size constraint for compression.
-    fn save_file(&mut self, fname: &str, buf: &[u8], min_compress: usize) -> io::Result<()>;
+    fn save_file(&mut self, fname: &str, buf: &[u8], min_compress: u32) -> io::Result<()>;
     
 }
 impl<T: EntrySaverSpec> EntrySaver<T> {
@@ -60,11 +60,8 @@ impl<T: EntrySaverSpec> EntrySaver<T> {
                     n += 1;
                     use fop::FileOp::*;
                     match fop {
-                        Ignore => {
-                            ev.collect(&fname, Box::new(crate::errors::BlacklistedFile));
-                        }
-                        Signfile => {
-                            ev.collect(&fname, Box::new(StrError(ERR_SIGNFILE.into())));
+                        Ignore(e) => {
+                            ev.collect(&fname, Box::new(e));
                         }
                         Minify(m) => {
                             let buf = match m.minify(&buf, &mut cv) {

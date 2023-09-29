@@ -1,4 +1,4 @@
-use crate::minify::{MinifyType, only_recompress};
+use crate::{minify::{MinifyType, only_recompress}, errors::FileIgnoreError};
 
 pub(crate) const REPACKED: &str = "_repack";
 
@@ -25,25 +25,23 @@ pub fn check_file_type(s: &str) -> FileType {
 /// A file operation needed before a file is saved in repacked archive
 pub enum FileOp {
     /// Recompress data (check minimal size to determine if a file can be compressed or not).
-    Recompress(usize),
+    Recompress(u32),
     /// Minify a file.
     Minify(MinifyType),
-    /// Ignore a file.
-    Ignore,
-    /// A "Signfile" was found.
-    Signfile
+    /// Ignore a file and return an error.
+    Ignore(FileIgnoreError),
 }
 
 impl FileOp {
     pub(crate) fn by_name(fname: &str, use_blacklist: bool) -> Self {
         use FileOp::*;
-        if fname.starts_with(".cache/") { return Ignore }
+        if fname.starts_with(".cache/") { return Ignore(FileIgnoreError::Blacklisted) }
         if let Some(sub) =  fname.strip_prefix("META-INF/") {
             match sub {
                 "MANIFEST.MF" => {return Recompress(64) }
-                "SIGNFILE.SF" | "SIGNFILE.DSA" => { return Signfile }
+                "SIGNFILE.SF" | "SIGNFILE.DSA" => { return Ignore(FileIgnoreError::Signfile) }
                 x if x.starts_with("SIG-") || [".DSA", ".RSA", ".SF"].into_iter().any(|e| x.ends_with(e)) => {
-                    return Signfile
+                    return Ignore(FileIgnoreError::Signfile)
                 }
                 x if x.starts_with("services/") => { return Recompress(64) }
                 _ => {}
@@ -59,7 +57,7 @@ impl FileOp {
         if let Some(x) = MinifyType::by_extension(ftype) {
             return Minify(x)
         }
-        if use_blacklist && can_ignore_type(ftype) { Ignore } else { Recompress(2) }
+        if use_blacklist && can_ignore_type(ftype) { Ignore(FileIgnoreError::Blacklisted) } else { Recompress(2) }
     }
 }
 
