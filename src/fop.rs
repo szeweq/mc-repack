@@ -1,6 +1,6 @@
 use crate::minify::{MinifyType, only_recompress};
 
-pub(crate) const REPACKED: &str = "$repack";
+pub(crate) const REPACKED: &str = "_repack";
 
 /// A file type (not extension) that MC-Repack will check before repacking.
 #[derive(PartialEq, Eq)]

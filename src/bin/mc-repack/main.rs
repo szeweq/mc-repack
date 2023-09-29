@@ -124,10 +124,10 @@ impl ProcessTask for JarDirRepackTask {
 }
 
 fn file_name_repack(p: &Path) -> PathBuf {
-    let stem = p.file_stem().unwrap_or_default().to_string_lossy();
-    let ext = p.extension().unwrap_or_default().to_string_lossy();
-    let x = stem + "$repack." + ext;
-    p.with_file_name(x.to_string())
+    let stem = p.file_stem().and_then(std::ffi::OsStr::to_str).unwrap_or_default();
+    let ext = p.extension().and_then(std::ffi::OsStr::to_str).unwrap_or_default();
+    let nw = format!("{}_repack.{}", stem, ext);
+    p.with_file_name(nw)
 }
 
 fn new_path(src: Option<&PathBuf>, p: &Path) -> PathBuf {
