@@ -1,4 +1,4 @@
-use std::{fs, io, path::{PathBuf, Path}, thread::{self, JoinHandle}, any::Any, error::Error};
+use std::{fs, io, path::{PathBuf, Path}, thread::{self, JoinHandle}, any::Any};
 
 use clap::Parser;
 use crossbeam_channel::Sender;
@@ -29,10 +29,10 @@ fn process_task_from(ca: cli_args::Args) -> io::Result<()> {
     let cli_args::Args { silent, use_blacklist, ..} = ca;
     let fmeta = ca.path.metadata()?;
     let ropts = RepackOpts { silent, use_blacklist };
-    let task: Box<dyn ProcessTask> = if fmeta.is_dir() {
-        Box::new(JarDirRepackTask)
+    let task: &dyn ProcessTask = if fmeta.is_dir() {
+        &JarDirRepackTask
     } else if fmeta.is_file() {
-        Box::new(JarRepackTask)
+        &JarRepackTask
     } else {
         return Err(new_io_error("Not a file or directory"))
     };
