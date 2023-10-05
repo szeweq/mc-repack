@@ -61,7 +61,7 @@ impl<T: EntrySaverSpec> EntrySaver<T> {
                     use fop::FileOp::*;
                     match fop {
                         Ignore(e) => {
-                            ev.collect(&fname, Box::new(e));
+                            ev.collect(&fname, e.into());
                         }
                         Minify(m) => {
                             let buf = match m.minify(&buf, &mut cv) {

@@ -1,7 +1,9 @@
-use std::{io::{Cursor, BufRead}, error::Error};
+use std::{io::Cursor, error::Error};
 
 use json_comments::StripComments;
 use serde_json::Value;
+
+use crate::errors;
 
 const BOM_BYTES: [u8; 3] = [239, 187, 191];
 fn strip_bom(b: &[u8]) -> &[u8] {
@@ -54,7 +56,7 @@ impl MinifyType {
     }
 
     /// Minifies file data and writes the result in provided vec.
-    pub fn minify(&self, v: &[u8], vout: &mut Vec<u8>) -> Result<(), Box<dyn Error>> {
+    pub fn minify(&self, v: &[u8], vout: &mut Vec<u8>) -> Result_ {
         use MinifyType::*;
         match self {
             PNG => minify_png(v, vout),
@@ -76,7 +78,7 @@ impl MinifyType {
     }
 }
 
-type Result_ = Result<(), Box<dyn Error>>;
+type Result_ = Result<(), errors::Error_>;
 
 fn minify_png(v: &[u8], vout: &mut Vec<u8>) -> Result_ {
     let mut popts = oxipng::Options {
@@ -118,9 +120,9 @@ fn minify_toml(v: &[u8], vout: &mut Vec<u8>) -> Result_ {
     Ok(())
 }
 
-fn remove_line_comments(bs: &str, v: &[u8], vout: &mut Vec<u8>) -> Result<(), std::io::Error> {
-    for l in v.lines() {
-        let l = l?;
+fn remove_line_comments(bs: &str, v: &[u8], vout: &mut Vec<u8>) -> Result<(), std::str::Utf8Error> {
+    for l in v.split(|&b| b == b'\n' || b == b'\r').filter(|l| !l.is_empty()) {
+        let l = std::str::from_utf8(l)?;
         if !(l.is_empty() || l.trim_start().starts_with(bs)) {
             vout.extend_from_slice(l.as_bytes());
             vout.push(b'\n');

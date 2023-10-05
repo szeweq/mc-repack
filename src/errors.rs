@@ -1,5 +1,10 @@
 use std::{error::Error, fmt::Display};
 
+#[cfg(not(feature = "anyhow"))]
+pub(crate) type Error_ = Box<dyn Error>;
+#[cfg(feature = "anyhow")]
+pub(crate) type Error_ = anyhow::Error;
+
 /// A struct for collecting errors.
 pub struct ErrorCollector {
     silent: bool,
@@ -16,7 +21,7 @@ impl ErrorCollector {
     }
 
     /// Collects errors for files based on their name (path).
-    pub fn collect(&mut self, name: &str, e: Box<dyn Error>) {
+    pub fn collect(&mut self, name: &str, e: Error_) {
         if !self.silent {
             self.vec.push(EntryRepackError {
                 name: self.name.to_owned().map_or_else(|| name.to_string(), |n| format!("{n}/{name}")).into_boxed_str(),
@@ -36,7 +41,7 @@ impl ErrorCollector {
 pub struct EntryRepackError {
     /// An associated file name from the error.
     pub name: Box<str>,
-    inner: Box<dyn Error>
+    inner: Error_
 }
 impl EntryRepackError {
     /// Returns the inner error.

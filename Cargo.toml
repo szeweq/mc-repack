@@ -22,7 +22,8 @@ name = "mc_repack"
 path = "src/lib.rs"
 
 [features]
-cli = ["clap", "indicatif"]
+cli = ["dep:clap", "dep:indicatif"]
+anyhow = ["dep:anyhow"]
 default = ["cli"]
 
 [dependencies]
@@ -33,6 +34,7 @@ flate2 = "^1.0.26"
 json_comments = "0.2"
 toml = {version = "^0.8.0", features = ["preserve_order"]}
 crossbeam-channel = "^0.5.8"
+anyhow = {optional = true, version = "1.0"}
 
 # CLI Dependencies
 clap = {optional = true, version = "4.4", features = ["derive", "cargo"]}
