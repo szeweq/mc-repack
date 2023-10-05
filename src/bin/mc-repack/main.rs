@@ -10,9 +10,11 @@ use zip::write::FileOptions;
 mod cli_args;
 
 #[cfg(not(feature = "anyhow"))]
-type Result_<T> = io::Result<T>;
+type Error_ = io::Error;
 #[cfg(feature = "anyhow")]
-type Result_<T> = anyhow::Result<T>;
+type Error_ = anyhow::Error;
+
+type Result_<T> = Result<T, Error_>;
 
 fn main() -> Result_<()> {
     let args = cli_args::Args::parse();
@@ -48,7 +50,17 @@ struct RepackOpts {
 trait ProcessTask {
     fn process(&self, fp: &Path, out: Option<PathBuf>, opts: &RepackOpts) -> Result_<ErrorCollector>;
 }
-fn task_err(_: Box<dyn Any + Send>) -> io::Error { new_io_error("Task failed") }
+
+const TASK_ERR_MSG: &str = "Task failed";
+
+#[cfg(not(feature = "anyhow"))]
+fn task_err(_: Box<dyn Any + Send>) -> Error_ {
+    io::Error::new(io::ErrorKind::Other, TASK_ERR_MSG)
+}
+#[cfg(feature = "anyhow")]
+fn task_err(_: Box<dyn Any + Send>) -> Error_ {
+    anyhow::anyhow!(TASK_ERR_MSG)
+}
 
 struct JarRepackTask;
 impl ProcessTask for JarRepackTask {
@@ -139,10 +151,6 @@ fn new_path(src: Option<&PathBuf>, p: &Path) -> PathBuf {
             np
         }
     }
-}
-
-fn new_io_error(s: &str) -> io::Error {
-    io::Error::new(io::ErrorKind::Other, s)
 }
 
 fn thread_progress_bar(pb: ProgressBar) -> (JoinHandle<()>, Sender<ProgressState>) {
