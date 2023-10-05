@@ -9,35 +9,35 @@ use zip::write::FileOptions;
 
 mod cli_args;
 
-fn main() -> io::Result<()> {
+#[cfg(not(feature = "anyhow"))]
+type Result_<T> = io::Result<T>;
+#[cfg(feature = "anyhow")]
+type Result_<T> = anyhow::Result<T>;
+
+fn main() -> Result_<()> {
     let args = cli_args::Args::parse();
     println!("█▀▄▀█ █▀▀ ▄▄ █▀█ █▀▀ █▀█ ▄▀█ █▀▀ █▄▀\n█ ▀ █ █▄▄    █▀▄ ██▄ █▀▀ █▀█ █▄▄ █ █ by Szeweq\n");
-    process_task_from(args)
-}
-
-const PB_STYLE_ZIP: &str = "# {pos}/{len} {wide_msg}";
-
-const ERR_FNAME_INVALID: &str = "Invalid file name";
-
-fn file_progress_bar() -> ProgressBar {
-    ProgressBar::new(0).with_style(
-        ProgressStyle::with_template(PB_STYLE_ZIP).unwrap()
-    )
-}
-
-fn process_task_from(ca: cli_args::Args) -> io::Result<()> {
-    let cli_args::Args { silent, use_blacklist, ..} = ca;
-    let fmeta = ca.path.metadata()?;
+    
+    let cli_args::Args { path, silent, use_blacklist, ..} = args;
+    let fmeta = path.metadata()?;
     let ropts = RepackOpts { silent, use_blacklist };
     let task: &dyn ProcessTask = if fmeta.is_dir() {
         &JarDirRepackTask
     } else if fmeta.is_file() {
         &JarRepackTask
     } else {
-        return Err(new_io_error("Not a file or directory"))
+        return Err(TaskError::NotFileOrDir.into());
     };
-    print_entry_errors(task.process(&ca.path, ca.out, &ropts)?.results());
+    print_entry_errors(task.process(&path, args.out, &ropts)?.results());
     Ok(())
+}
+
+const PB_STYLE_ZIP: &str = "# {pos}/{len} {wide_msg}";
+
+fn file_progress_bar() -> ProgressBar {
+    ProgressBar::new(0).with_style(
+        ProgressStyle::with_template(PB_STYLE_ZIP).unwrap()
+    )
 }
 
 struct RepackOpts {
@@ -46,22 +46,22 @@ struct RepackOpts {
 }
 
 trait ProcessTask {
-    fn process(&self, fp: &Path, out: Option<PathBuf>, opts: &RepackOpts) -> io::Result<ErrorCollector>;
+    fn process(&self, fp: &Path, out: Option<PathBuf>, opts: &RepackOpts) -> Result_<ErrorCollector>;
 }
 fn task_err(_: Box<dyn Any + Send>) -> io::Error { new_io_error("Task failed") }
 
 struct JarRepackTask;
 impl ProcessTask for JarRepackTask {
-    fn process(&self, fp: &Path, out: Option<PathBuf>, opts: &RepackOpts) -> io::Result<ErrorCollector> {
+    fn process(&self, fp: &Path, out: Option<PathBuf>, opts: &RepackOpts) -> Result_<ErrorCollector> {
         let RepackOpts { silent, use_blacklist } = *opts;
         let fname = if let Some(x) = fp.file_name() {
             x.to_string_lossy()
         } else {
-            return Err(new_io_error(ERR_FNAME_INVALID))
+            return Err(TaskError::InvalidFileName.into())
         };
         match check_file_type(&fname) {
-            FileType::Other => { return Err(new_io_error("Not a JAR/ZIP archive")) }
-            FileType::Repacked => { return Err(new_io_error("This archive is marked as repacked, no re-repacking needed")) }
+            FileType::Other => { return Err(TaskError::NotZip.into()) }
+            FileType::Repacked => { return Err(TaskError::AlreadyRepacked.into()) }
             _ => {}
         }
     
@@ -83,7 +83,7 @@ impl ProcessTask for JarRepackTask {
 
 struct JarDirRepackTask;
 impl ProcessTask for JarDirRepackTask {
-    fn process(&self, fp: &Path, out: Option<PathBuf>, opts: &RepackOpts) -> io::Result<ErrorCollector> {
+    fn process(&self, fp: &Path, out: Option<PathBuf>, opts: &RepackOpts) -> Result_<ErrorCollector> {
         let RepackOpts { silent, use_blacklist } = *opts;
         let mp = MultiProgress::new();
 
@@ -103,7 +103,7 @@ impl ProcessTask for JarDirRepackTask {
             let fp = rde.path();
             let rfn = rde.file_name();
             let Some(fname) = rfn.to_str() else {
-                return Err(new_io_error(ERR_FNAME_INVALID))
+                return Err(TaskError::InvalidFileName.into())
             };
             let meta = fp.metadata()?;
             if meta.is_file() && check_file_type(fname) == FileType::Original {
@@ -171,5 +171,29 @@ fn print_entry_errors(v: &[EntryRepackError]) {
         for ere in v {
             eprintln!(" # {ere}");
         }
+    }
+}
+
+#[derive(Debug)]
+enum TaskError {
+    InvalidFileName,
+    NotZip,
+    NotFileOrDir,
+    AlreadyRepacked
+}
+impl std::error::Error for TaskError {}
+impl std::fmt::Display for TaskError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            TaskError::InvalidFileName => "invalid file name",
+            TaskError::NotZip => "not a ZIP archive",
+            TaskError::NotFileOrDir => "not a file or directory",
+            TaskError::AlreadyRepacked => "this archive is marked as repacked, no re-repacking needed"
+        })
+    }
+}
+impl From<TaskError> for io::Error {
+    fn from(val: TaskError) -> Self {
+        io::Error::new(io::ErrorKind::Other, val)
     }
 }
