@@ -143,14 +143,11 @@ fn file_name_repack(p: &Path) -> PathBuf {
 }
 
 fn new_path(src: Option<&PathBuf>, p: &Path) -> PathBuf {
-    match src {
-        None => file_name_repack(p),
-        Some(x) => {
+    src.map_or_else(|| file_name_repack(p), |x| {
             let mut np = x.clone();
             np.push(p.file_name().unwrap_or_default());
             np
-        }
-    }
+        })
 }
 
 fn thread_progress_bar(pb: ProgressBar) -> (JoinHandle<()>, Sender<ProgressState>) {
@@ -193,15 +190,15 @@ impl std::error::Error for TaskError {}
 impl std::fmt::Display for TaskError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(match self {
-            TaskError::InvalidFileName => "invalid file name",
-            TaskError::NotZip => "not a ZIP archive",
-            TaskError::NotFileOrDir => "not a file or directory",
-            TaskError::AlreadyRepacked => "this archive is marked as repacked, no re-repacking needed"
+            Self::InvalidFileName => "invalid file name",
+            Self::NotZip => "not a ZIP archive",
+            Self::NotFileOrDir => "not a file or directory",
+            Self::AlreadyRepacked => "this archive is marked as repacked, no re-repacking needed"
         })
     }
 }
 impl From<TaskError> for io::Error {
     fn from(val: TaskError) -> Self {
-        io::Error::new(io::ErrorKind::Other, val)
+        Self::new(io::ErrorKind::Other, val)
     }
 }
