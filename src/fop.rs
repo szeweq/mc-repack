@@ -47,7 +47,9 @@ impl FileOp {
                 _ => {}
             }
         }
-        let ftype = fname.rsplit_once('.').unzip().1.unwrap_or("");
+        let Some((_, ftype)) = fname.rsplit_once('.') else {
+            return Recompress(2)
+        };
         if ftype == "class" {
             return Recompress(64)
         }
