@@ -36,12 +36,9 @@ impl <R: Read + Seek> EntryReader for ZipEntryReader<R> {
             } else {
                 let fop = FileOp::by_name(&fname, use_blacklist);
                 let mut obuf = Vec::new();
-                match fop {
-                    FileOp::Ignore(_) => {}
-                    _ => {
-                        obuf.reserve_exact(jf.size() as usize);
-                        jf.read_to_end(&mut obuf)?;
-                    }
+                if let FileOp::Ignore(_) = fop {} else {
+                    obuf.reserve_exact(jf.size() as usize);
+                    jf.read_to_end(&mut obuf)?;
                 }
                 EntryType::File(fname, obuf, fop)
             }).map_err(SEND_ERR)?;
