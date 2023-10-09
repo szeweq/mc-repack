@@ -13,6 +13,7 @@ pub struct ErrorCollector {
 }
 impl ErrorCollector {
     /// Creates a new `ErrorCollector` with a `silent` option.
+    #[must_use]
     pub const fn new(silent: bool) -> Self { Self { silent, vec: Vec::new(), name: None } }
 
     /// Sets the new prefix name for collected entries. 
@@ -24,13 +25,14 @@ impl ErrorCollector {
     pub fn collect(&mut self, name: &str, e: Error_) {
         if !self.silent {
             self.vec.push(EntryRepackError {
-                name: self.name.to_owned().map_or_else(|| name.to_string(), |n| format!("{n}/{name}")).into_boxed_str(),
+                name: self.name.as_ref().map_or_else(|| name.to_string(), |n| format!("{n}/{name}")).into_boxed_str(),
                 inner: e
-            })
+            });
         }
     }
 
     /// Returns all currently gathered results.
+    #[must_use]
     pub fn results(&self) -> &[EntryRepackError] {
         &self.vec
     }
@@ -45,6 +47,7 @@ pub struct EntryRepackError {
 }
 impl EntryRepackError {
     /// Returns the inner error.
+    #[must_use]
     pub fn inner_error(&self) -> &dyn Error {
         &*self.inner
     }
