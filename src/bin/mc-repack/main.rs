@@ -4,7 +4,7 @@ use clap::Parser;
 use crossbeam_channel::Sender;
 use indicatif::{ProgressBar, ProgressStyle, MultiProgress};
 
-use mc_repack::{optimizer::*, fop::*, errors::{EntryRepackError, ErrorCollector}};
+use mc_repack::{optimizer::{ProgressState, optimize_archive}, fop::FileType, errors::{EntryRepackError, ErrorCollector}};
 use zip::write::FileOptions;
 
 mod cli_args;
@@ -74,7 +74,7 @@ impl ProcessTask for JarRepackTask {
         match FileType::by_name(&fname) {
             FileType::Other => { return Err(TaskError::NotZip.into()) }
             FileType::Repacked => { return Err(TaskError::AlreadyRepacked.into()) }
-            _ => {}
+            FileType::Original => {},
         }
     
         let file_opts = FileOptions::default().compression_level(Some(9));
@@ -138,8 +138,7 @@ impl ProcessTask for JarDirRepackTask {
 fn file_name_repack(p: &Path) -> PathBuf {
     let stem = p.file_stem().and_then(std::ffi::OsStr::to_str).unwrap_or_default();
     let ext = p.extension().and_then(std::ffi::OsStr::to_str).unwrap_or_default();
-    let nw = format!("{}_repack.{}", stem, ext);
-    p.with_file_name(nw)
+    p.with_file_name(format!("{stem}_repack.{ext}"))
 }
 
 fn new_path(src: Option<&PathBuf>, p: &Path) -> PathBuf {

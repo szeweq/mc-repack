@@ -34,14 +34,13 @@ pub fn optimize_archive(
     file_opts: &FileOptions,
     use_blacklist: bool
 ) -> io::Result<()> {
-    use entry::zip::*;
     let (tx, rx) = bounded(2);
     let t1 = thread::spawn(move || {
         let fin = File::open(in_path)?;
-        ZipEntryReader::new(fin).read_entries(tx, use_blacklist)
+        entry::zip::ZipEntryReader::new(fin).read_entries(tx, use_blacklist)
     });
     let fout = File::create(out_path)?;
-    ZipEntrySaver::custom(fout, *file_opts).save_entries(rx, errors, ps)?;
+    entry::zip::ZipEntrySaver::custom(fout, *file_opts).save_entries(rx, errors, ps)?;
     t1.join().map_err(JOIN_ERR)?
 }
 
@@ -53,15 +52,14 @@ pub fn optimize_fs_copy(
     errors: &mut ErrorCollector,
     use_blacklist: bool
 ) -> io::Result<()> {
-    use entry::fs::*;
     if in_path == out_path {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, "The paths are the same"))
     }
     let (tx, rx) = bounded(2);
     let t1 = thread::spawn(move || {
-        FSEntryReader::new(in_path).read_entries(tx, use_blacklist)
+        entry::fs::FSEntryReader::new(in_path).read_entries(tx, use_blacklist)
     });
-    FSEntrySaver::new(out_path).save_entries(rx, errors, ps)?;
+    entry::fs::FSEntrySaver::new(out_path).save_entries(rx, errors, ps)?;
     t1.join().map_err(JOIN_ERR)?
 }
 
