@@ -1,4 +1,4 @@
-use crate::{minify::{MinifyType, only_recompress}, errors::FileIgnoreError};
+use crate::{min::{Minifier, only_recompress}, errors::FileIgnoreError};
 
 pub(crate) const REPACKED: &str = "_repack";
 
@@ -27,7 +27,7 @@ pub enum FileOp {
     /// Recompress data (check minimal size to determine if a file can be compressed or not).
     Recompress(u32),
     /// Minify a file.
-    Minify(MinifyType),
+    Minify(Minifier),
     /// Ignore a file and return an error.
     Ignore(FileIgnoreError),
 }
@@ -56,7 +56,7 @@ impl FileOp {
         if only_recompress(ftype) {
             return Recompress(4)
         }
-        if let Some(x) = MinifyType::by_extension(ftype) {
+        if let Some(x) = Minifier::by_extension(ftype) {
             return Minify(x)
         }
         if use_blacklist && can_ignore_type(ftype) { Ignore(FileIgnoreError::Blacklisted) } else { Recompress(2) }

@@ -10,7 +10,7 @@
 //! for other types, like Android or Gradle files.
 
 /// Minifiers for various file types.
-pub mod minify;
+pub mod min;
 /// Optimizer (file system or ZIP archive).
 pub mod optimizer;
 /// File operations used for repacking.

@@ -23,13 +23,14 @@ fn find_brackets(b: &[u8]) -> Result<(usize, usize), BracketsError> {
 }
 
 /// Checks if a file can be recompressed (not minified) depending on its extension
+#[must_use]
 pub fn only_recompress(ftype: &str) -> bool {
     matches!(ftype, "glsl" | "html" | "js" | "kotlin_module" | "md" | "nbt" | "ogg" | "txt" | "vert" | "xml")
 }
 
 
 /// A type to determine a minifying method and minimum compress size for file data.
-pub enum MinifyType {
+pub enum Minifier {
     /// A PNG minifier using `oxipng`.
     PNG,
     /// A JSON minifier using `serde_json`.
@@ -41,38 +42,39 @@ pub enum MinifyType {
     /// A minifier that removes double-slash (`//`) comment lines (and empty lines)
     Slash
 }
-impl MinifyType {
-    /// Return a MinifyType based on file extension.
+impl Minifier {
+    /// Return a Minifier based on file extension.
+    #[must_use]
     pub fn by_extension(ftype: &str) -> Option<Self> {
-        use MinifyType::*;
-        match ftype {
-            "png" => Some(PNG),
-            "json" | "mcmeta" => Some(JSON),
-            "toml" => Some(TOML),
-            "cfg" | "obj" | "mtl" => Some(Hash),
-            "zs" | "fsh" | "vsh" => Some(Slash),
-            _ => None
-        }
+        Some(match ftype {
+            "png" => Self::PNG,
+            "json" | "mcmeta" => Self::JSON,
+            "toml" => Self::TOML,
+            "cfg" | "obj" | "mtl" => Self::Hash,
+            "zs" | "fsh" | "vsh" => Self::Slash,
+            _ => return None
+        })
     }
 
     /// Minifies file data and writes the result in provided vec.
+    /// # Errors
+    /// Returns an error if minifying fails, depending on file type
     pub fn minify(&self, v: &[u8], vout: &mut Vec<u8>) -> Result_ {
-        use MinifyType::*;
         match self {
-            PNG => minify_png(v, vout),
-            JSON => minify_json(v, vout),
-            TOML => minify_toml(v, vout),
-            Hash => Ok(remove_line_comments("#", v, vout)?),
-            Slash => Ok(remove_line_comments("//", v, vout)?)
+            Self::PNG => minify_png(v, vout),
+            Self::JSON => minify_json(v, vout),
+            Self::TOML => minify_toml(v, vout),
+            Self::Hash => Ok(remove_line_comments("#", v, vout)?),
+            Self::Slash => Ok(remove_line_comments("//", v, vout)?)
         }
     }
 
     /// Define a minimal size for file compression. Files with lower sizes will be stored as-is.
+    #[must_use]
     pub const fn compress_min(&self) -> u32 {
-        use MinifyType::*;
         match self {
-            PNG => 512,
-            JSON | TOML => 48,
+            Self::PNG => 512,
+            Self::JSON | Self::TOML => 48,
             _ => 4
         }
     }
@@ -100,11 +102,11 @@ fn minify_png(v: &[u8], vout: &mut Vec<u8>) -> Result_ {
 fn minify_json(v: &[u8], vout: &mut Vec<u8>) -> Result_ {
     let mut fv = strip_bom(v);
     let (i, j) = find_brackets(fv)?;
-    fv = &fv[i..j+1];
+    fv = &fv[i..=j];
     let strip_comments = StripComments::new(Cursor::new(fv));
     let mut sv: Value = serde_json::from_reader(strip_comments)?;
     if let Value::Object(xm) = &mut sv {
-        uncomment_json_recursive(xm)
+        uncomment_json_recursive(xm);
     }
     serde_json::to_writer(vout, &sv)?;
     Ok(())
@@ -115,7 +117,7 @@ fn minify_toml(v: &[u8], vout: &mut Vec<u8>) -> Result_ {
     let table: toml::Table = toml::from_str(fv)?;
     toml::to_string(&table)?.lines().for_each(|l| {
         vout.extend_from_slice(l.replacen(" = ", "=", 1).as_bytes());
-        vout.push(b'\n')
+        vout.push(b'\n');
     });
     Ok(())
 }
