@@ -26,10 +26,10 @@ impl <R: Read + Seek> EntryReader for ZipEntryReader<R> {
             io::Error::new(io::ErrorKind::Other, e)
         };
         let mut za = ZipArchive::new(BufReader::new(self.r))?;
-        let jfc = za.len() as u64;
+        let jfc = za.len();
         tx.send(EntryType::Count(jfc)).map_err(SEND_ERR)?;
         for i in 0..jfc {
-            let mut jf = za.by_index(i as usize)?;
+            let mut jf = za.by_index(i)?;
             let fname: Arc<str> = jf.name().into();
             tx.send(if fname.ends_with('/') {
                 EntryType::Directory(fname)
@@ -73,7 +73,7 @@ impl <W: Write + Seek> ZipEntrySaver<W> {
 impl <W: Write + Seek> EntrySaverSpec for ZipEntrySaver<W> {
     fn save_dir(&mut self, dir: &str) -> io::Result<()> {
         if dir != "./cache" {
-            self.w.add_directory(dir, self.file_opts)?
+            self.w.add_directory(dir, self.file_opts)?;
         }
         Ok(())
     }

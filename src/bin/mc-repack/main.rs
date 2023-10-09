@@ -156,9 +156,9 @@ fn thread_progress_bar(pb: ProgressBar) -> (JoinHandle<()>, Sender<ProgressState
         use ProgressState::*;
         for st in pr {
             match st {
-                Start(u) => { pb.set_length(u); }
+                Start(u) => { pb.set_length(u as u64); }
                 Push(num, msg) => {
-                    pb.set_position(num);
+                    pb.set_position(num as u64);
                     pb.set_message(msg.to_string());
                 }
                 Finish => {

@@ -68,7 +68,7 @@ pub fn optimize_fs_copy(
 /// An entry type based on extracted data from an archive
 pub enum EntryType {
     /// Number of files stored in an archive
-    Count(u64),
+    Count(usize),
     /// A directory with its path
     Directory(Arc<str>),
     /// A file with its path, data and file operation
@@ -79,9 +79,9 @@ pub enum EntryType {
 #[derive(Debug, Clone)]
 pub enum ProgressState {
     /// Starts a progress with a step count
-    Start(u64),
+    Start(usize),
     /// Pushes a new step with text
-    Push(u64, Arc<str>),
+    Push(usize, Arc<str>),
     /// Marks a progress as finished
     Finish
 }

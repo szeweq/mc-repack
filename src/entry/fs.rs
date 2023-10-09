@@ -26,7 +26,7 @@ impl EntryReader for FSEntryReader {
         vdir.push(self.src_dir.to_path_buf());
         while let Some(px) = vdir.pop() {
             let rd = fs::read_dir(px)?.collect::<Result<Vec<_>, _>>()?;
-            tx.send(EntryType::Count(rd.len() as u64)).map_err(SEND_ERR)?;
+            tx.send(EntryType::Count(rd.len())).map_err(SEND_ERR)?;
             for de in rd {
                 let meta = de.metadata()?;
                 let et = if meta.is_dir() {
