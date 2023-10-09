@@ -3,7 +3,6 @@ use crate::{min::{Minifier, only_recompress}, errors::FileIgnoreError};
 pub(crate) const REPACKED: &str = "_repack";
 
 /// A file type (not extension) that MC-Repack will check before repacking.
-#[derive(PartialEq, Eq)]
 pub enum FileType {
     /// Type for files which MC-Repack cannot repack.
     Other,
@@ -12,13 +11,14 @@ pub enum FileType {
     /// A repacked file.
     Repacked
 }
-
-/// Checks file type based on its file name.
-pub fn check_file_type(s: &str) -> FileType {
-    use FileType::*;
-    match s.rsplit_once('.') {
-        Some((n, "jar" | "zip")) => if n.ends_with(REPACKED) { Repacked } else { Original }
-        _ => Other
+impl FileType {
+    /// Returns file type based on its file name.
+    #[must_use]
+    pub fn by_name(s: &str) -> Self {
+        match s.rsplit_once('.') {
+            Some((n, "jar" | "zip")) => if n.ends_with(REPACKED) { Self::Repacked } else { Self::Original }
+            _ => Self::Other
+        }
     }
 }
 
@@ -34,32 +34,31 @@ pub enum FileOp {
 
 impl FileOp {
     pub(crate) fn by_name(fname: &str, use_blacklist: bool) -> Self {
-        use FileOp::*;
-        if fname.starts_with(".cache/") { return Ignore(FileIgnoreError::Blacklisted) }
+        if fname.starts_with(".cache/") { return Self::Ignore(FileIgnoreError::Blacklisted) }
         if let Some(sub) =  fname.strip_prefix("META-INF/") {
             match sub {
-                "MANIFEST.MF" => {return Recompress(64) }
-                "SIGNFILE.SF" | "SIGNFILE.DSA" => { return Ignore(FileIgnoreError::Signfile) }
+                "MANIFEST.MF" => {return Self::Recompress(64) }
+                "SIGNFILE.SF" | "SIGNFILE.DSA" => { return Self::Ignore(FileIgnoreError::Signfile) }
                 x if x.starts_with("SIG-") || [".DSA", ".RSA", ".SF"].into_iter().any(|e| x.ends_with(e)) => {
-                    return Ignore(FileIgnoreError::Signfile)
+                    return Self::Ignore(FileIgnoreError::Signfile)
                 }
-                x if x.starts_with("services/") => { return Recompress(64) }
+                x if x.starts_with("services/") => { return Self::Recompress(64) }
                 _ => {}
             }
         }
         let Some((_, ftype)) = fname.rsplit_once('.') else {
-            return Recompress(2)
+            return Self::Recompress(2)
         };
         if ftype == "class" {
-            return Recompress(64)
+            return Self::Recompress(64)
         }
         if only_recompress(ftype) {
-            return Recompress(4)
+            return Self::Recompress(4)
         }
         if let Some(x) = Minifier::by_extension(ftype) {
-            return Minify(x)
+            return Self::Minify(x)
         }
-        if use_blacklist && can_ignore_type(ftype) { Ignore(FileIgnoreError::Blacklisted) } else { Recompress(2) }
+        if use_blacklist && can_ignore_type(ftype) { Self::Ignore(FileIgnoreError::Blacklisted) } else { Self::Recompress(2) }
     }
 }
 

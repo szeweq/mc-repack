@@ -71,7 +71,7 @@ impl ProcessTask for JarRepackTask {
         } else {
             return Err(TaskError::InvalidFileName.into())
         };
-        match check_file_type(&fname) {
+        match FileType::by_name(&fname) {
             FileType::Other => { return Err(TaskError::NotZip.into()) }
             FileType::Repacked => { return Err(TaskError::AlreadyRepacked.into()) }
             _ => {}
@@ -118,7 +118,7 @@ impl ProcessTask for JarDirRepackTask {
                 return Err(TaskError::InvalidFileName.into())
             };
             let meta = fp.metadata()?;
-            if meta.is_file() && check_file_type(fname) == FileType::Original {
+            if meta.is_file() && matches!(FileType::by_name(fname), FileType::Original) {
                 ec.rename(fname);
                 pb.set_message(fname.to_string());
                 
