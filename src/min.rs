@@ -85,7 +85,7 @@ type Result_ = Result<(), errors::Error_>;
 fn minify_png(v: &[u8], vout: &mut Vec<u8>) -> Result_ {
     let mut popts = oxipng::Options {
         fix_errors: true,
-        strip: oxipng::Headers::Safe,
+        strip: oxipng::StripChunks::Safe,
         optimize_alpha: true,
         deflate: oxipng::Deflaters::Libdeflater { compression: 12 },
         ..Default::default()
