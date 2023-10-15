@@ -1,4 +1,4 @@
-use std::{error::Error, fmt::Display};
+use std::{error::Error, fmt::Display, sync::Arc};
 
 #[cfg(not(feature = "anyhow"))]
 pub(crate) type Error_ = Box<dyn Error>;
@@ -9,23 +9,24 @@ pub(crate) type Error_ = anyhow::Error;
 pub struct ErrorCollector {
     silent: bool,
     vec: Vec<EntryRepackError>,
-    name: Option<Box<str>>,
+    name: Arc<str>,
 }
 impl ErrorCollector {
     /// Creates a new `ErrorCollector` with a `silent` option.
     #[must_use]
-    pub const fn new(silent: bool) -> Self { Self { silent, vec: Vec::new(), name: None } }
+    pub fn new(silent: bool) -> Self { Self { silent, vec: Vec::new(), name: "".into() } }
 
     /// Sets the new prefix name for collected entries. 
     pub fn rename(&mut self, name: &str)  {
-        self.name = Some(name.to_string().into_boxed_str());
+        self.name = name.into();
     }
 
     /// Collects errors for files based on their name (path).
     pub fn collect(&mut self, name: &str, e: Error_) {
         if !self.silent {
             self.vec.push(EntryRepackError {
-                name: self.name.as_ref().map_or_else(|| name.to_string(), |n| format!("{n}/{name}")).into_boxed_str(),
+                parent: self.name.clone(),
+                name: name.into(),
                 inner: e
             });
         }
@@ -41,6 +42,8 @@ impl ErrorCollector {
 /// An error struct that wraps an inner error thrown while a file was processed. 
 #[derive(Debug)]
 pub struct EntryRepackError {
+    /// A parent path (directory or an archive).
+    pub parent: Arc<str>,
     /// An associated file name from the error.
     pub name: Box<str>,
     inner: Error_
@@ -59,7 +62,7 @@ impl Error for EntryRepackError {
 }
 impl Display for EntryRepackError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}: {}", self.name, self.inner)
+        write!(f, "{} {}: {}", self.parent, self.name, self.inner)
     }
 }
 
