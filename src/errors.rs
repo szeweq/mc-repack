@@ -77,7 +77,7 @@ impl Display for FileIgnoreError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(match self {
             Self::Blacklisted => "blacklisted",
-            Self::Signfile => "file cannot be repacked since it contains SHA-256 hashes of zipped entries",
+            Self::Signfile => "signfile contains SHA-256 hashes of zipped entries",
         })
     }
 }
