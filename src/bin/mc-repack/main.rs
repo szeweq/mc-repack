@@ -1,6 +1,7 @@
 use std::{fs, io, path::{PathBuf, Path}, thread::{self, JoinHandle}, any::Any};
 
 use clap::Parser;
+use cli_args::RepackOpts;
 use crossbeam_channel::Sender;
 use indicatif::{ProgressBar, ProgressStyle, MultiProgress};
 
@@ -20,9 +21,8 @@ fn main() -> Result_<()> {
     let args = cli_args::Args::parse();
     println!("█▀▄▀█ █▀▀ ▄▄ █▀█ █▀▀ █▀█ ▄▀█ █▀▀ █▄▀\n█ ▀ █ █▄▄    █▀▄ ██▄ █▀▀ █▀█ █▄▄ █ █ by Szeweq\n");
     
-    let cli_args::Args { path, silent, use_blacklist, ..} = args;
+    let cli_args::Args { path, repack_opts, ..} = args;
     let fmeta = path.metadata()?;
-    let ropts = RepackOpts { silent, use_blacklist };
     let task: &dyn ProcessTask = if fmeta.is_dir() {
         &JarDirRepackTask
     } else if fmeta.is_file() {
@@ -30,7 +30,7 @@ fn main() -> Result_<()> {
     } else {
         return Err(TaskError::NotFileOrDir.into());
     };
-    print_entry_errors(task.process(&path, args.out, &ropts)?.results());
+    print_entry_errors(task.process(&path, args.out, &repack_opts)?.results());
     Ok(())
 }
 
@@ -40,11 +40,6 @@ fn file_progress_bar() -> ProgressBar {
     ProgressBar::new(0).with_style(
         ProgressStyle::with_template(PB_STYLE_ZIP).unwrap()
     )
-}
-
-struct RepackOpts {
-    silent: bool,
-    use_blacklist: bool
 }
 
 trait ProcessTask {
