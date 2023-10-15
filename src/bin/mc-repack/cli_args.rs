@@ -12,10 +12,6 @@ pub struct Args {
     #[arg(short)]
     pub g: bool,
 
-    /// Use this option to pack optimized files into a JAR/ZIP file (only works with -g)
-    #[arg(short)]
-    pub z: bool,
-
     /// (Optional) Destination path. It cannot be the same as the source!
     #[arg(long)]
     pub out: Option<PathBuf>,
