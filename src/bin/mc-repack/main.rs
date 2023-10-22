@@ -1,4 +1,4 @@
-use std::{fs, io, path::{PathBuf, Path}, thread::{self, JoinHandle}, any::Any};
+use std::{fs, io, path::{PathBuf, Path}, thread::{self, JoinHandle}, any::Any, ffi::OsString};
 
 use clap::Parser;
 use cli_args::RepackOpts;
@@ -60,7 +60,6 @@ fn task_err(_: Box<dyn Any + Send>) -> Error_ {
 struct JarRepackTask;
 impl ProcessTask for JarRepackTask {
     fn process(&self, fp: &Path, out: Option<PathBuf>, opts: &RepackOpts) -> Result_<ErrorCollector> {
-        let RepackOpts { silent, use_blacklist } = *opts;
         let fname = if let Some(x) = fp.file_name() {
             x.to_string_lossy()
         } else {
@@ -75,11 +74,13 @@ impl ProcessTask for JarRepackTask {
         let file_opts = FileOptions::default().compression_level(Some(9));
     
         let pb2 = file_progress_bar();
-        let mut ec = ErrorCollector::new(silent);
+        let mut ec = ErrorCollector::new(opts.silent);
         let (pj, ps) = thread_progress_bar(pb2);
         
-        let nfp = out.unwrap_or_else(|| file_name_repack(fp));
-        optimize_archive(fp.to_owned().into_boxed_path(), nfp.into_boxed_path(), &ps, &mut ec, &file_opts, use_blacklist)
+        let Some(nfp) = out.or_else(|| file_name_repack(fp)) else {
+            return Err(TaskError::InvalidFileName.into())
+        };
+        optimize_archive(fp.into(), nfp.into_boxed_path(), &ps, &mut ec, &file_opts, opts.use_blacklist)
             .map_err(|e| io::Error::new(e.kind(), format!("{}: {}", fp.display(), e)))?;
         drop(ps);
         pj.join().map_err(task_err)?;
@@ -117,7 +118,9 @@ impl ProcessTask for JarDirRepackTask {
                 ec.rename(fname);
                 pb.set_message(fname.to_string());
                 
-                let nfp = new_path(out.as_ref(), &fp);
+                let Some(nfp) = new_path(out.as_ref(), &fp) else {
+                    return Err(TaskError::InvalidFileName.into())
+                };
                 optimize_archive(fp.into_boxed_path(), nfp.into_boxed_path(), &ps, &mut ec, &file_opts, use_blacklist)
                     .map_err(|e| io::Error::new(e.kind(), format!("{}: {}",  rde.path().display(), e)))?;
             }
@@ -130,18 +133,29 @@ impl ProcessTask for JarDirRepackTask {
     }
 }
 
-fn file_name_repack(p: &Path) -> PathBuf {
-    let stem = p.file_stem().and_then(std::ffi::OsStr::to_str).unwrap_or_default();
-    let ext = p.extension().and_then(std::ffi::OsStr::to_str).unwrap_or_default();
-    p.with_file_name(format!("{stem}_repack.{ext}"))
+fn file_name_repack(p: &Path) -> Option<PathBuf> {
+    let stem = p.file_stem();
+    let ext = p.extension();
+    match (stem, ext) {
+        (Some(s), Some(e)) => {
+            let mut oss = OsString::new();
+            oss.push(s);
+            oss.push("_repack.");
+            oss.push(e);
+            Some(p.with_file_name(oss))
+        }
+        _ => None
+    }
 }
 
-fn new_path(src: Option<&PathBuf>, p: &Path) -> PathBuf {
+fn new_path(src: Option<&PathBuf>, p: &Path) -> Option<PathBuf> {
     src.map_or_else(|| file_name_repack(p), |x| {
+        p.file_name().map(|pfn| {
             let mut np = x.clone();
-            np.push(p.file_name().unwrap_or_default());
+            np.push(pfn);
             np
         })
+    })
 }
 
 fn thread_progress_bar(pb: ProgressBar) -> (JoinHandle<()>, Sender<ProgressState>) {
