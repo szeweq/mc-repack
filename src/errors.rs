@@ -22,7 +22,7 @@ impl ErrorCollector {
     }
 
     /// Collects errors for files based on their name (path).
-    pub fn collect(&mut self, name: &str, e: Error_) {
+    pub fn collect(&mut self, name: impl Into<Arc<str>>, e: Error_) {
         if !self.silent {
             self.vec.push(EntryRepackError {
                 parent: self.name.clone(),
@@ -45,7 +45,7 @@ pub struct EntryRepackError {
     /// A parent path (directory or an archive).
     pub parent: Arc<str>,
     /// An associated file name from the error.
-    pub name: Box<str>,
+    pub name: Arc<str>,
     inner: Error_
 }
 impl EntryRepackError {
