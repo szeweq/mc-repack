@@ -32,7 +32,7 @@ pub fn only_recompress(ftype: &str) -> bool {
 /// A type to determine a minifying method and minimum compress size for file data.
 pub enum Minifier {
     /// A PNG minifier using `oxipng`.
-    PNG,
+    #[cfg(feature = "png")] PNG,
     /// A JSON minifier using `serde_json`.
     JSON,
     /// A TOML minifier using `toml`.
@@ -47,7 +47,7 @@ impl Minifier {
     #[must_use]
     pub fn by_extension(ftype: &str) -> Option<Self> {
         Some(match ftype {
-            "png" => Self::PNG,
+            #[cfg(feature = "png")] "png" => Self::PNG,
             "json" | "mcmeta" => Self::JSON,
             "toml" => Self::TOML,
             "cfg" | "obj" | "mtl" => Self::Hash,
@@ -61,7 +61,7 @@ impl Minifier {
     /// Returns an error if minifying fails, depending on file type
     pub fn minify(&self, v: &[u8], vout: &mut Vec<u8>) -> Result_ {
         match self {
-            Self::PNG => minify_png(v, vout),
+            #[cfg(feature = "png")] Self::PNG => minify_png(v, vout),
             Self::JSON => minify_json(v, vout),
             Self::TOML => minify_toml(v, vout),
             Self::Hash => Ok(remove_line_comments("#", v, vout)?),
@@ -73,7 +73,7 @@ impl Minifier {
     #[must_use]
     pub const fn compress_min(&self) -> u32 {
         match self {
-            Self::PNG => 512,
+            #[cfg(feature = "png")] Self::PNG => 512,
             Self::JSON | Self::TOML => 48,
             _ => 4
         }
@@ -82,6 +82,7 @@ impl Minifier {
 
 type Result_ = Result<(), errors::Error_>;
 
+#[cfg(feature = "png")] 
 fn minify_png(v: &[u8], vout: &mut Vec<u8>) -> Result_ {
     let mut popts = oxipng::Options {
         fix_errors: true,

@@ -24,12 +24,13 @@ path = "src/lib.rs"
 [features]
 cli = ["dep:clap", "dep:indicatif"]
 anyhow = ["dep:anyhow"]
-default = ["cli"]
+png = ["dep:oxipng"]
+default = ["cli", "png"]
 
 [dependencies]
 zip = {version = "^0.6.6", default-features = false, features = ["deflate"]}
 serde_json = {version = "^1.0.93", features = ["preserve_order"]}
-oxipng = {version = "^9.0.0", default-features = false, features = ["parallel"]}
+oxipng = {optional = true, version = "^9.0.0", default-features = false, features = ["parallel"]}
 flate2 = "^1.0.26"
 json_comments = "0.2"
 toml = {version = "^0.8.0", features = ["preserve_order"]}
