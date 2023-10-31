@@ -24,6 +24,7 @@ path = "src/lib.rs"
 [features]
 cli = ["dep:clap", "dep:indicatif"]
 anyhow = ["dep:anyhow"]
+argh = ["dep:argh"]
 png = ["dep:oxipng"]
 default = ["cli", "png"]
 
@@ -37,6 +38,7 @@ toml = {version = "^0.8.0", features = ["preserve_order"]}
 crossbeam-channel = "^0.5.8"
 lazy_static = "^1.4.0"
 anyhow = {optional = true, version = "1.0"}
+argh = {optional = true, version = "0.1"}
 
 # CLI Dependencies
 clap = {optional = true, version = "4.4", features = ["derive", "cargo"]}

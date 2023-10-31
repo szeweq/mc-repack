@@ -1,6 +1,5 @@
 use std::{fs, io, path::{PathBuf, Path}, thread::{self, JoinHandle}, any::Any, ffi::OsString};
 
-use clap::Parser;
 use cli_args::RepackOpts;
 use crossbeam_channel::Sender;
 use indicatif::{ProgressBar, ProgressStyle, MultiProgress};
@@ -18,10 +17,11 @@ type Error_ = anyhow::Error;
 type Result_<T> = Result<T, Error_>;
 
 fn main() -> Result_<()> {
-    let args = cli_args::Args::parse();
+    let args = cli_args::Args::env();
     println!("█▀▄▀█ █▀▀ ▄▄ █▀█ █▀▀ █▀█ ▄▀█ █▀▀ █▄▀\n█ ▀ █ █▄▄    █▀▄ ██▄ █▀▀ █▀█ █▄▄ █ █ by Szeweq\n");
     
-    let cli_args::Args { path, repack_opts, ..} = args;
+    let path = &args.path;
+    let repack_opts = RepackOpts::from_args(&args);
     let fmeta = path.metadata()?;
     let task: &dyn ProcessTask = if fmeta.is_dir() {
         &JarDirRepackTask
@@ -30,7 +30,7 @@ fn main() -> Result_<()> {
     } else {
         return Err(TaskError::NotFileOrDir.into());
     };
-    print_entry_errors(task.process(&path, args.out, &repack_opts)?.results());
+    print_entry_errors(task.process(path, args.out, &repack_opts)?.results());
     Ok(())
 }
 
