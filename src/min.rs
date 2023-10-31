@@ -122,7 +122,14 @@ fn minify_toml(v: &[u8], vout: &mut Vec<u8>) -> Result_ {
     let fv = std::str::from_utf8(strip_bom(v))?;
     let table: toml::Table = toml::from_str(fv)?;
     toml::to_string(&table)?.lines().for_each(|l| {
-        vout.extend_from_slice(l.replacen(" = ", "=", 1).as_bytes());
+        match l.split_once(" = ") {
+            Some((k, v)) => {
+                vout.extend_from_slice(k.as_bytes());
+                vout.push(b'=');
+                vout.extend_from_slice(v.as_bytes());
+            }
+            None => vout.extend_from_slice(l.as_bytes()),
+        }
         vout.push(b'\n');
     });
     Ok(())
