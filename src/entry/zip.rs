@@ -85,10 +85,10 @@ impl <W: Write + Seek> EntrySaverSpec for ZipEntrySaver<W> {
 
 fn compress_check(b: &[u8], compress_min: usize) -> CompressionMethod {
     let lb = b.len();
-    let nc = if lb > compress_min {
+    if lb > compress_min {
         let de = DeflateEncoder::new(b, flate2::Compression::best());
         let sum = de.bytes().count();
-        sum < lb
-    } else { false };
-    if nc { CompressionMethod::DEFLATE } else { CompressionMethod::STORE }
+        if sum < lb { return CompressionMethod::DEFLATE }
+    }
+    CompressionMethod::STORE
 }
