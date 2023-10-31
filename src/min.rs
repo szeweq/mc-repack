@@ -1,6 +1,7 @@
 use std::{io::Cursor, error::Error};
 
 use json_comments::StripComments;
+use lazy_static::lazy_static;
 use serde_json::Value;
 
 use crate::errors;
@@ -82,20 +83,24 @@ impl Minifier {
 
 type Result_ = Result<(), errors::Error_>;
 
+lazy_static! {
+    static ref PNG_OPTS: oxipng::Options = {
+        let mut popts = oxipng::Options {
+            fix_errors: true,
+            strip: oxipng::StripChunks::Safe,
+            optimize_alpha: true,
+            deflate: oxipng::Deflaters::Libdeflater { compression: 12 },
+            ..Default::default()
+        };
+        popts.filter.insert(oxipng::RowFilter::Up);
+        popts.filter.insert(oxipng::RowFilter::Paeth);
+        popts
+    };
+}
+
 #[cfg(feature = "png")] 
 fn minify_png(v: &[u8], vout: &mut Vec<u8>) -> Result_ {
-    let mut popts = oxipng::Options {
-        fix_errors: true,
-        strip: oxipng::StripChunks::Safe,
-        optimize_alpha: true,
-        deflate: oxipng::Deflaters::Libdeflater { compression: 12 },
-        ..Default::default()
-    };
-    popts.filter.insert(oxipng::RowFilter::Up);
-    popts.filter.insert(oxipng::RowFilter::Paeth);
-    //popts.filter.insert(oxipng::RowFilter::MinSum);
-
-    let v = oxipng::optimize_from_memory(v, &popts)?;
+    let v = oxipng::optimize_from_memory(v, &PNG_OPTS)?;
     let _ = std::mem::replace(vout, v);
     Ok(())
 }

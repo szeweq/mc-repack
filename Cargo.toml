@@ -35,6 +35,7 @@ flate2 = "^1.0.26"
 json_comments = "0.2"
 toml = {version = "^0.8.0", features = ["preserve_order"]}
 crossbeam-channel = "^0.5.8"
+lazy_static = "^1.4.0"
 anyhow = {optional = true, version = "1.0"}
 
 # CLI Dependencies
