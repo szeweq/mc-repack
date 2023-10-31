@@ -64,8 +64,14 @@ impl Minifier {
             #[cfg(feature = "png")] Self::PNG => minify_png(v, vout),
             Self::JSON => minify_json(v, vout),
             Self::TOML => minify_toml(v, vout),
-            Self::Hash => Ok(remove_line_comments("#", v, vout)?),
-            Self::Slash => Ok(remove_line_comments("//", v, vout)?)
+            Self::Hash => {
+                remove_line_comments(b"#", v, vout);
+                Ok(())
+            },
+            Self::Slash => {
+                remove_line_comments(b"//", v, vout);
+                Ok(())
+            }
         }
     }
 
@@ -123,15 +129,17 @@ fn minify_toml(v: &[u8], vout: &mut Vec<u8>) -> Result_ {
     Ok(())
 }
 
-fn remove_line_comments(bs: &str, v: &[u8], vout: &mut Vec<u8>) -> Result<(), std::str::Utf8Error> {
-    for l in v.split(|&b| b == b'\n' || b == b'\r').filter(|l| !l.is_empty()) {
-        let l = std::str::from_utf8(l)?;
-        if !(l.is_empty() || l.trim_start().starts_with(bs)) {
-            vout.extend_from_slice(l.as_bytes());
+fn remove_line_comments(bs: &'static [u8], v: &[u8], vout: &mut Vec<u8>) {
+    for l in v.split(|&b| b == b'\n' || b == b'\r') {
+        let Some(ix) = l.iter().position(|&b| !b.is_ascii_whitespace()) else {
+            continue;
+        };
+        let l = &l[ix..];
+        if !l.starts_with(bs) {
+            vout.extend_from_slice(l);
             vout.push(b'\n');
         }
     }
-    Ok(())
 }
 
 /// An error indicating that a file has mismatched pair of brackets
