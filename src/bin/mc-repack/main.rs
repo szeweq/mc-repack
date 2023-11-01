@@ -18,7 +18,7 @@ type Result_<T> = Result<T, Error_>;
 
 fn main() -> Result_<()> {
     let args = cli_args::Args::env();
-    println!("█▀▄▀█ █▀▀ ▄▄ █▀█ █▀▀ █▀█ ▄▀█ █▀▀ █▄▀\n█ ▀ █ █▄▄    █▀▄ ██▄ █▀▀ █▀█ █▄▄ █ █ by Szeweq\n");
+    println!("█▀▄▀█ █▀▀ ▄▄ █▀█ █▀▀ █▀█ ▄▀█ █▀▀ █▄▀\n█ ▀ █ █▄▄    █▀▄ ██▄ █▀▀ █▀█ █▄▄ █ █ by Szeweq (https://szeweq.xyz/mc-repack)\n");
     
     let path = &args.path;
     let repack_opts = RepackOpts::from_args(&args);
