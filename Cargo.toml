@@ -1,10 +1,10 @@
 [package]
 name = "mc-repack"
-version = "0.16.0"
+version = "0.17.0"
 edition = "2021"
 authors = ["Szeweq"]
 license = "MIT"
-description = "Repacking tool for Minecraft mods and resource packs to optimize size and loading speed."
+description = "Repack your Minecraft mods and resource packs to optimize size and loading speed."
 readme = "README.md"
 homepage = "https://szeweq.xyz/mc-repack"
 repository = "https://github.com/szeweq/mc-repack"
