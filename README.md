@@ -30,12 +30,14 @@ These mods are tested and repacked by MC-Repack with the following results:
 More mods are available on [My Website](https://szeweq.xyz/mc-repack/mods).
 
 ## Installation
-Currently the only way to get this app is to use Cargo:
+The fastest way is to get the latest version from [Releases](https://github.com/szeweq/mc-repack/releases/latest) page.
+
+You can also install this app by using Cargo:
 ```sh
 cargo install mc-repack
 ```
 
-If you want to test the latest version directly from this repo:
+If you want to test the latest commit directly from this repo:
 ```sh
 cargo install --git https://github.com/szeweq/mc-repack
 ```
@@ -70,7 +72,3 @@ There is a lot of things that should be fixed or optimized. New feature ideas ar
 
 ## Can I use it outside Minecraft?
 Sure! The tool does not recognize that an archive is not a Minecraft mod nor a resource pack (yet).
-
-## Future plans
-- Aggresive mode – minify JavaScript and shader files (potentially breaking debugging).
-- Strip unwanted data in JSON files
