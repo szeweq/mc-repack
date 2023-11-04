@@ -18,7 +18,7 @@ pub trait EntryReader {
         self,
         tx: Sender<EntryType>,
         use_blacklist: bool
-    ) -> io::Result<()>;
+    ) -> crate::Result_<()>;
 }
 
 /// A struct for saving entries that have been optimized. Typically used with `EntryReader`.
@@ -28,9 +28,9 @@ pub struct EntrySaver<S: EntrySaverSpec>(S);
 /// Saves entries in a file-based system.
 pub trait EntrySaverSpec {
     /// Saves a directory.
-    fn save_dir(&mut self, dir: &str) -> io::Result<()>;
+    fn save_dir(&mut self, dir: &str) -> crate::Result_<()>;
     /// Saves a file with a minimum file size constraint for compression.
-    fn save_file(&mut self, fname: &str, buf: &[u8], min_compress: u32) -> io::Result<()>;
+    fn save_file(&mut self, fname: &str, buf: &[u8], min_compress: u32) -> crate::Result_<()>;
     
 }
 impl<T: EntrySaverSpec> EntrySaver<T> {
@@ -41,7 +41,7 @@ impl<T: EntrySaverSpec> EntrySaver<T> {
         rx: Receiver<EntryType>,
         ev: &mut ErrorCollector,
         ps: &Sender<ProgressState>
-    ) -> io::Result<()> {
+    ) -> crate::Result_<()> {
         const SEND_ERR: fn(SendError<ProgressState>) -> io::Error = |e: SendError<ProgressState>| {
             io::Error::new(io::ErrorKind::Other, e)
         };
@@ -86,12 +86,12 @@ impl<T: EntrySaverSpec> EntrySaver<T> {
     }
 }
 
-impl<T: FnOnce(Sender<EntryType>, bool) -> io::Result<()>> EntryReader for T {
+impl<T: FnOnce(Sender<EntryType>, bool) -> crate::Result_<()>> EntryReader for T {
     fn read_entries(
         self,
         tx: Sender<EntryType>,
         use_blacklist: bool
-    ) -> io::Result<()> {
+    ) -> crate::Result_<()> {
         self(tx, use_blacklist)
     }
 }

@@ -21,7 +21,7 @@ impl <R: Read + Seek> EntryReader for ZipEntryReader<R> {
         self,
         tx: Sender<EntryType>,
         use_blacklist: bool
-    ) -> io::Result<()> {
+    ) -> crate::Result_<()> {
         const SEND_ERR: fn(SendError<EntryType>) -> io::Error = |e: SendError<EntryType>| {
             io::Error::new(io::ErrorKind::Other, e)
         };
@@ -68,18 +68,19 @@ impl <W: Write + Seek> ZipEntrySaver<W> {
     }
 }
 impl <W: Write + Seek> EntrySaverSpec for ZipEntrySaver<W> {
-    fn save_dir(&mut self, dir: &str) -> io::Result<()> {
+    fn save_dir(&mut self, dir: &str) -> crate::Result_<()> {
         if dir != "./cache" {
             self.w.add_directory(dir, self.file_opts)?;
         }
         Ok(())
     }
-    fn save_file(&mut self, name: &str, data: &[u8], compress_min: u32) -> io::Result<()> {
+    fn save_file(&mut self, name: &str, data: &[u8], compress_min: u32) -> crate::Result_<()> {
         let z = &mut self.w;
         z.start_file(name, self.file_opts
             .compression_method(compress_check(data, compress_min as usize))
         )?;
-        z.write_all(data)
+        z.write_all(data)?;
+        Ok(())
     }
 }
 

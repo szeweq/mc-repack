@@ -16,7 +16,7 @@ pub fn optimize_with<R: EntryReader + Send + 'static, S: EntrySaverSpec>(
     ps: &Sender<ProgressState>,
     errors: &mut ErrorCollector,
     use_blacklist: bool
-) -> io::Result<()> {
+) -> crate::Result_<()> {
     let (tx, rx) = bounded(2);
     let t1 = thread::spawn(move || {
         reader.read_entries(tx, use_blacklist)
@@ -32,7 +32,7 @@ pub fn optimize_archive(
     ps: &Sender<ProgressState>,
     errors: &mut ErrorCollector,
     use_blacklist: bool
-) -> io::Result<()> {
+) -> crate::Result_<()> {
     let (tx, rx) = bounded(2);
     let t1 = thread::spawn(move || {
         let fin = File::open(in_path)?;
@@ -51,9 +51,9 @@ pub fn optimize_fs_copy(
     ps: &Sender<ProgressState>,
     errors: &mut ErrorCollector,
     use_blacklist: bool
-) -> io::Result<()> {
+) -> crate::Result_<()> {
     if in_path == out_path {
-        return Err(io::Error::new(io::ErrorKind::InvalidInput, "The paths are the same"))
+        return same_paths_err()
     }
     let (tx, rx) = bounded(2);
     let t1 = thread::spawn(move || {
@@ -61,6 +61,15 @@ pub fn optimize_fs_copy(
     });
     entry::fs::FSEntrySaver::new(out_path).save_entries(rx, errors, ps)?;
     t1.join().map_err(JOIN_ERR)?
+}
+
+#[cfg(not(feature = "anyhow"))]
+fn same_paths_err() -> crate::Result_<()> {
+    Err(io::Error::new(io::ErrorKind::InvalidInput, "paths are the same"))
+}
+#[cfg(feature = "anyhow")]
+fn same_paths_err() -> crate::Result_<()> {
+    Err(anyhow::anyhow!("paths are the same"))
 }
 
 /// An entry type based on extracted data from an archive

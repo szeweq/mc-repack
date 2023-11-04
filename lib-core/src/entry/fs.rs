@@ -18,7 +18,7 @@ impl EntryReader for FSEntryReader {
         self,
         tx: Sender<EntryType>,
         use_blacklist: bool
-    ) -> io::Result<()> {
+    ) -> crate::Result_<()> {
         const SEND_ERR: fn(SendError<EntryType>) -> io::Error = |e: SendError<EntryType>| {
             io::Error::new(io::ErrorKind::Other, e)
         };
@@ -69,14 +69,16 @@ impl FSEntrySaver {
     }
 }
 impl EntrySaverSpec for FSEntrySaver {
-    fn save_dir(&mut self, dir: &str) -> std::io::Result<()> {
+    fn save_dir(&mut self, dir: &str) -> crate::Result_<()> {
         let mut dp = self.dest_dir.to_path_buf();
         dp.push(dir);
-        fs::create_dir(dp)
+        fs::create_dir(dp)?;
+        Ok(())
     }
-    fn save_file(&mut self, fname: &str, buf: &[u8], _: u32) -> std::io::Result<()> {
+    fn save_file(&mut self, fname: &str, buf: &[u8], _: u32) -> crate::Result_<()> {
         let mut fp = self.dest_dir.to_path_buf();
         fp.push(fname);
-        fs::write(fp, buf)
+        fs::write(fp, buf)?;
+        Ok(())
     }
 }

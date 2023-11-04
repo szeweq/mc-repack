@@ -52,8 +52,17 @@ fn task_err(_: Box<dyn Any + Send>) -> Error_ {
     io::Error::new(io::ErrorKind::Other, TASK_ERR_MSG)
 }
 #[cfg(feature = "anyhow")]
-fn task_err(e: Box<dyn Any + Send>) -> Error_ {
-    anyhow::anyhow!(e)
+fn task_err(_: Box<dyn Any + Send>) -> Error_ {
+    anyhow::anyhow!(TASK_ERR_MSG)
+}
+
+#[cfg(not(feature = "anyhow"))]
+fn wrap_err_with(e: Error_, p: &Path) -> Error_ {
+    io::Error::new(e.kind(), format!("{}: {}", p.display(), e))
+}
+#[cfg(feature = "anyhow")]
+fn wrap_err_with(e: Error_, p: &Path) -> Error_ {
+    anyhow::anyhow!("{}: {}", p.display(), e)
 }
 
 struct JarRepackTask;
@@ -78,7 +87,7 @@ impl ProcessTask for JarRepackTask {
             return Err(TaskError::InvalidFileName.into())
         };
         optimize_archive(fp.into(), nfp.into_boxed_path(), &ps, &mut ec, opts.use_blacklist)
-            .map_err(|e| io::Error::new(e.kind(), format!("{}: {}", fp.display(), e)))?;
+            .map_err(|e| wrap_err_with(e, fp))?;
         drop(ps);
         pj.join().map_err(task_err)?;
     
@@ -118,7 +127,7 @@ impl ProcessTask for JarDirRepackTask {
                     return Err(TaskError::InvalidFileName.into())
                 };
                 optimize_archive(fp.into_boxed_path(), nfp.into_boxed_path(), &ps, &mut ec, use_blacklist)
-                    .map_err(|e| io::Error::new(e.kind(), format!("{}: {}",  rde.path().display(), e)))?;
+                    .map_err(|e| wrap_err_with(e, &rde.path()))?;
             }
         }
         mp.clear()?;
