@@ -388,6 +388,22 @@ dependencies = [
  "indicatif",
  "json_comments",
  "lazy_static",
+ "mc-repack-core",
+ "oxipng",
+ "serde_json",
+ "toml",
+ "zip",
+]
+
+[[package]]
+name = "mc-repack-core"
+version = "0.17.0"
+dependencies = [
+ "anyhow",
+ "crossbeam-channel",
+ "flate2",
+ "json_comments",
+ "lazy_static",
  "oxipng",
  "serde_json",
  "toml",

@@ -1,0 +1,29 @@
+[package]
+name = "mc-repack-core"
+version = "0.17.0"
+edition = "2021"
+authors = ["Szeweq"]
+license = "MIT"
+description = "Repack your Minecraft mods and resource packs to optimize size and loading speed."
+readme = "README.md"
+homepage = "https://szeweq.xyz/mc-repack"
+repository = "https://github.com/szeweq/mc-repack"
+categories = ["command-line-utilities"]
+keywords = ["minecraft", "jar", "processing", "optimizer", "repack"]
+exclude = ["/.github", "benches/*", "test-jars/*"]
+
+[features]
+anyhow = ["dep:anyhow"]
+png = ["dep:oxipng"]
+default = ["png"]
+
+[dependencies]
+zip = {workspace = true}
+crossbeam-channel = {workspace = true}
+anyhow = {optional = true, workspace = true}
+serde_json = {version = "^1.0.93", features = ["preserve_order"]}
+oxipng = {optional = true, version = "^9.0.0", default-features = false, features = ["parallel"]}
+flate2 = "^1.0.26"
+json_comments = "0.2"
+toml = {version = "^0.8.0", features = ["preserve_order"]}
+lazy_static = "^1.4.0"

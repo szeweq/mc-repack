@@ -12,14 +12,18 @@ categories = ["command-line-utilities"]
 keywords = ["minecraft", "jar", "processing", "optimizer", "repack"]
 exclude = ["/.github", "benches/*", "test-jars/*"]
 
+[workspace]
+members = ["lib-core"]
+
+[workspace.dependencies]
+zip = {version = "^0.6.6", default-features = false, features = ["deflate"]}
+crossbeam-channel = "^0.5.8"
+anyhow = "1.0"
+
 [[bin]]
 name = "mc-repack"
 doc = false
 required-features = ["cli"]
-
-[lib]
-name = "mc_repack"
-path = "src/lib.rs"
 
 [features]
 cli = ["dep:clap", "dep:indicatif"]
@@ -29,6 +33,7 @@ png = ["dep:oxipng"]
 default = ["cli", "png"]
 
 [dependencies]
+mc-repack-core = {version = "0.17.0", path = "lib-core"}
 zip = {version = "^0.6.6", default-features = false, features = ["deflate"]}
 serde_json = {version = "^1.0.93", features = ["preserve_order"]}
 oxipng = {optional = true, version = "^9.0.0", default-features = false, features = ["parallel"]}
