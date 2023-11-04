@@ -385,7 +385,6 @@ dependencies = [
  "clap",
  "crossbeam-channel",
  "indicatif",
- "lazy_static",
  "mc-repack-core",
 ]
 
