@@ -1,14 +1,14 @@
 [package]
 name = "mc-repack-core"
-version = "0.17.0"
+version = "0.18.0"
 edition = "2021"
 authors = ["Szeweq"]
 license = "MIT"
-description = "Repack your Minecraft mods and resource packs to optimize size and loading speed."
+description = "A library for repacking Minecraft mods and resource packs to optimize size and loading speed."
 readme = "README.md"
 homepage = "https://szeweq.xyz/mc-repack"
 repository = "https://github.com/szeweq/mc-repack"
-categories = ["command-line-utilities"]
+categories = ["compression", "game-development"]
 keywords = ["minecraft", "jar", "processing", "optimizer", "repack"]
 
 [features]
