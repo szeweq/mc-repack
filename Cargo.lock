@@ -384,14 +384,9 @@ dependencies = [
  "argh",
  "clap",
  "crossbeam-channel",
- "flate2",
  "indicatif",
- "json_comments",
  "lazy_static",
  "mc-repack-core",
- "oxipng",
- "serde_json",
- "toml",
  "zip",
 ]
 

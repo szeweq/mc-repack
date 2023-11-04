@@ -23,31 +23,22 @@ anyhow = "1.0"
 [[bin]]
 name = "mc-repack"
 doc = false
-required-features = ["cli"]
 
 [features]
-cli = ["dep:clap", "dep:indicatif"]
 anyhow = ["dep:anyhow"]
 argh = ["dep:argh"]
-png = ["dep:oxipng"]
-default = ["cli", "png"]
 
 [dependencies]
 mc-repack-core = {version = "0.17.0", path = "lib-core"}
 zip = {version = "^0.6.6", default-features = false, features = ["deflate"]}
-serde_json = {version = "^1.0.93", features = ["preserve_order"]}
-oxipng = {optional = true, version = "^9.0.0", default-features = false, features = ["parallel"]}
-flate2 = "^1.0.26"
-json_comments = "0.2"
-toml = {version = "^0.8.0", features = ["preserve_order"]}
-crossbeam-channel = "^0.5.8"
+crossbeam-channel = {workspace = true}
 lazy_static = "^1.4.0"
-anyhow = {optional = true, version = "1.0"}
+anyhow = {optional = true, workspace = true}
 argh = {optional = true, version = "0.1"}
 
 # CLI Dependencies
-clap = {optional = true, version = "4.4", features = ["derive", "cargo"]}
-indicatif = {optional = true, version = "0.17"}
+clap = {version = "4.4", features = ["derive", "cargo"]}
+indicatif = {version = "0.17"}
 
 [profile.release]
 lto = true
