@@ -5,7 +5,6 @@ use crossbeam_channel::Sender;
 use indicatif::{ProgressBar, ProgressStyle, MultiProgress};
 
 use mc_repack_core::{optimizer::{ProgressState, optimize_archive}, fop::FileType, errors::{EntryRepackError, ErrorCollector}};
-use zip::write::FileOptions;
 
 mod cli_args;
 
@@ -71,8 +70,6 @@ impl ProcessTask for JarRepackTask {
             FileType::Original => {},
         }
     
-        let file_opts = FileOptions::default().compression_level(Some(9));
-    
         let pb2 = file_progress_bar();
         let mut ec = ErrorCollector::new(opts.silent);
         let (pj, ps) = thread_progress_bar(pb2);
@@ -80,7 +77,7 @@ impl ProcessTask for JarRepackTask {
         let Some(nfp) = out.or_else(|| file_name_repack(fp)) else {
             return Err(TaskError::InvalidFileName.into())
         };
-        optimize_archive(fp.into(), nfp.into_boxed_path(), &ps, &mut ec, &file_opts, opts.use_blacklist)
+        optimize_archive(fp.into(), nfp.into_boxed_path(), &ps, &mut ec, opts.use_blacklist)
             .map_err(|e| io::Error::new(e.kind(), format!("{}: {}", fp.display(), e)))?;
         drop(ps);
         pj.join().map_err(task_err)?;
@@ -96,7 +93,6 @@ impl ProcessTask for JarDirRepackTask {
         let mp = MultiProgress::new();
 
         let rd = fs::read_dir(fp)?;
-        let file_opts = FileOptions::default().compression_level(Some(9));
 
         let pb = mp.add(ProgressBar::new_spinner().with_style(
             ProgressStyle::with_template("{wide_msg}").unwrap()
@@ -121,7 +117,7 @@ impl ProcessTask for JarDirRepackTask {
                 let Some(nfp) = new_path(out.as_ref(), &fp) else {
                     return Err(TaskError::InvalidFileName.into())
                 };
-                optimize_archive(fp.into_boxed_path(), nfp.into_boxed_path(), &ps, &mut ec, &file_opts, use_blacklist)
+                optimize_archive(fp.into_boxed_path(), nfp.into_boxed_path(), &ps, &mut ec, use_blacklist)
                     .map_err(|e| io::Error::new(e.kind(), format!("{}: {}",  rde.path().display(), e)))?;
             }
         }

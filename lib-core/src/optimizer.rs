@@ -31,7 +31,6 @@ pub fn optimize_archive(
     out_path: Box<Path>,
     ps: &Sender<ProgressState>,
     errors: &mut ErrorCollector,
-    file_opts: &FileOptions,
     use_blacklist: bool
 ) -> io::Result<()> {
     let (tx, rx) = bounded(2);
@@ -40,7 +39,8 @@ pub fn optimize_archive(
         entry::zip::ZipEntryReader::new(fin).read_entries(tx, use_blacklist)
     });
     let fout = File::create(out_path)?;
-    entry::zip::ZipEntrySaver::custom(fout, *file_opts).save_entries(rx, errors, ps)?;
+    let file_opts = FileOptions::default().compression_level(Some(9));
+    entry::zip::ZipEntrySaver::custom(fout, file_opts).save_entries(rx, errors, ps)?;
     t1.join().map_err(JOIN_ERR)?
 }
 

@@ -387,7 +387,6 @@ dependencies = [
  "indicatif",
  "lazy_static",
  "mc-repack-core",
- "zip",
 ]
 
 [[package]]

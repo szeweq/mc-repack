@@ -30,7 +30,6 @@ argh = ["dep:argh"]
 
 [dependencies]
 mc-repack-core = {version = "0.17.0", path = "lib-core"}
-zip = {version = "^0.6.6", default-features = false, features = ["deflate"]}
 crossbeam-channel = {workspace = true}
 lazy_static = "^1.4.0"
 anyhow = {optional = true, workspace = true}
