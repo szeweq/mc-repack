@@ -4,7 +4,7 @@ use cli_args::RepackOpts;
 use crossbeam_channel::Sender;
 use indicatif::{ProgressBar, ProgressStyle, MultiProgress};
 
-use mc_repack::{optimizer::{ProgressState, optimize_archive}, fop::FileType, errors::{EntryRepackError, ErrorCollector}};
+use mc_repack_core::{optimizer::{ProgressState, optimize_archive}, fop::FileType, errors::{EntryRepackError, ErrorCollector}};
 use zip::write::FileOptions;
 
 mod cli_args;
@@ -53,8 +53,8 @@ fn task_err(_: Box<dyn Any + Send>) -> Error_ {
     io::Error::new(io::ErrorKind::Other, TASK_ERR_MSG)
 }
 #[cfg(feature = "anyhow")]
-fn task_err(_: Box<dyn Any + Send>) -> Error_ {
-    anyhow::anyhow!(TASK_ERR_MSG)
+fn task_err(e: Box<dyn Any + Send>) -> Error_ {
+    anyhow::anyhow!(e)
 }
 
 struct JarRepackTask;
