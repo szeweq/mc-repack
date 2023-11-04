@@ -29,7 +29,9 @@ fn main() -> Result_<()> {
     } else {
         return Err(TaskError::NotFileOrDir.into());
     };
-    print_entry_errors(task.process(path, args.out, &repack_opts)?.results());
+    let mut ec = ErrorCollector::new(repack_opts.silent);
+    task.process(path, args.out, &repack_opts, &mut ec)?;
+    print_entry_errors(ec.results());
     Ok(())
 }
 
@@ -42,7 +44,7 @@ fn file_progress_bar() -> ProgressBar {
 }
 
 trait ProcessTask {
-    fn process(&self, fp: &Path, out: Option<PathBuf>, opts: &RepackOpts) -> Result_<ErrorCollector>;
+    fn process(&self, fp: &Path, out: Option<PathBuf>, opts: &RepackOpts, ec: &mut ErrorCollector) -> Result_<()>;
 }
 
 const TASK_ERR_MSG: &str = "Task failed";
@@ -67,7 +69,7 @@ fn wrap_err_with(e: Error_, p: &Path) -> Error_ {
 
 struct JarRepackTask;
 impl ProcessTask for JarRepackTask {
-    fn process(&self, fp: &Path, out: Option<PathBuf>, opts: &RepackOpts) -> Result_<ErrorCollector> {
+    fn process(&self, fp: &Path, out: Option<PathBuf>, opts: &RepackOpts, ec: &mut ErrorCollector) -> Result_<()> {
         let fname = if let Some(x) = fp.file_name() {
             x.to_string_lossy()
         } else {
@@ -80,25 +82,24 @@ impl ProcessTask for JarRepackTask {
         }
     
         let pb2 = file_progress_bar();
-        let mut ec = ErrorCollector::new(opts.silent);
         let (pj, ps) = thread_progress_bar(pb2);
         
         let Some(nfp) = out.or_else(|| file_name_repack(fp)) else {
             return Err(TaskError::InvalidFileName.into())
         };
-        optimize_archive(fp.into(), nfp.into_boxed_path(), &ps, &mut ec, opts.use_blacklist)
+        optimize_archive(fp.into(), nfp.into_boxed_path(), &ps, ec, opts.use_blacklist)
             .map_err(|e| wrap_err_with(e, fp))?;
         drop(ps);
         pj.join().map_err(task_err)?;
     
-        Ok(ec)
+        Ok(())
     }
 }
 
 struct JarDirRepackTask;
 impl ProcessTask for JarDirRepackTask {
-    fn process(&self, fp: &Path, out: Option<PathBuf>, opts: &RepackOpts) -> Result_<ErrorCollector> {
-        let RepackOpts { silent, use_blacklist } = *opts;
+    fn process(&self, fp: &Path, out: Option<PathBuf>, opts: &RepackOpts, ec: &mut ErrorCollector) -> Result_<()> {
+        let RepackOpts { use_blacklist, .. } = *opts;
         let mp = MultiProgress::new();
 
         let rd = fs::read_dir(fp)?;
@@ -108,7 +109,6 @@ impl ProcessTask for JarDirRepackTask {
         ));
         let pb2 = mp.add(file_progress_bar());
         
-        let mut ec = ErrorCollector::new(silent);
         let (pj, ps) = thread_progress_bar(pb2);
 
         for rde in rd {
@@ -126,7 +126,7 @@ impl ProcessTask for JarDirRepackTask {
                 let Some(nfp) = new_path(out.as_ref(), &fp) else {
                     return Err(TaskError::InvalidFileName.into())
                 };
-                optimize_archive(fp.into_boxed_path(), nfp.into_boxed_path(), &ps, &mut ec, use_blacklist)
+                optimize_archive(fp.into_boxed_path(), nfp.into_boxed_path(), &ps, ec, use_blacklist)
                     .map_err(|e| wrap_err_with(e, &rde.path()))?;
             }
         }
@@ -134,7 +134,7 @@ impl ProcessTask for JarDirRepackTask {
         drop(ps);
         pj.join().map_err(task_err)?;
 
-        Ok(ec)
+        Ok(())
     }
 }
 
