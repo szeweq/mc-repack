@@ -14,7 +14,8 @@ keywords = ["minecraft", "jar", "processing", "optimizer", "repack"]
 [features]
 anyhow = ["dep:anyhow"]
 png = ["dep:oxipng"]
-default = ["png"]
+toml = ["dep:toml"]
+default = ["png", "toml"]
 
 [dependencies]
 zip = {workspace = true}
@@ -24,5 +25,5 @@ serde_json = {version = "^1.0.93", features = ["preserve_order"]}
 oxipng = {optional = true, version = "^9.0.0", default-features = false, features = ["parallel"]}
 flate2 = "^1.0.26"
 json_comments = "0.2"
-toml = {version = "^0.8.0", features = ["preserve_order"]}
+toml = {optional = true, version = "^0.8.0", features = ["preserve_order"]}
 lazy_static = "^1.4.0"

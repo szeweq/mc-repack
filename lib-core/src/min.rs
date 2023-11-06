@@ -37,7 +37,7 @@ pub enum Minifier {
     /// A JSON minifier using `serde_json`.
     JSON,
     /// A TOML minifier using `toml`.
-    TOML,
+    #[cfg(feature = "toml")] TOML,
     /// A minifier that removes hash (`#`) comment lines (and empty lines)
     Hash,
     /// A minifier that removes double-slash (`//`) comment lines (and empty lines)
@@ -50,7 +50,7 @@ impl Minifier {
         Some(match ftype {
             #[cfg(feature = "png")] "png" => Self::PNG,
             "json" | "mcmeta" => Self::JSON,
-            "toml" => Self::TOML,
+            #[cfg(feature = "toml")] "toml" => Self::TOML,
             "cfg" | "obj" | "mtl" => Self::Hash,
             "zs" | "fsh" | "vsh" => Self::Slash,
             _ => return None
@@ -64,7 +64,7 @@ impl Minifier {
         match self {
             #[cfg(feature = "png")] Self::PNG => minify_png(v, vout),
             Self::JSON => minify_json(v, vout),
-            Self::TOML => minify_toml(v, vout),
+            #[cfg(feature = "toml")] Self::TOML => minify_toml(v, vout),
             Self::Hash => remove_line_comments(b"#", v, vout),
             Self::Slash => remove_line_comments(b"//", v, vout)
         }
@@ -75,7 +75,8 @@ impl Minifier {
     pub const fn compress_min(&self) -> u16 {
         match self {
             #[cfg(feature = "png")] Self::PNG => 512,
-            Self::JSON | Self::TOML => 48,
+            Self::JSON => 48,
+            #[cfg(feature = "toml")] Self::TOML => 48,
             _ => 4
         }
     }
@@ -118,6 +119,7 @@ fn minify_json(v: &[u8], vout: &mut Vec<u8>) -> Result_ {
     Ok(())
 }
 
+#[cfg(feature = "toml")]
 fn minify_toml(v: &[u8], vout: &mut Vec<u8>) -> Result_ {
     let fv = std::str::from_utf8(strip_bom(v))?;
     let table: toml::Table = toml::from_str(fv)?;
