@@ -72,7 +72,7 @@ impl Minifier {
 
     /// Define a minimal size for file compression. Files with lower sizes will be stored as-is.
     #[must_use]
-    pub const fn compress_min(&self) -> u32 {
+    pub const fn compress_min(&self) -> u16 {
         match self {
             #[cfg(feature = "png")] Self::PNG => 512,
             Self::JSON | Self::TOML => 48,

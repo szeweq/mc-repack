@@ -30,7 +30,7 @@ pub trait EntrySaverSpec {
     /// Saves a directory.
     fn save_dir(&mut self, dir: &str) -> crate::Result_<()>;
     /// Saves a file with a minimum file size constraint for compression.
-    fn save_file(&mut self, fname: &str, buf: &[u8], min_compress: u32) -> crate::Result_<()>;
+    fn save_file(&mut self, fname: &str, buf: &[u8], min_compress: u16) -> crate::Result_<()>;
     
 }
 impl<T: EntrySaverSpec> EntrySaver<T> {
@@ -64,7 +64,7 @@ impl<T: EntrySaverSpec> EntrySaver<T> {
                             ev.collect(fname.clone(), e.into());
                         }
                         Minify(m) => {
-                            let buf = match m.minify(&buf, &mut cv) {
+                            let buf: &[u8] = match m.minify(&buf, &mut cv) {
                                 Ok(()) => &cv,
                                 Err(e) => {
                                     ev.collect(fname.clone(), e);
@@ -75,7 +75,7 @@ impl<T: EntrySaverSpec> EntrySaver<T> {
                             cv.clear();
                         }
                         Recompress(x) => {
-                            self.0.save_file(&fname, &buf, x)?;
+                            self.0.save_file(&fname, &buf, x as u16)?;
                         }
                     }
                 }

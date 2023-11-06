@@ -47,7 +47,7 @@ impl EntryReader for FSEntryReader {
                     };
                     let fop = FileOp::by_name(&fname, use_blacklist);
                     let ff = fs::read(&fp)?;
-                    EntryType::File(fname.into(), ff, fop)
+                    EntryType::File(fname.into(), ff.into(), fop)
                 } else {
                     continue
                 };
@@ -75,7 +75,7 @@ impl EntrySaverSpec for FSEntrySaver {
         fs::create_dir(dp)?;
         Ok(())
     }
-    fn save_file(&mut self, fname: &str, buf: &[u8], _: u32) -> crate::Result_<()> {
+    fn save_file(&mut self, fname: &str, buf: &[u8], _: u16) -> crate::Result_<()> {
         let mut fp = self.dest_dir.to_path_buf();
         fp.push(fname);
         fs::write(fp, buf)?;

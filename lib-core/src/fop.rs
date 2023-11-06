@@ -25,7 +25,7 @@ impl FileType {
 /// A file operation needed before a file is saved in repacked archive
 pub enum FileOp {
     /// Recompress data (check minimal size to determine if a file can be compressed or not).
-    Recompress(u32),
+    Recompress(u8),
     /// Minify a file.
     Minify(Minifier),
     /// Ignore a file and return an error.

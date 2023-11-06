@@ -79,7 +79,7 @@ pub enum EntryType {
     /// A directory with its path
     Directory(Arc<str>),
     /// A file with its path, data and file operation
-    File(Arc<str>, Vec<u8>, FileOp)
+    File(Arc<str>, Box<[u8]>, FileOp)
 }
 
 /// A progress state to update information about currently optimized entry

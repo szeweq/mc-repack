@@ -40,7 +40,7 @@ impl <R: Read + Seek> EntryReader for ZipEntryReader<R> {
                     obuf.reserve_exact(jf.size() as usize);
                     jf.read_to_end(&mut obuf)?;
                 }
-                EntryType::File(fname, obuf, fop)
+                EntryType::File(fname, obuf.into(), fop)
             }).map_err(SEND_ERR)?;
         }
         Ok(())
@@ -74,7 +74,7 @@ impl <W: Write + Seek> EntrySaverSpec for ZipEntrySaver<W> {
         }
         Ok(())
     }
-    fn save_file(&mut self, name: &str, data: &[u8], compress_min: u32) -> crate::Result_<()> {
+    fn save_file(&mut self, name: &str, data: &[u8], compress_min: u16) -> crate::Result_<()> {
         let z = &mut self.w;
         z.start_file(name, self.file_opts
             .compression_method(compress_check(data, compress_min as usize))
