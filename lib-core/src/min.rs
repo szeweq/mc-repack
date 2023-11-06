@@ -163,10 +163,11 @@ impl std::fmt::Display for BracketsError {
 }
 
 fn uncomment_json_recursive(m: &mut serde_json::Map<String, Value>) {
-    m.retain(|k, _| !k.starts_with('_'));
-    for v in m.values_mut() {
+    m.retain(|k, v| {
+        if k.starts_with('_') { return false; }
         if let Value::Object(xm) = v {
             uncomment_json_recursive(xm);
         }
-    }
+        true
+    });
 }
