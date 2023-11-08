@@ -1,4 +1,6 @@
 # MC-Repack
+![Logo](https://raw.githubusercontent.com/szeweq/mc-repack/master/mc-repack-logo.png)
+
 [![Rust Build](https://github.com/szeweq/mc-repack/actions/workflows/rust-build.yml/badge.svg)](https://github.com/szeweq/mc-repack/actions/workflows/rust-build.yml)
 [![dependency status](https://deps.rs/repo/github/szeweq/mc-repack/status.svg)](https://deps.rs/repo/github/szeweq/mc-repack)
 
