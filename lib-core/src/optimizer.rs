@@ -1,13 +1,9 @@
-use std::{fs::File, io::{self}, thread, path::Path, any::Any, sync::Arc};
+use std::{fs::File, io::{self}, thread, path::Path, sync::Arc};
 
 use zip::write::FileOptions;
 use crossbeam_channel::{bounded, Sender};
 
 use crate::{fop::FileOp, errors::ErrorCollector, entry::{self, EntryReader, EntrySaver, EntrySaverSpec}};
-
-const JOIN_ERR: fn(Box<dyn Any + Send>) -> io::Error = |_| {
-    io::Error::new(io::ErrorKind::Other, "Thread join failed")
-};
 
 /// Optimizes entries using entry reader in saver in separate threads.
 pub fn optimize_with<R: EntryReader + Send + 'static, S: EntrySaverSpec>(
@@ -22,10 +18,13 @@ pub fn optimize_with<R: EntryReader + Send + 'static, S: EntrySaverSpec>(
         reader.read_entries(tx, use_blacklist)
     });
     saver.save_entries(rx, errors, ps)?;
-    t1.join().map_err(JOIN_ERR)?
+    t1.join().map_err(|_| {
+        io::Error::new(io::ErrorKind::Other, "Thread join failed")
+    })?
 }
 
 /// Optimizes an archive and saves repacked one in a new destination.
+#[inline]
 pub fn optimize_archive(
     in_path: Box<Path>,
     out_path: Box<Path>,
@@ -33,18 +32,15 @@ pub fn optimize_archive(
     errors: &mut ErrorCollector,
     use_blacklist: bool
 ) -> crate::Result_<()> {
-    let (tx, rx) = bounded(2);
-    let t1 = thread::spawn(move || {
-        let fin = File::open(in_path)?;
-        entry::zip::ZipEntryReader::new(fin).read_entries(tx, use_blacklist)
-    });
-    let fout = File::create(out_path)?;
-    let file_opts = FileOptions::default().compression_level(Some(9));
-    entry::zip::ZipEntrySaver::custom(fout, file_opts).save_entries(rx, errors, ps)?;
-    t1.join().map_err(JOIN_ERR)?
+    optimize_with(
+        entry::zip::ZipEntryReader::new(File::open(in_path)?),
+        entry::zip::ZipEntrySaver::custom(File::create(out_path)?, FileOptions::default().compression_level(Some(9))),
+        ps, errors, use_blacklist
+    )
 }
 
 /// Optimizes files in directory and saves them in a new destination.
+#[inline]
 pub fn optimize_fs_copy(
     in_path: Box<Path>,
     out_path: Box<Path>,
@@ -55,12 +51,11 @@ pub fn optimize_fs_copy(
     if in_path == out_path {
         return same_paths_err()
     }
-    let (tx, rx) = bounded(2);
-    let t1 = thread::spawn(move || {
-        entry::fs::FSEntryReader::new(in_path).read_entries(tx, use_blacklist)
-    });
-    entry::fs::FSEntrySaver::new(out_path).save_entries(rx, errors, ps)?;
-    t1.join().map_err(JOIN_ERR)?
+    optimize_with(
+        entry::fs::FSEntryReader::new(in_path),
+        entry::fs::FSEntrySaver::new(out_path),
+        ps, errors, use_blacklist
+    )
 }
 
 #[cfg(not(feature = "anyhow"))]
