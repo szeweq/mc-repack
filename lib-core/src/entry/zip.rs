@@ -66,7 +66,7 @@ impl <W: Write + Seek> ZipEntrySaver<W> {
 }
 impl <W: Write + Seek> EntrySaverSpec for ZipEntrySaver<W> {
     fn save_dir(&mut self, dir: &str) -> crate::Result_<()> {
-        if dir != "./cache" {
+        if dir != ".cache/" {
             self.w.add_directory(dir, self.file_opts)?;
         }
         Ok(())
