@@ -1,6 +1,6 @@
 [package]
 name = "mc-repack"
-version = "0.18.0"
+version = "0.18.1"
 edition = "2021"
 authors = ["Szeweq"]
 license = "MIT"
@@ -29,13 +29,13 @@ anyhow = ["dep:anyhow"]
 argh = ["dep:argh"]
 
 [dependencies]
-mc-repack-core = {version = "0.18.0", path = "lib-core"}
+mc-repack-core = {version = "0.18.1", path = "lib-core"}
 crossbeam-channel = {workspace = true}
 anyhow = {optional = true, workspace = true}
 argh = {optional = true, version = "0.1"}
 
 # CLI Dependencies
-clap = {version = "4.4", features = ["derive", "cargo"]}
+clap = {version = "4.5", features = ["derive", "cargo"]}
 indicatif = {version = "0.17"}
 
 [profile.release]
