@@ -158,7 +158,7 @@ pub struct BracketsError;
 impl Error for BracketsError {}
 impl std::fmt::Display for BracketsError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "File has improper opening/closing brackets")
+        f.write_str("File has improper opening/closing brackets")
     }
 }
 
