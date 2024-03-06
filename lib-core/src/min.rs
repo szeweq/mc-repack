@@ -27,7 +27,7 @@ fn find_brackets(b: &[u8]) -> Option<(usize, usize)> {
 /// Checks if a file can be recompressed (not minified) depending on its extension
 #[must_use]
 pub fn only_recompress(ftype: &str) -> bool {
-    matches!(ftype, "glsl" | "html" | "js" | "kotlin_module" | "md" | "nbt" | "ogg" | "txt" | "vert" | "xml")
+    matches!(ftype, "glsl" | "html" | "kotlin_module" | "md" | "nbt" | "ogg" | "txt" | "vert" | "xml")
 }
 
 
@@ -53,7 +53,7 @@ impl Minifier {
             "json" | "mcmeta" => Self::JSON,
             #[cfg(feature = "toml")] "toml" => Self::TOML,
             "cfg" | "obj" | "mtl" => Self::Hash,
-            "zs" | "fsh" | "vsh" => Self::Slash,
+            "zs" | "js" | "fsh" | "vsh" => Self::Slash,
             _ => return None
         })
     }
