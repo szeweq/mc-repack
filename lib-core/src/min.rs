@@ -64,8 +64,8 @@ impl Minifier {
     pub fn minify(&self, v: &[u8], vout: &mut Vec<u8>) -> Result_ {
         match self {
             #[cfg(feature = "png")] Self::PNG => minify_png(v, vout),
-            Self::JSON => minify_json(v, vout),
-            #[cfg(feature = "toml")] Self::TOML => minify_toml(v, vout),
+            Self::JSON => minify_json(strip_bom(v), vout),
+            #[cfg(feature = "toml")] Self::TOML => minify_toml(strip_bom(v), vout),
             Self::Hash => remove_line_comments(b"#", v, vout),
             Self::Slash => remove_line_comments(b"//", v, vout)
         }
@@ -108,9 +108,8 @@ fn minify_png(v: &[u8], vout: &mut Vec<u8>) -> Result_ {
 }
 
 fn minify_json(v: &[u8], vout: &mut Vec<u8>) -> Result_ {
-    let mut fv = strip_bom(v);
-    let (i, j) = find_brackets(fv).ok_or(BracketsError)?;
-    fv = &fv[i..=j];
+    let (i, j) = find_brackets(v).ok_or(BracketsError)?;
+    let fv = &v[i..=j];
     let strip_comments = StripComments::new(Cursor::new(fv));
     let mut sv: Value = serde_json::from_reader(strip_comments)?;
     if let Value::Object(xm) = &mut sv {
@@ -122,7 +121,7 @@ fn minify_json(v: &[u8], vout: &mut Vec<u8>) -> Result_ {
 
 #[cfg(feature = "toml")]
 fn minify_toml(v: &[u8], vout: &mut Vec<u8>) -> Result_ {
-    let fv = std::str::from_utf8(strip_bom(v))?;
+    let fv = std::str::from_utf8(v)?;
     let table: toml::Table = toml::from_str(fv)?;
     toml::to_string(&table)?.lines().for_each(|l| {
         match l.split_once(" = ") {
