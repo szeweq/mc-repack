@@ -153,16 +153,7 @@ fn strip_toml_array(a: &mut Vec<toml::Value>) {
 fn strip_toml_value(v: &mut toml::Value) {
     match v {
         toml::Value::Table(st) => { strip_toml_table(st); }
-        toml::Value::String(s) => {
-            let Some(li) = s.bytes().position(|b| !b.is_ascii_whitespace()) else {
-                return;
-            };
-            *s = s.split_off(li);
-            let Some(ri) = s.bytes().rposition(|b| !b.is_ascii_whitespace()) else {
-                return;
-            };
-            s.truncate(ri + 1);
-        }
+        toml::Value::String(s) => { strip_string(s); }
         toml::Value::Array(a) => { strip_toml_array(a); }
         _ => {}
     }
@@ -201,4 +192,15 @@ fn uncomment_json_recursive(m: &mut serde_json::Map<String, Value>) {
         }
         true
     });
+}
+
+fn strip_string(s: &mut String) {
+    let Some(li) = s.bytes().position(|b| !b.is_ascii_whitespace()) else {
+        return;
+    };
+    *s = s.split_off(li);
+    let Some(ri) = s.bytes().rposition(|b| !b.is_ascii_whitespace()) else {
+        return;
+    };
+    s.truncate(ri + 1);
 }
