@@ -76,6 +76,19 @@ pub enum EntryType {
     /// A file with its path, data and file operation
     File(Arc<str>, Box<[u8]>, FileOp)
 }
+impl EntryType {
+    /// A shorthand function for creating a directory entry
+    #[inline]
+    pub fn dir(name: impl Into<Arc<str>>) -> Self {
+        Self::Directory(name.into())
+    }
+
+    /// A shorthand function for creating a file entry
+    #[inline]
+    pub fn file(name: impl Into<Arc<str>>, data: impl Into<Box<[u8]>>, fop: FileOp) -> Self {
+        Self::File(name.into(), data.into(), fop)
+    }
+}
 
 /// A progress state to update information about currently optimized entry
 #[derive(Debug, Clone)]
