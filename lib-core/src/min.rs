@@ -11,16 +11,17 @@ fn strip_bom(b: &[u8]) -> &[u8] {
     if b.len() >= 3 && b[..3] == BOM_BYTES { &b[3..] } else { b }
 }
 
-fn find_brackets(b: &[u8]) -> Result<(usize, usize), BracketsError> {
+#[inline]
+fn find_brackets(b: &[u8]) -> Option<(usize, usize)> {
     let (i, endb) = match b.iter().enumerate().find(|(_, &b)| b == b'{' || b == b'[') {
         Some((i, b'{')) => (i, b'}'),
         Some((i, b'[')) => (i, b']'),
-        _ => { return Err(BracketsError); }
+        _ => { return None; }
     };
     let Some(j) = b.iter().rposition(|&b| b == endb) else {
-        return Err(BracketsError);
+        return None;
     };
-    Ok((i, j))
+    Some((i, j))
 }
 
 /// Checks if a file can be recompressed (not minified) depending on its extension
@@ -108,7 +109,7 @@ fn minify_png(v: &[u8], vout: &mut Vec<u8>) -> Result_ {
 
 fn minify_json(v: &[u8], vout: &mut Vec<u8>) -> Result_ {
     let mut fv = strip_bom(v);
-    let (i, j) = find_brackets(fv)?;
+    let (i, j) = find_brackets(fv).ok_or(BracketsError)?;
     fv = &fv[i..=j];
     let strip_comments = StripComments::new(Cursor::new(fv));
     let mut sv: Value = serde_json::from_reader(strip_comments)?;
