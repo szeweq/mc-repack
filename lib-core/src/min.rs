@@ -122,7 +122,8 @@ fn minify_json(v: &[u8], vout: &mut Vec<u8>) -> Result_ {
 #[cfg(feature = "toml")]
 fn minify_toml(v: &[u8], vout: &mut Vec<u8>) -> Result_ {
     let fv = std::str::from_utf8(v)?;
-    let table: toml::Table = toml::from_str(fv)?;
+    let mut table: toml::Table = toml::from_str(fv)?;
+    strip_toml_table(&mut table);
     toml::to_string(&table)?.lines().for_each(|l| {
         match l.split_once(" = ") {
             Some((k, v)) => {
@@ -135,6 +136,36 @@ fn minify_toml(v: &[u8], vout: &mut Vec<u8>) -> Result_ {
         vout.push(b'\n');
     });
     Ok(())
+}
+#[cfg(feature = "toml")]
+fn strip_toml_table(t: &mut toml::Table) {
+    for (_, v) in t {
+        strip_toml_value(v);
+    }
+}
+#[cfg(feature = "toml")]
+fn strip_toml_array(a: &mut Vec<toml::Value>) {
+    for v in a {
+        strip_toml_value(v);
+    }
+}
+#[cfg(feature = "toml")]
+fn strip_toml_value(v: &mut toml::Value) {
+    match v {
+        toml::Value::Table(st) => { strip_toml_table(st); }
+        toml::Value::String(s) => {
+            let Some(li) = s.bytes().position(|b| !b.is_ascii_whitespace()) else {
+                return;
+            };
+            *s = s.split_off(li);
+            let Some(ri) = s.bytes().rposition(|b| !b.is_ascii_whitespace()) else {
+                return;
+            };
+            s.truncate(ri + 1);
+        }
+        toml::Value::Array(a) => { strip_toml_array(a); }
+        _ => {}
+    }
 }
 
 fn remove_line_comments(bs: &'static [u8], v: &[u8], vout: &mut Vec<u8>) -> Result_ {
