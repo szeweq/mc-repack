@@ -5,9 +5,9 @@ pub mod fs;
 pub mod zip;
 
 use std::io;
-use crate::{optimizer::{EntryType, ProgressState}, errors::ErrorCollector, fop};
+use crate::{errors::ErrorCollector, fop::FileOp, optimizer::{EntryType, ProgressState}};
 
-use crossbeam_channel::{Sender, Receiver, SendError};
+use crossbeam_channel::{Sender, Receiver};
 
 /// Trait for reading entries for further optimization. Typically used with `EntrySaver`.
 /// Any function that matches these arguments (excluding self) can be used as custom entry reader.
@@ -42,28 +42,24 @@ impl<T: EntrySaverSpec> EntrySaver<T> {
         ev: &mut ErrorCollector,
         ps: &Sender<ProgressState>
     ) -> crate::Result_<()> {
-        const SEND_ERR: fn(SendError<ProgressState>) -> io::Error = |e: SendError<ProgressState>| {
-            io::Error::new(io::ErrorKind::Other, e)
-        };
         let mut cv = Vec::new();
         let mut n = 0;
         for et in rx {
             match et {
                 EntryType::Count(u) => {
-                    ps.send(ProgressState::Start(u)).map_err(SEND_ERR)?;
+                    wrap_send(ps, ProgressState::Start(u))?;
                 }
                 EntryType::Directory(dir) => {
                     self.0.save_dir(&dir)?;
                 }
                 EntryType::File(fname, buf, fop) => {
-                    ps.send(ProgressState::Push(n, fname.clone())).map_err(SEND_ERR)?;
+                    wrap_send(ps, ProgressState::Push(n, fname.clone()))?;
                     n += 1;
-                    use fop::FileOp::*;
                     match fop {
-                        Ignore(e) => {
+                        FileOp::Ignore(e) => {
                             ev.collect(fname.clone(), e.into());
                         }
-                        Minify(m) => {
+                        FileOp::Minify(m) => {
                             let buf: &[u8] = match m.minify(&buf, &mut cv) {
                                 Ok(()) => &cv,
                                 Err(e) => {
@@ -74,15 +70,14 @@ impl<T: EntrySaverSpec> EntrySaver<T> {
                             self.0.save_file(&fname, buf, m.compress_min())?;
                             cv.clear();
                         }
-                        Recompress(x) => {
+                        FileOp::Recompress(x) => {
                             self.0.save_file(&fname, &buf, x as u16)?;
                         }
                     }
                 }
             }
         }
-        ps.send(ProgressState::Finish).map_err(SEND_ERR)?;
-        Ok(())
+        wrap_send(ps, ProgressState::Finish)
     }
 }
 
@@ -94,4 +89,15 @@ impl<T: FnOnce(Sender<EntryType>, bool) -> crate::Result_<()>> EntryReader for T
     ) -> crate::Result_<()> {
         self(tx, use_blacklist)
     }
+}
+
+const CHANNEL_CLOSED_EARLY: &str = "channel closed early";
+
+#[cfg(not(feature = "anyhow"))]
+fn wrap_send<T>(s: &Sender<T>, t: T) -> crate::Result_<()> {
+    s.send(t).map_err(|_| io::Error::new(io::ErrorKind::Other, CHANNEL_CLOSED_EARLY))
+}
+#[cfg(feature = "anyhow")]
+fn wrap_send<T>(s: &Sender<T>, t: T) -> crate::Result_<()> {
+    s.send(t).map_err(|_| anyhow::anyhow!(CHANNEL_CLOSED_EARLY))
 }

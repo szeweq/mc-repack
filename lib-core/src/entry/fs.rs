@@ -1,5 +1,5 @@
-use std::{path::Path, fs, io};
-use crossbeam_channel::{Sender, SendError};
+use std::{path::Path, fs};
+use crossbeam_channel::Sender;
 use crate::{optimizer::EntryType, fop::FileOp};
 use super::{EntryReader, EntrySaver, EntrySaverSpec};
 
@@ -19,14 +19,10 @@ impl EntryReader for FSEntryReader {
         tx: Sender<EntryType>,
         use_blacklist: bool
     ) -> crate::Result_<()> {
-        const SEND_ERR: fn(SendError<EntryType>) -> io::Error = |e: SendError<EntryType>| {
-            io::Error::new(io::ErrorKind::Other, e)
-        };
-        let mut vdir = Vec::new();
-        vdir.push(self.src_dir.to_path_buf());
+        let mut vdir = vec![self.src_dir.clone()];
         while let Some(px) = vdir.pop() {
             let rd = fs::read_dir(px)?.collect::<Result<Vec<_>, _>>()?;
-            tx.send(EntryType::Count(rd.len())).map_err(SEND_ERR)?;
+            super::wrap_send(&tx, EntryType::Count(rd.len()))?;
             for de in rd {
                 let meta = de.metadata()?;
                 let et = if meta.is_dir() {
@@ -36,8 +32,8 @@ impl EntryReader for FSEntryReader {
                     } else {
                         continue
                     };
-                    vdir.push(dp);
-                    EntryType::Directory(dname.into())
+                    vdir.push(dp.into_boxed_path());
+                    EntryType::dir(dname)
                 } else if meta.is_file() {
                     let fp = de.path();
                     let fname = if let Ok(d) = fp.strip_prefix(&self.src_dir) {
@@ -47,11 +43,11 @@ impl EntryReader for FSEntryReader {
                     };
                     let fop = FileOp::by_name(&fname, use_blacklist);
                     let ff = fs::read(&fp)?;
-                    EntryType::File(fname.into(), ff.into(), fop)
+                    EntryType::file(fname, ff, fop)
                 } else {
                     continue
                 };
-                tx.send(et).map_err(SEND_ERR)?;
+                super::wrap_send(&tx, et)?;
             }
         }
         Ok(())
@@ -82,3 +78,8 @@ impl EntrySaverSpec for FSEntrySaver {
         Ok(())
     }
 }
+
+// #[inline]
+// fn send_err(e: SendError<EntryType>) -> io::Error {
+//     io::Error::new(io::ErrorKind::Other, e)
+// }

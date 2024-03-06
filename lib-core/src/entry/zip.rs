@@ -1,5 +1,5 @@
-use std::{io::{self, Read, Seek, BufReader, Write, BufWriter}, sync::Arc};
-use crossbeam_channel::{Sender, SendError};
+use std::{io::{Read, Seek, BufReader, Write, BufWriter}, sync::Arc};
+use crossbeam_channel::Sender;
 use flate2::bufread::DeflateEncoder;
 use zip::{ZipArchive, ZipWriter, write::FileOptions, CompressionMethod};
 
@@ -22,16 +22,13 @@ impl <R: Read + Seek> EntryReader for ZipEntryReader<R> {
         tx: Sender<EntryType>,
         use_blacklist: bool
     ) -> crate::Result_<()> {
-        const SEND_ERR: fn(SendError<EntryType>) -> io::Error = |e: SendError<EntryType>| {
-            io::Error::new(io::ErrorKind::Other, e)
-        };
         let mut za = ZipArchive::new(BufReader::new(self.r))?;
         let jfc = za.len();
-        tx.send(EntryType::Count(jfc)).map_err(SEND_ERR)?;
+        super::wrap_send(&tx, EntryType::Count(jfc))?;
         for i in 0..jfc {
             let mut jf = za.by_index(i)?;
             let fname: Arc<str> = jf.name().into();
-            tx.send(if fname.ends_with('/') {
+            super::wrap_send(&tx, if fname.ends_with('/') {
                 EntryType::Directory(fname)
             } else {
                 let fop = FileOp::by_name(&fname, use_blacklist);
@@ -41,7 +38,7 @@ impl <R: Read + Seek> EntryReader for ZipEntryReader<R> {
                     jf.read_to_end(&mut obuf)?;
                 }
                 EntryType::File(fname, obuf.into(), fop)
-            }).map_err(SEND_ERR)?;
+            })?;
         }
         Ok(())
     }
