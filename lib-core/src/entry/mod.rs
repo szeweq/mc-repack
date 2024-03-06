@@ -4,7 +4,6 @@ pub mod fs;
 /// Entry reader and saver for ZIP archives.
 pub mod zip;
 
-use std::io;
 use crate::{errors::ErrorCollector, fop::FileOp, optimizer::{EntryType, ProgressState}};
 
 use crossbeam_channel::{Sender, Receiver};
@@ -92,12 +91,6 @@ impl<T: FnOnce(Sender<EntryType>, bool) -> crate::Result_<()>> EntryReader for T
 }
 
 const CHANNEL_CLOSED_EARLY: &str = "channel closed early";
-
-#[cfg(not(feature = "anyhow"))]
 fn wrap_send<T>(s: &Sender<T>, t: T) -> crate::Result_<()> {
-    s.send(t).map_err(|_| io::Error::new(io::ErrorKind::Other, CHANNEL_CLOSED_EARLY))
-}
-#[cfg(feature = "anyhow")]
-fn wrap_send<T>(s: &Sender<T>, t: T) -> crate::Result_<()> {
-    s.send(t).map_err(|_| anyhow::anyhow!(CHANNEL_CLOSED_EARLY))
+    crate::wrap_err(s.send(t), CHANNEL_CLOSED_EARLY)
 }

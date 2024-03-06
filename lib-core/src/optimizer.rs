@@ -1,6 +1,4 @@
 use std::{fs::File, io::{self}, thread, path::Path, sync::Arc};
-
-use zip::write::FileOptions;
 use crossbeam_channel::{bounded, Sender};
 
 use crate::{fop::FileOp, errors::ErrorCollector, entry::{self, EntryReader, EntrySaver, EntrySaverSpec}};
@@ -14,13 +12,9 @@ pub fn optimize_with<R: EntryReader + Send + 'static, S: EntrySaverSpec>(
     use_blacklist: bool
 ) -> crate::Result_<()> {
     let (tx, rx) = bounded(2);
-    let t1 = thread::spawn(move || {
-        reader.read_entries(tx, use_blacklist)
-    });
+    let t1 = thread::spawn(move || reader.read_entries(tx, use_blacklist));
     saver.save_entries(rx, errors, ps)?;
-    t1.join().map_err(|_| {
-        io::Error::new(io::ErrorKind::Other, "Thread join failed")
-    })?
+    crate::wrap_err(t1.join(), "thread join failed")?
 }
 
 /// Optimizes an archive and saves repacked one in a new destination.
@@ -34,7 +28,7 @@ pub fn optimize_archive(
 ) -> crate::Result_<()> {
     optimize_with(
         entry::zip::ZipEntryReader::new(File::open(in_path)?),
-        entry::zip::ZipEntrySaver::custom(File::create(out_path)?, FileOptions::default().compression_level(Some(9))),
+        entry::zip::ZipEntrySaver::new(File::create(out_path)?),
         ps, errors, use_blacklist
     )
 }

@@ -24,3 +24,15 @@ pub mod entry;
 pub(crate) type Result_<T> = std::io::Result<T>;
 #[cfg(feature = "anyhow")]
 pub(crate) type Result_<T> = anyhow::Result<T>;
+
+#[cfg(not(feature = "anyhow"))]
+#[inline]
+pub(crate) fn wrap_err<T, E>(r: Result<T, E>, s: &'static str) -> Result_<T> {
+    r.map_err(|_| std::io::Error::new(std::io::ErrorKind::Other, s))
+}
+
+#[cfg(feature = "anyhow")]
+#[inline]
+pub(crate) fn wrap_err<T, E>(r: Result<T, E>, s: &'static str) -> Result_<T> {
+    r.map_err(|_| anyhow::anyhow!(s))
+}
