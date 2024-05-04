@@ -26,14 +26,15 @@ impl <R: Read + Seek> EntryReader for ZipEntryReader<R> {
         let jfc = za.len();
         super::wrap_send(&tx, EntryType::Count(jfc))?;
         for i in 0..jfc {
-            let mut jf = za.by_index(i)?;
-            let fname: Arc<str> = jf.name().into();
+            let Some(name) = za.name_for_index(i) else { continue; };
+            let fname: Arc<str> = name.into();
             super::wrap_send(&tx, if fname.ends_with('/') {
                 EntryType::Directory(fname)
             } else {
                 let fop = FileOp::by_name(&fname, use_blacklist);
                 let mut obuf = Vec::new();
                 if let FileOp::Ignore(_) = fop {} else {
+                    let mut jf = za.by_index(i)?;
                     obuf.reserve_exact(jf.size() as usize);
                     jf.read_to_end(&mut obuf)?;
                 }
@@ -47,7 +48,7 @@ impl <R: Read + Seek> EntryReader for ZipEntryReader<R> {
 /// An entry saver implementation for ZIP archive. It writes entries to it using a provided writer.
 pub struct ZipEntrySaver<W: Write + Seek> {
     w: ZipWriter<BufWriter<W>>,
-    file_opts: FileOptions
+    file_opts: FileOptions<()>
 }
 impl <W: Write + Seek> ZipEntrySaver<W> {
     /// Creates an entry saver with a seekable writer.
@@ -58,7 +59,7 @@ impl <W: Write + Seek> ZipEntrySaver<W> {
         })
     }
     /// Creates an entry saver with custom file options for ZIP archive and seekable writer.
-    pub fn custom(w: W, file_opts: FileOptions) -> EntrySaver<Self> {
+    pub fn custom(w: W, file_opts: FileOptions<()>) -> EntrySaver<Self> {
         EntrySaver(Self {
             w: ZipWriter::new(BufWriter::new(w)), file_opts
         })
