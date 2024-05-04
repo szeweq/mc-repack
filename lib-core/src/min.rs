@@ -18,9 +18,7 @@ fn find_brackets(b: &[u8]) -> Option<(usize, usize)> {
         Some((i, b'[')) => (i, b']'),
         _ => { return None; }
     };
-    let Some(j) = b.iter().rposition(|&b| b == endb) else {
-        return None;
-    };
+    let j = b.iter().rposition(|&b| b == endb)?;
     Some((i, j))
 }
 
