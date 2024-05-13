@@ -1,7 +1,7 @@
-use std::{io::{self, BufReader, BufWriter, Read, Seek, Write}, sync::Arc};
+use std::{io::{BufReader, BufWriter, Read, Seek, Write}, sync::Arc};
 use crossbeam_channel::Sender;
 use flate2::bufread::DeflateEncoder;
-use zip::{ZipArchive, ZipWriter, write::FileOptions, CompressionMethod};
+use zip::{write::{FileOptions, SimpleFileOptions}, CompressionMethod, ZipArchive, ZipWriter};
 
 use crate::{fop::FileOp, optimizer::EntryType};
 use super::{EntryReader, EntrySaverSpec, EntrySaver};
@@ -40,19 +40,10 @@ impl <R: Read + Seek> EntryReader for ZipEntryReader<R> {
                 let fop = FileOp::by_name(&fname, use_blacklist);
                 let mut obuf = Vec::new();
                 if let FileOp::Ignore(_) = fop {} else {
-                    let mut jf = match za.by_index(i) {
-                        Ok(jf) => jf,
-                        Err(e) => {
-                            super::wrap_send(&tx, EntryType::Error(fname, Box::new(e)))?;
-                            continue
-                        }
-                    };
+                    let mut jf = za.by_index(i)?;
                     if jf.compression() != CompressionMethod::Deflated { eprintln!("{}: CM {}\n", fname, jf.compression()); }
                     obuf.reserve_exact(jf.size() as usize);
-                    if let Err(e) =  jf.read_to_end(&mut obuf) {
-                        super::wrap_send(&tx, EntryType::Error(fname, Box::new(e)))?;
-                        continue
-                    }
+                    jf.read_to_end(&mut obuf)?;
                 }
                 EntryType::File(fname, obuf.into(), fop)
             })?;
@@ -64,46 +55,50 @@ impl <R: Read + Seek> EntryReader for ZipEntryReader<R> {
 /// An entry saver implementation for ZIP archive. It writes entries to it using a provided writer.
 pub struct ZipEntrySaver<W: Write + Seek> {
     w: ZipWriter<BufWriter<W>>,
-    file_opts: FileOptions<'static, ()>
+    opts_deflated: SimpleFileOptions,
+    opts_stored: SimpleFileOptions
 }
 impl <W: Write + Seek> ZipEntrySaver<W> {
     /// Creates an entry saver with a seekable writer.
     pub fn new(w: W) -> EntrySaver<Self> {
         EntrySaver(Self {
             w: ZipWriter::new(BufWriter::new(w)),
-            file_opts: FileOptions::default().compression_level(Some(9))
+            opts_deflated: FileOptions::default().compression_method(CompressionMethod::Deflated).compression_level(Some(9)),
+            opts_stored: FileOptions::default().compression_method(CompressionMethod::Stored),
         })
     }
     /// Creates an entry saver with custom file options for ZIP archive and seekable writer.
-    pub fn custom(w: W, file_opts: FileOptions<'static, ()>) -> EntrySaver<Self> {
+    pub fn custom(w: W, opts_stored: SimpleFileOptions, opts_deflated: SimpleFileOptions) -> EntrySaver<Self> {
         EntrySaver(Self {
-            w: ZipWriter::new(BufWriter::new(w)), file_opts
+            w: ZipWriter::new(BufWriter::new(w)), opts_deflated, opts_stored
         })
     }
 }
 impl <W: Write + Seek> EntrySaverSpec for ZipEntrySaver<W> {
     fn save_dir(&mut self, dir: &str) -> crate::Result_<()> {
         if dir != ".cache/" {
-            self.w.add_directory(dir, self.file_opts)?;
+            self.w.add_directory(dir, self.opts_stored)?;
         }
         Ok(())
     }
     fn save_file(&mut self, name: &str, data: &[u8], compress_min: u16) -> crate::Result_<()> {
         let z = &mut self.w;
-        z.start_file(name, self.file_opts
-            .compression_method(compress_check(data, compress_min as usize))
-        )?;
+        z.start_file(name, if compress_check(data, compress_min as usize) {
+            self.opts_deflated
+        } else {
+            self.opts_stored
+        })?;
         z.write_all(data)?;
         Ok(())
     }
 }
 
-fn compress_check(b: &[u8], compress_min: usize) -> CompressionMethod {
+fn compress_check(b: &[u8], compress_min: usize) -> bool {
     let lb = b.len();
     if lb > compress_min {
         let de = DeflateEncoder::new(b, flate2::Compression::best());
         let sum = de.bytes().count();
-        if sum < lb { return CompressionMethod::DEFLATE }
+        if sum < lb { return true }
     }
-    CompressionMethod::STORE
+    false
 }

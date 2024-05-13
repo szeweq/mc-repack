@@ -45,9 +45,6 @@ impl<T: EntrySaverSpec> EntrySaver<T> {
         let mut n = 0;
         for et in rx {
             match et {
-                EntryType::Error(name, e) => {
-                    ev.collect(name, e);
-                }
                 EntryType::Count(u) => {
                     wrap_send(ps, ProgressState::Start(u))?;
                 }
@@ -69,15 +66,11 @@ impl<T: EntrySaverSpec> EntrySaver<T> {
                                     &buf
                                 }
                             };
-                            if let Err(e) = self.0.save_file(&fname, buf, m.compress_min()) {
-                                ev.collect(fname.clone(), Box::new(e));
-                            }
+                            self.0.save_file(&fname, buf, m.compress_min())?;
                             cv.clear();
                         }
                         FileOp::Recompress(x) => {
-                            if let Err(e) = self.0.save_file(&fname, &buf, x as u16) {
-                                ev.collect(fname.clone(), Box::new(e));
-                            }
+                            self.0.save_file(&fname, &buf, x as u16)?;
                         }
                     }
                 }

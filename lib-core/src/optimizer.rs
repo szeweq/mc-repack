@@ -68,9 +68,7 @@ pub enum EntryType {
     /// A directory with its path
     Directory(Arc<str>),
     /// A file with its path, data and file operation
-    File(Arc<str>, Box<[u8]>, FileOp),
-    /// An error
-    Error(Arc<str>, Box<dyn std::error::Error + Send>),
+    File(Arc<str>, Box<[u8]>, FileOp)
 }
 impl EntryType {
     /// A shorthand function for creating a directory entry
