@@ -1,5 +1,5 @@
 use std::{fs, io, path::{PathBuf, Path}, thread::{self, JoinHandle}, any::Any, ffi::OsString};
-
+use clap::Parser;
 use cli_args::RepackOpts;
 use crossbeam_channel::Sender;
 use indicatif::{ProgressBar, ProgressStyle, MultiProgress};
@@ -16,7 +16,7 @@ type Error_ = anyhow::Error;
 type Result_<T> = Result<T, Error_>;
 
 fn main() -> Result_<()> {
-    let args = cli_args::Args::env();
+    let args = cli_args::Args::parse();
     println!("█▀▄▀█ █▀▀ ▄▄ █▀█ █▀▀ █▀█ ▄▀█ █▀▀ █▄▀\n█ ▀ █ █▄▄    █▀▄ ██▄ █▀▀ █▀█ █▄▄ █ █ by Szeweq (https://szeweq.xyz/mc-repack)\n");
     
     let path = &args.path;

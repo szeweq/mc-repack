@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+
 #[derive(Debug, clap::Parser)]
 #[command(version)]
 pub struct Args {
@@ -17,14 +18,6 @@ pub struct Args {
     /// Use built-in blacklist for files
     #[arg(short = 'b', long)]
     pub use_blacklist: bool
-}
-
-impl Args {
-    #[inline]
-    pub fn env() -> Self {
-        use clap::Parser;
-        Self::parse()
-    }
 }
 pub struct RepackOpts {
     pub silent: bool,
