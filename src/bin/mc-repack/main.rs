@@ -133,11 +133,10 @@ impl ProcessTask for JarDirRepackTask {
                 ) {
                     Ok(_) => {},
                     Err(e) => {
-                        ec.collect("", e.into());
-                        //println!("Cannot repack {}: {}", fp.display(), e);
-                        // if let Err(fe) = fs::remove_file(&nfp) {
-                        //     println!("Cannot remove {}: {}", nfp.display(), fe);
-                        // }
+                        println!("Cannot repack {}: {}\n\n", fp.display(), e);
+                        if let Err(fe) = fs::remove_file(&nfp) {
+                            println!("Cannot remove {}: {}", nfp.display(), fe);
+                        }
                     }
                 }
             }

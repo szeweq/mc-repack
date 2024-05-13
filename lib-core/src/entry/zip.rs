@@ -1,4 +1,4 @@
-use std::{io::{BufReader, BufWriter, Read, Seek, Write}, sync::Arc};
+use std::{io::{self, BufReader, BufWriter, Read, Seek, Write}, sync::Arc};
 use crossbeam_channel::Sender;
 use flate2::bufread::DeflateEncoder;
 use zip::{ZipArchive, ZipWriter, write::FileOptions, CompressionMethod};
@@ -47,13 +47,11 @@ impl <R: Read + Seek> EntryReader for ZipEntryReader<R> {
                             continue
                         }
                     };
+                    if jf.compression() != CompressionMethod::Deflated { eprintln!("{}: CM {}\n", fname, jf.compression()); }
                     obuf.reserve_exact(jf.size() as usize);
-                    match jf.read_to_end(&mut obuf) {
-                        Ok(_) => {},
-                        Err(e) => {
-                            super::wrap_send(&tx, EntryType::Error(fname, Box::new(e)))?;
-                            continue
-                        }
+                    if let Err(e) =  jf.read_to_end(&mut obuf) {
+                        super::wrap_send(&tx, EntryType::Error(fname, Box::new(e)))?;
+                        continue
                     }
                 }
                 EntryType::File(fname, obuf.into(), fop)
