@@ -16,6 +16,7 @@ anyhow = ["dep:anyhow"]
 png = ["dep:oxipng"]
 toml = ["dep:toml"]
 nbt = []
+nbt-zopfli = ["nbt", "dep:zopfli"]
 default = ["png", "toml", "nbt"]
 
 [dependencies]
@@ -28,3 +29,4 @@ flate2 = "^1.0.26"
 json_comments = "0.2"
 toml = {optional = true, version = "^0.8.0", features = ["preserve_order"]}
 lazy_static = "^1.4.0"
+zopfli = {version = "^0.8.0", optional = true}

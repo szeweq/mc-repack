@@ -1,4 +1,4 @@
-use std::{error::Error, io::Write};
+use std::{error::Error, io::{copy, Cursor, Write}};
 
 use super::Result_;
 
@@ -24,21 +24,40 @@ pub(super) fn minify_nbt(b: &[u8], vout: &mut Vec<u8>) -> Result_ {
     let Some(compression) = NBTCompression::detect(b) else {
         return Err(NBTError.into());
     };
-    let mut gzw = flate2::write::GzEncoder::new(vout, flate2::Compression::best());
+
+    let mut enc = get_encoder(vout);
     match compression {
         NBTCompression::None => {
-            gzw.write_all(b)?;
+            let mut cur = Cursor::new(b);
+            copy(&mut cur, &mut enc)
         }
         NBTCompression::GZip => {
             let mut gzr = flate2::bufread::GzDecoder::new(b);
-            std::io::copy(&mut gzr, &mut gzw)?;
+            copy(&mut gzr, &mut enc)
         }
         NBTCompression::ZLib => {
             let mut zlr = flate2::bufread::ZlibDecoder::new(b);
-            std::io::copy(&mut zlr, &mut gzw)?;
+            copy(&mut zlr, &mut enc)
         }
-    }
+    }?;
+    enc.finish()?;
     Ok(())
+}
+
+#[cfg(feature="nbt-zopfli")]
+fn get_encoder<W: Write>(w: W) -> zopfli::GzipEncoder<W> {
+    use std::num::NonZeroU64;
+    let zo = zopfli::Options {
+        iteration_count: NonZeroU64::new(10).unwrap(),
+        iterations_without_improvement: NonZeroU64::new(2).unwrap(),
+        ..<zopfli::Options as Default>::default()
+    };
+    let mut enc = zopfli::GzipEncoder::new(zo, zopfli::BlockType::Dynamic, vout)?;
+}
+
+#[cfg(not(feature="nbt-zopfli"))]
+fn get_encoder<W: Write>(w: W) -> flate2::write::GzEncoder<W> {
+    flate2::write::GzEncoder::new(w, flate2::Compression::best())
 }
 
 #[derive(Debug)]
