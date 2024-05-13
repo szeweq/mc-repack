@@ -30,6 +30,7 @@ jobs:
         with:
           bin: mc-repack
           target: ${{ matrix.target }}
+          include: LICENSE
           tar: all
           zip: windows
         env:
