@@ -4,7 +4,7 @@ use cli_args::RepackOpts;
 use crossbeam_channel::Sender;
 use indicatif::{ProgressBar, ProgressStyle, MultiProgress};
 
-use mc_repack_core::{optimizer::{ProgressState, optimize_archive}, fop::FileType, errors::{EntryRepackError, ErrorCollector}};
+use mc_repack_core::{entry, errors::{EntryRepackError, ErrorCollector}, fop::FileType, optimizer::{optimize_archive, optimize_with, ProgressState}};
 
 mod cli_args;
 
@@ -126,8 +126,20 @@ impl ProcessTask for JarDirRepackTask {
                 let Some(nfp) = new_path(out.as_ref(), &fp) else {
                     return Err(TaskError::InvalidFileName.into())
                 };
-                optimize_archive(fp.into_boxed_path(), nfp.into_boxed_path(), &ps, ec, use_blacklist)
-                    .map_err(|e| wrap_err_with(e, &rde.path()))?;
+                match optimize_with(
+                    entry::zip::ZipEntryReader::new_buf(fs::File::open(&fp)?),
+                    entry::zip::ZipEntrySaver::new(fs::File::create(&nfp)?),
+                    &ps, ec, use_blacklist
+                ) {
+                    Ok(_) => {},
+                    Err(e) => {
+                        ec.collect("", e.into());
+                        //println!("Cannot repack {}: {}", fp.display(), e);
+                        // if let Err(fe) = fs::remove_file(&nfp) {
+                        //     println!("Cannot remove {}: {}", nfp.display(), fe);
+                        // }
+                    }
+                }
             }
         }
         mp.clear()?;

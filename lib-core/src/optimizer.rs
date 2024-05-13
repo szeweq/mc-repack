@@ -1,4 +1,4 @@
-use std::{fs::File, io::{self}, thread, path::Path, sync::Arc};
+use std::{fs::File, io, path::Path, sync::Arc, thread};
 use crossbeam_channel::{bounded, Sender};
 
 use crate::{fop::FileOp, errors::ErrorCollector, entry::{self, EntryReader, EntrySaver, EntrySaverSpec}};
@@ -68,7 +68,9 @@ pub enum EntryType {
     /// A directory with its path
     Directory(Arc<str>),
     /// A file with its path, data and file operation
-    File(Arc<str>, Box<[u8]>, FileOp)
+    File(Arc<str>, Box<[u8]>, FileOp),
+    /// An error
+    Error(Arc<str>, Box<dyn std::error::Error + Send>),
 }
 impl EntryType {
     /// A shorthand function for creating a directory entry

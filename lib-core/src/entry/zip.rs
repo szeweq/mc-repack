@@ -1,9 +1,9 @@
-use std::{io::{Read, Seek, BufReader, Write, BufWriter}, sync::Arc};
+use std::{io::{BufReader, BufWriter, Read, Seek, Write}, sync::Arc};
 use crossbeam_channel::Sender;
 use flate2::bufread::DeflateEncoder;
 use zip::{ZipArchive, ZipWriter, write::FileOptions, CompressionMethod};
 
-use crate::{optimizer::EntryType, fop::FileOp};
+use crate::{fop::FileOp, optimizer::EntryType};
 use super::{EntryReader, EntrySaverSpec, EntrySaver};
 
 /// An entry reader implementation for ZIP archive. It reads its contents from a provided reader (with seeking).
@@ -16,13 +16,19 @@ impl <R: Read + Seek> ZipEntryReader<R> {
         Self { r }
     }
 }
+impl <R: Read + Seek> ZipEntryReader<BufReader<R>> {
+    /// Creates an entry reader wrapping a specified reader with a [BufReader].
+    pub fn new_buf(r: R) -> Self {
+        Self { r: BufReader::new(r) }
+    }
+}
 impl <R: Read + Seek> EntryReader for ZipEntryReader<R> {
     fn read_entries(
         self,
         tx: Sender<EntryType>,
         use_blacklist: bool
     ) -> crate::Result_<()> {
-        let mut za = ZipArchive::new(BufReader::new(self.r))?;
+        let mut za = ZipArchive::new(self.r)?;
         let jfc = za.len();
         super::wrap_send(&tx, EntryType::Count(jfc))?;
         for i in 0..jfc {
@@ -34,9 +40,21 @@ impl <R: Read + Seek> EntryReader for ZipEntryReader<R> {
                 let fop = FileOp::by_name(&fname, use_blacklist);
                 let mut obuf = Vec::new();
                 if let FileOp::Ignore(_) = fop {} else {
-                    let mut jf = za.by_index(i)?;
+                    let mut jf = match za.by_index(i) {
+                        Ok(jf) => jf,
+                        Err(e) => {
+                            super::wrap_send(&tx, EntryType::Error(fname, Box::new(e)))?;
+                            continue
+                        }
+                    };
                     obuf.reserve_exact(jf.size() as usize);
-                    jf.read_to_end(&mut obuf)?;
+                    match jf.read_to_end(&mut obuf) {
+                        Ok(_) => {},
+                        Err(e) => {
+                            super::wrap_send(&tx, EntryType::Error(fname, Box::new(e)))?;
+                            continue
+                        }
+                    }
                 }
                 EntryType::File(fname, obuf.into(), fop)
             })?;
@@ -48,7 +66,7 @@ impl <R: Read + Seek> EntryReader for ZipEntryReader<R> {
 /// An entry saver implementation for ZIP archive. It writes entries to it using a provided writer.
 pub struct ZipEntrySaver<W: Write + Seek> {
     w: ZipWriter<BufWriter<W>>,
-    file_opts: FileOptions<()>
+    file_opts: FileOptions<'static, ()>
 }
 impl <W: Write + Seek> ZipEntrySaver<W> {
     /// Creates an entry saver with a seekable writer.
@@ -59,7 +77,7 @@ impl <W: Write + Seek> ZipEntrySaver<W> {
         })
     }
     /// Creates an entry saver with custom file options for ZIP archive and seekable writer.
-    pub fn custom(w: W, file_opts: FileOptions<()>) -> EntrySaver<Self> {
+    pub fn custom(w: W, file_opts: FileOptions<'static, ()>) -> EntrySaver<Self> {
         EntrySaver(Self {
             w: ZipWriter::new(BufWriter::new(w)), file_opts
         })
