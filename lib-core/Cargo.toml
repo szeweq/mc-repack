@@ -19,6 +19,7 @@ nbt = []
 nbt-zopfli = ["nbt", "dep:zopfli"]
 png-zopfli = ["png", "oxipng/zopfli"]
 zip-zopfli = ["zip/deflate-zopfli", "dep:zopfli"]
+all-zopfli = ["nbt-zopfli", "png-zopfli", "zip-zopfli"]
 default = ["png", "toml", "nbt"]
 
 [dependencies]
