@@ -79,10 +79,10 @@ impl Minifier {
     pub const fn compress_min(&self) -> u16 {
         match self {
             #[cfg(feature = "png")] Self::PNG => 512,
-            Self::JSON => 48,
-            #[cfg(feature = "toml")] Self::TOML => 48,
-            #[cfg(feature = "nbt")] Self::NBT => 48,
-            _ => 4
+            Self::JSON => 64,
+            #[cfg(feature = "toml")] Self::TOML => 64,
+            #[cfg(feature = "nbt")] Self::NBT => 768,
+            _ => 8
         }
     }
 }

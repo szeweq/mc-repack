@@ -104,7 +104,7 @@ fn compress_check(b: &[u8], compress_min: usize) -> bool {
     if lb > compress_min {
         let de = DeflateEncoder::new(b, flate2::Compression::best());
         let sum = de.bytes().count();
-        if sum < lb { return true }
+        if sum + 8 < lb { return true }
     }
     false
 }
