@@ -5,6 +5,7 @@ use crate::errors;
 mod json;
 #[cfg(feature = "png")] mod png;
 #[cfg(feature = "toml")] mod toml;
+#[cfg(feature = "nbt")] mod nbt;
 
 #[inline]
 const fn strip_bom(b: &[u8]) -> &[u8] {
@@ -25,7 +26,7 @@ fn find_brackets(b: &[u8]) -> Option<(usize, usize)> {
 /// Checks if a file can be recompressed (not minified) depending on its extension
 #[must_use]
 pub fn only_recompress(ftype: &str) -> bool {
-    matches!(ftype, "glsl" | "html" | "kotlin_module" | "md" | "nbt" | "ogg" | "txt" | "vert" | "xml")
+    matches!(ftype, "glsl" | "html" | "kotlin_module" | "md" | "ogg" | "txt" | "vert" | "xml")
 }
 
 
@@ -37,6 +38,8 @@ pub enum Minifier {
     JSON,
     /// A TOML minifier using `toml`.
     #[cfg(feature = "toml")] TOML,
+    /// A customized NBT minifier
+    #[cfg(feature = "nbt")] NBT,
     /// A minifier that removes hash (`#`) comment lines (and empty lines)
     Hash,
     /// A minifier that removes double-slash (`//`) comment lines (and empty lines)
@@ -50,6 +53,7 @@ impl Minifier {
             #[cfg(feature = "png")] "png" => Self::PNG,
             "json" | "mcmeta" => Self::JSON,
             #[cfg(feature = "toml")] "toml" => Self::TOML,
+            #[cfg(feature = "nbt")] "nbt" => Self::NBT,
             "cfg" | "obj" | "mtl" => Self::Hash,
             "zs" | "js" | "fsh" | "vsh" => Self::Slash,
             _ => return None
@@ -64,6 +68,7 @@ impl Minifier {
             #[cfg(feature = "png")] Self::PNG => png::minify_png(v, vout),
             Self::JSON => json::minify_json(strip_bom(v), vout),
             #[cfg(feature = "toml")] Self::TOML => toml::minify_toml(strip_bom(v), vout),
+            #[cfg(feature = "nbt")] Self::NBT => nbt::minify_nbt(v, vout),
             Self::Hash => remove_line_comments(b"#", v, vout),
             Self::Slash => remove_line_comments(b"//", v, vout)
         }
@@ -76,6 +81,7 @@ impl Minifier {
             #[cfg(feature = "png")] Self::PNG => 512,
             Self::JSON => 48,
             #[cfg(feature = "toml")] Self::TOML => 48,
+            #[cfg(feature = "nbt")] Self::NBT => 48,
             _ => 4
         }
     }

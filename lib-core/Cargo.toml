@@ -15,7 +15,8 @@ keywords = ["minecraft", "jar", "processing", "optimizer", "repack"]
 anyhow = ["dep:anyhow"]
 png = ["dep:oxipng"]
 toml = ["dep:toml"]
-default = ["png", "toml"]
+nbt = []
+default = ["png", "toml", "nbt"]
 
 [dependencies]
 zip = {workspace = true}
