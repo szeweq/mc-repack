@@ -1,2 +1,3 @@
 [alias]
 jars = "run --bin mc-repack --release -- test-jars"
+debug-jars = "run --bin mc-repack -- test-jars"
