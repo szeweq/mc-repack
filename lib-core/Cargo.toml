@@ -17,10 +17,12 @@ png = ["dep:oxipng"]
 toml = ["dep:toml"]
 nbt = []
 nbt-zopfli = ["nbt", "dep:zopfli"]
+png-zopfli = ["png", "oxipng/zopfli"]
+zip-zopfli = ["zip/deflate-zopfli", "dep:zopfli"]
 default = ["png", "toml", "nbt"]
 
 [dependencies]
-zip = {workspace = true}
+zip = {workspace = true, features = ["deflate"]}
 crossbeam-channel = {workspace = true}
 anyhow = {optional = true, workspace = true}
 serde_json = {version = "^1.0.93", features = ["preserve_order"]}

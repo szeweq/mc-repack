@@ -52,6 +52,12 @@ impl <R: Read + Seek> EntryReader for ZipEntryReader<R> {
     }
 }
 
+#[cfg(feature = "zip-zopfli")]
+const MAX_LEVEL: i64 = 264;
+
+#[cfg(not(feature = "zip-zopfli"))]
+const MAX_LEVEL: i64 = 9;
+
 /// An entry saver implementation for ZIP archive. It writes entries to it using a provided writer.
 pub struct ZipEntrySaver<W: Write + Seek> {
     w: ZipWriter<BufWriter<W>>,
@@ -63,7 +69,7 @@ impl <W: Write + Seek> ZipEntrySaver<W> {
     pub fn new(w: W) -> EntrySaver<Self> {
         EntrySaver(Self {
             w: ZipWriter::new(BufWriter::new(w)),
-            opts_deflated: FileOptions::default().compression_method(CompressionMethod::Deflated).compression_level(Some(9)),
+            opts_deflated: FileOptions::default().compression_method(CompressionMethod::Deflated).compression_level(Some(MAX_LEVEL)),
             opts_stored: FileOptions::default().compression_method(CompressionMethod::Stored),
         })
     }

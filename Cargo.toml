@@ -16,7 +16,7 @@ exclude = ["/.github", "benches/*", "test-jars/*"]
 members = ["lib-core"]
 
 [workspace.dependencies]
-zip = {version = "^1.2.3", default-features = false, features = ["deflate"]}
+zip = {version = "^1.2.3", default-features = false}
 crossbeam-channel = "^0.5.8"
 anyhow = "1.0"
 

@@ -466,6 +466,7 @@ dependencies = [
  "rgb",
  "rustc-hash",
  "rustc_version",
+ "zopfli",
 ]
 
 [[package]]
@@ -813,6 +814,7 @@ dependencies = [
  "flate2",
  "indexmap",
  "thiserror",
+ "zopfli",
 ]
 
 [[package]]
