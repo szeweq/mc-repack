@@ -8,6 +8,9 @@ use crate::{cfg, errors::ErrorCollector, fop::FileOp, optimizer::{EntryType, Pro
 
 use crossbeam_channel::{Sender, Receiver};
 
+pub use fs::{FSEntryReader, FSEntrySaver};
+pub use zip::{ZipEntryReader, ZipEntrySaver};
+
 /// Trait for reading entries for further optimization. Typically used with `EntrySaver`.
 /// Any function that matches these arguments (excluding self) can be used as custom entry reader.
 pub trait EntryReader {
