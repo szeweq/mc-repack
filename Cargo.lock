@@ -95,9 +95,9 @@ dependencies = [
 
 [[package]]
 name = "bytemuck"
-version = "1.15.0"
+version = "1.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5d6d68c57235a3a081186990eca2867354726650f42f7516ca50c28d6281fd15"
+checksum = "78834c15cb5d5efe3452d58b1e8ba890dd62d21907f867f383358198e56ebca5"
 
 [[package]]
 name = "cc"
@@ -417,18 +417,20 @@ dependencies = [
 
 [[package]]
 name = "mc-repack"
-version = "0.18.1"
+version = "0.20.0"
 dependencies = [
  "anyhow",
  "clap",
  "crossbeam-channel",
  "indicatif",
  "mc-repack-core",
+ "serde",
+ "toml",
 ]
 
 [[package]]
 name = "mc-repack-core"
-version = "0.18.1"
+version = "0.20.0"
 dependencies = [
  "anyhow",
  "crossbeam-channel",

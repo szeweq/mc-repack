@@ -7,6 +7,7 @@ use indicatif::{ProgressBar, ProgressStyle, MultiProgress};
 use mc_repack_core::{entry::{self, ZipEntryReader, ZipEntrySaver}, errors::{EntryRepackError, ErrorCollector}, fop::FileType, optimizer::{optimize_with, ProgressState}};
 
 mod cli_args;
+mod config;
 
 #[cfg(not(feature = "anyhow"))]
 type Error_ = io::Error;
