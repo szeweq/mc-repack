@@ -4,7 +4,8 @@ use crate::cfg::{ConfigHolder, acfg};
 
 use super::Result_;
 
-#[derive(Debug)]
+#[repr(u8)]
+#[derive(Debug, Clone, Copy)]
 enum NBTCompression {
     None,
     GZip,
