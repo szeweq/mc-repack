@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use crate::errors;
+use crate::{cfg, errors};
 
 mod json;
 #[cfg(feature = "png")] mod png;
@@ -63,12 +63,12 @@ impl Minifier {
     /// Minifies file data and writes the result in provided vec.
     /// # Errors
     /// Returns an error if minifying fails, depending on file type
-    pub fn minify(&self, v: &[u8], vout: &mut Vec<u8>) -> Result_ {
+    pub fn minify(&self, cfgmap: &cfg::ConfigMap, v: &[u8], vout: &mut Vec<u8>) -> Result_ {
         match self {
             #[cfg(feature = "png")] Self::PNG => png::minify_png(v, vout),
             Self::JSON => json::minify_json(strip_bom(v), vout),
             #[cfg(feature = "toml")] Self::TOML => toml::minify_toml(strip_bom(v), vout),
-            #[cfg(feature = "nbt")] Self::NBT => nbt::minify_nbt(v, vout),
+            #[cfg(feature = "nbt")] Self::NBT => cfgmap.fetch::<nbt::MinifierNBT>().minify(v, vout),
             Self::Hash => remove_line_comments(b"#", v, vout),
             Self::Slash => remove_line_comments(b"//", v, vout)
         }

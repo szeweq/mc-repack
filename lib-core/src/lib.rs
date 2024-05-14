@@ -19,6 +19,8 @@ pub mod fop;
 pub mod errors;
 /// Reading and saving entries (file system or ZIP archive).
 pub mod entry;
+/// Configuration
+pub mod cfg;
 
 #[cfg(not(feature = "anyhow"))]
 pub(crate) type Result_<T> = std::io::Result<T>;

@@ -1,5 +1,7 @@
 use std::{error::Error, io::{copy, Cursor, Write}};
 
+use crate::cfg::{AcceptsConfig, ConfigHolder};
+
 use super::Result_;
 
 #[derive(Debug)]
@@ -20,32 +22,34 @@ impl NBTCompression {
     }
 }
 
-pub(super) fn minify_nbt(b: &[u8], vout: &mut Vec<u8>) -> Result_ {
-    let Some(compression) = NBTCompression::detect(b) else {
-        return Err(NBTError.into());
-    };
+pub(super) enum MinifierNBT {}
+impl AcceptsConfig for MinifierNBT {
+    type Cfg = NBTConfig;
+}
+impl ConfigHolder<MinifierNBT> {
+    pub(super) fn minify(&self, b: &[u8], vout: &mut Vec<u8>) -> Result_ {
+        let Some(compression) = NBTCompression::detect(b) else {
+            return Err(NBTError.into());
+        };
+    
+        #[cfg(feature = "nbt-zopfli")]
+        if self.use_zopfli {
+            return minify_with_zopfli(b, vout, compression);
+        }
 
-    let mut enc = get_encoder(vout);
-    match compression {
-        NBTCompression::None => {
-            let mut cur = Cursor::new(b);
-            copy(&mut cur, &mut enc)
-        }
-        NBTCompression::GZip => {
-            let mut gzr = flate2::bufread::GzDecoder::new(b);
-            copy(&mut gzr, &mut enc)
-        }
-        NBTCompression::ZLib => {
-            let mut zlr = flate2::bufread::ZlibDecoder::new(b);
-            copy(&mut zlr, &mut enc)
-        }
-    }?;
+        minify_with_gzip(b, vout, compression)
+    }
+}
+
+fn minify_with_gzip(b: &[u8], vout: &mut Vec<u8>, nc: NBTCompression) -> Result_ {
+    let mut enc = flate2::write::GzEncoder::new(vout, flate2::Compression::best());
+    copy_to_encoder(&mut enc, b, nc)?;
     enc.finish()?;
     Ok(())
 }
 
-#[cfg(feature="nbt-zopfli")]
-fn get_encoder<W: Write>(w: W) -> zopfli::GzipEncoder<W> {
+#[cfg(feature = "nbt-zopfli")]
+fn minify_with_zopfli(b: &[u8], vout: &mut Vec<u8>, nc: NBTCompression) -> Result_ {
     use std::num::NonZeroU64;
     let zo = zopfli::Options {
         iteration_count: NonZeroU64::new(10).unwrap(),
@@ -53,11 +57,33 @@ fn get_encoder<W: Write>(w: W) -> zopfli::GzipEncoder<W> {
         ..<zopfli::Options as Default>::default()
     };
     let mut enc = zopfli::GzipEncoder::new(zo, zopfli::BlockType::Dynamic, vout)?;
+    copy_to_encoder(&mut enc, b, nc)?;
+    enc.finish()?;
+    Ok(())
 }
 
-#[cfg(not(feature="nbt-zopfli"))]
-fn get_encoder<W: Write>(w: W) -> flate2::write::GzEncoder<W> {
-    flate2::write::GzEncoder::new(w, flate2::Compression::best())
+fn copy_to_encoder<W: Write>(w: &mut W, b: &[u8], nc: NBTCompression) -> Result_ {
+    match nc {
+        NBTCompression::None => {
+            let mut cur = Cursor::new(b);
+            copy(&mut cur, w)
+        }
+        NBTCompression::GZip => {
+            let mut gzr = flate2::bufread::GzDecoder::new(b);
+            copy(&mut gzr, w)
+        }
+        NBTCompression::ZLib => {
+            let mut zlr = flate2::bufread::ZlibDecoder::new(b);
+            copy(&mut zlr, w)
+        }
+    }?;
+    Ok(())
+}
+
+#[derive(Default)]
+pub struct NBTConfig {
+    #[cfg(feature = "nbt-zopfli")]
+    pub use_zopfli: bool
 }
 
 #[derive(Debug)]

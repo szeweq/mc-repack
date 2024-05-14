@@ -1,19 +1,20 @@
 use std::{fs::File, io, path::Path, sync::Arc, thread};
 use crossbeam_channel::{bounded, Sender};
 
-use crate::{fop::FileOp, errors::ErrorCollector, entry::{self, EntryReader, EntrySaver, EntrySaverSpec}};
+use crate::{cfg, entry::{self, EntryReader, EntrySaver, EntrySaverSpec}, errors::ErrorCollector, fop::FileOp};
 
 /// Optimizes entries using entry reader in saver in separate threads.
 pub fn optimize_with<R: EntryReader + Send + 'static, S: EntrySaverSpec>(
     reader: R,
     saver: EntrySaver<S>,
+    cfgmap: &cfg::ConfigMap,
     ps: &Sender<ProgressState>,
     errors: &mut ErrorCollector,
     use_blacklist: bool
 ) -> crate::Result_<()> {
     let (tx, rx) = bounded(2);
     let t1 = thread::spawn(move || reader.read_entries(tx, use_blacklist));
-    saver.save_entries(rx, errors, ps)?;
+    saver.save_entries(rx, errors, cfgmap, ps)?;
     crate::wrap_err(t1.join(), "thread join failed")?
 }
 
@@ -22,6 +23,7 @@ pub fn optimize_with<R: EntryReader + Send + 'static, S: EntrySaverSpec>(
 pub fn optimize_archive(
     in_path: Box<Path>,
     out_path: Box<Path>,
+    cfgmap: &cfg::ConfigMap,
     ps: &Sender<ProgressState>,
     errors: &mut ErrorCollector,
     use_blacklist: bool
@@ -29,7 +31,7 @@ pub fn optimize_archive(
     optimize_with(
         entry::zip::ZipEntryReader::new(File::open(in_path)?),
         entry::zip::ZipEntrySaver::new(File::create(out_path)?),
-        ps, errors, use_blacklist
+        cfgmap, ps, errors, use_blacklist
     )
 }
 
@@ -38,6 +40,7 @@ pub fn optimize_archive(
 pub fn optimize_fs_copy(
     in_path: Box<Path>,
     out_path: Box<Path>,
+    cfgmap: &cfg::ConfigMap,
     ps: &Sender<ProgressState>,
     errors: &mut ErrorCollector,
     use_blacklist: bool
@@ -48,7 +51,7 @@ pub fn optimize_fs_copy(
     optimize_with(
         entry::fs::FSEntryReader::new(in_path),
         entry::fs::FSEntrySaver::new(out_path),
-        ps, errors, use_blacklist
+        cfgmap, ps, errors, use_blacklist
     )
 }
 

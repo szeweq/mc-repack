@@ -87,7 +87,7 @@ impl ProcessTask for JarRepackTask {
         let Some(nfp) = out.or_else(|| file_name_repack(fp)) else {
             return Err(TaskError::InvalidFileName.into())
         };
-        optimize_archive(fp.into(), nfp.into_boxed_path(), &ps, ec, opts.use_blacklist)
+        optimize_archive(fp.into(), nfp.into_boxed_path(), &opts.cfgmap, &ps, ec, opts.use_blacklist)
             .map_err(|e| wrap_err_with(e, fp))?;
         drop(ps);
         pj.join().map_err(task_err)?;
@@ -100,6 +100,7 @@ struct JarDirRepackTask;
 impl ProcessTask for JarDirRepackTask {
     fn process(&self, fp: &Path, out: Option<PathBuf>, opts: &RepackOpts, ec: &mut ErrorCollector) -> Result_<()> {
         let RepackOpts { use_blacklist, .. } = *opts;
+        let cfgmap = &opts.cfgmap;
         let mp = MultiProgress::new();
 
         let rd = fs::read_dir(fp)?;
@@ -129,7 +130,7 @@ impl ProcessTask for JarDirRepackTask {
                 match optimize_with(
                     entry::zip::ZipEntryReader::new_buf(fs::File::open(&fp)?),
                     entry::zip::ZipEntrySaver::new(fs::File::create(&nfp)?),
-                    &ps, ec, use_blacklist
+                    cfgmap, &ps, ec, use_blacklist
                 ) {
                     Ok(_) => {},
                     Err(e) => {

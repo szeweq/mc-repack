@@ -21,13 +21,15 @@ pub struct Args {
 }
 pub struct RepackOpts {
     pub silent: bool,
-    pub use_blacklist: bool
+    pub use_blacklist: bool,
+    pub cfgmap: mc_repack_core::cfg::ConfigMap
 }
 impl RepackOpts {
     pub fn from_args(args: &Args) -> Self {
         Self {
             silent: args.silent,
-            use_blacklist: args.use_blacklist
+            use_blacklist: args.use_blacklist,
+            cfgmap: mc_repack_core::cfg::ConfigMap::default()
         }
     }
 }

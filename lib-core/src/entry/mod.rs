@@ -4,7 +4,7 @@ pub mod fs;
 /// Entry reader and saver for ZIP archives.
 pub mod zip;
 
-use crate::{errors::ErrorCollector, fop::FileOp, optimizer::{EntryType, ProgressState}};
+use crate::{cfg, errors::ErrorCollector, fop::FileOp, optimizer::{EntryType, ProgressState}};
 
 use crossbeam_channel::{Sender, Receiver};
 
@@ -39,6 +39,7 @@ impl<T: EntrySaverSpec> EntrySaver<T> {
         mut self,
         rx: Receiver<EntryType>,
         ev: &mut ErrorCollector,
+        cfgmap: &cfg::ConfigMap,
         ps: &Sender<ProgressState>
     ) -> crate::Result_<()> {
         let mut cv = Vec::new();
@@ -59,7 +60,7 @@ impl<T: EntrySaverSpec> EntrySaver<T> {
                             ev.collect(fname.clone(), e.into());
                         }
                         FileOp::Minify(m) => {
-                            let buf: &[u8] = match m.minify(&buf, &mut cv) {
+                            let buf: &[u8] = match m.minify(cfgmap, &buf, &mut cv) {
                                 Ok(()) => &cv,
                                 Err(e) => {
                                     ev.collect(fname.clone(), e);
