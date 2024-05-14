@@ -17,7 +17,7 @@ impl <R: Read + Seek> ZipEntryReader<R> {
     }
 }
 impl <R: Read + Seek> ZipEntryReader<BufReader<R>> {
-    /// Creates an entry reader wrapping a specified reader with a [BufReader].
+    /// Creates an entry reader wrapping a specified reader with a [`BufReader`].
     pub fn new_buf(r: R) -> Self {
         Self { r: BufReader::new(r) }
     }

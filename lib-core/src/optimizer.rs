@@ -4,6 +4,8 @@ use crossbeam_channel::{bounded, Sender};
 use crate::{cfg, entry::{self, EntryReader, EntrySaver, EntrySaverSpec}, errors::ErrorCollector, fop::FileOp};
 
 /// Optimizes entries using entry reader in saver in separate threads.
+/// # Errors
+/// Returns an error if any thread fails. [`EntrySaver`] will return an error first.
 pub fn optimize_with<R: EntryReader + Send + 'static, S: EntrySaverSpec>(
     reader: R,
     saver: EntrySaver<S>,
@@ -19,7 +21,10 @@ pub fn optimize_with<R: EntryReader + Send + 'static, S: EntrySaverSpec>(
 }
 
 /// Optimizes an archive and saves repacked one in a new destination.
+/// # Errors
+/// Returns an error if any thread fails. [`EntrySaver`] will return an error first.
 #[inline]
+#[deprecated(since = "0.20.0", note = "use [optimize_with] instead")]
 pub fn optimize_archive(
     in_path: Box<Path>,
     out_path: Box<Path>,
@@ -29,14 +34,17 @@ pub fn optimize_archive(
     use_blacklist: bool
 ) -> crate::Result_<()> {
     optimize_with(
-        entry::zip::ZipEntryReader::new(File::open(in_path)?),
-        entry::zip::ZipEntrySaver::new(File::create(out_path)?),
+        entry::ZipEntryReader::new(File::open(in_path)?),
+        entry::ZipEntrySaver::new(File::create(out_path)?),
         cfgmap, ps, errors, use_blacklist
     )
 }
 
 /// Optimizes files in directory and saves them in a new destination.
+/// # Errors
+/// Returns an error if any thread fails. [`EntrySaver`] will return an error first.
 #[inline]
+#[deprecated(since = "0.20.0", note = "use [optimize_with] instead")]
 pub fn optimize_fs_copy(
     in_path: Box<Path>,
     out_path: Box<Path>,
@@ -49,8 +57,8 @@ pub fn optimize_fs_copy(
         return same_paths_err()
     }
     optimize_with(
-        entry::fs::FSEntryReader::new(in_path),
-        entry::fs::FSEntrySaver::new(out_path),
+        entry::FSEntryReader::new(in_path),
+        entry::FSEntrySaver::new(out_path),
         cfgmap, ps, errors, use_blacklist
     )
 }

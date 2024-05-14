@@ -1,10 +1,10 @@
-use std::{fs, io, path::{PathBuf, Path}, thread::{self, JoinHandle}, any::Any, ffi::OsString};
+use std::{any::Any, ffi::OsString, fs::{self, File}, io, path::{Path, PathBuf}, thread::{self, JoinHandle}};
 use clap::Parser;
 use cli_args::RepackOpts;
 use crossbeam_channel::Sender;
 use indicatif::{ProgressBar, ProgressStyle, MultiProgress};
 
-use mc_repack_core::{entry, errors::{EntryRepackError, ErrorCollector}, fop::FileType, optimizer::{optimize_archive, optimize_with, ProgressState}};
+use mc_repack_core::{entry::{self, ZipEntryReader, ZipEntrySaver}, errors::{EntryRepackError, ErrorCollector}, fop::FileType, optimizer::{optimize_with, ProgressState}};
 
 mod cli_args;
 
@@ -87,8 +87,11 @@ impl ProcessTask for JarRepackTask {
         let Some(nfp) = out.or_else(|| file_name_repack(fp)) else {
             return Err(TaskError::InvalidFileName.into())
         };
-        optimize_archive(fp.into(), nfp.into_boxed_path(), &opts.cfgmap, &ps, ec, opts.use_blacklist)
-            .map_err(|e| wrap_err_with(e, fp))?;
+        optimize_with(
+            ZipEntryReader::new_buf(File::open(fp)?),
+            ZipEntrySaver::new(File::create(nfp)?),
+            &opts.cfgmap, &ps, ec, opts.use_blacklist
+        ).map_err(|e| wrap_err_with(e, fp))?;
         drop(ps);
         pj.join().map_err(task_err)?;
     
