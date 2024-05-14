@@ -54,7 +54,7 @@ impl<AC: AcceptsConfig> std::ops::Deref for ConfigHolder<AC> {
 macro_rules! acfg {
     ($ac:ident : $cfg:ty) => {
         pub enum $ac {}
-        impl AcceptsConfig for $ac {
+        impl crate::cfg::AcceptsConfig for $ac {
             type Cfg = $cfg;
         }
     };

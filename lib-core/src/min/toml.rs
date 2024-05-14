@@ -1,23 +1,39 @@
 #![cfg(feature = "toml")]
 
+use crate::cfg::{acfg, ConfigHolder};
+
 use super::Result_;
 
-pub(super) fn minify_toml(v: &[u8], vout: &mut Vec<u8>) -> Result_ {
-    let fv = std::str::from_utf8(v)?;
-    let mut table: toml::Table = toml::from_str(fv)?;
-    strip_toml_table(&mut table);
-    toml::to_string(&table)?.lines().for_each(|l| {
-        match l.split_once(" = ") {
-            Some((k, v)) => {
-                vout.extend_from_slice(k.as_bytes());
-                vout.push(b'=');
-                vout.extend_from_slice(v.as_bytes());
-            }
-            None => vout.extend_from_slice(l.as_bytes()),
+acfg!(MinifierTOML: TOMLConfig);
+impl ConfigHolder<MinifierTOML> {
+    pub(super) fn minify(&self, b: &[u8], vout: &mut Vec<u8>) -> Result_ {
+        let fv = std::str::from_utf8(b)?;
+        let mut table: toml::Table = toml::from_str(fv)?;
+        if self.strip_strings {
+            strip_toml_table(&mut table);
         }
-        vout.push(b'\n');
-    });
-    Ok(())
+        toml::to_string(&table)?.lines().for_each(|l| {
+            match l.split_once(" = ") {
+                Some((k, v)) => {
+                    vout.extend_from_slice(k.as_bytes());
+                    vout.push(b'=');
+                    vout.extend_from_slice(v.as_bytes());
+                }
+                None => vout.extend_from_slice(l.as_bytes()),
+            }
+            vout.push(b'\n');
+        });
+        Ok(())
+    }
+}
+
+pub struct TOMLConfig {
+    strip_strings: bool
+}
+impl Default for TOMLConfig {
+    fn default() -> Self {
+        Self { strip_strings: true }
+    }
 }
 
 fn strip_toml_table(t: &mut toml::Table) {

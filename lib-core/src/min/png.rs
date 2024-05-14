@@ -1,15 +1,30 @@
 #![cfg(feature = "png")]
 
+use crate::cfg::{acfg, ConfigHolder};
+
 use super::Result_;
-use lazy_static::lazy_static;
 
 #[cfg(feature = "png-zopfli")]
 const BEST_DEFLATE: oxipng::Deflaters = oxipng::Deflaters::Zopfli { iterations: 15 };
 #[cfg(not(feature = "png-zopfli"))]
 const BEST_DEFLATE: oxipng::Deflaters = oxipng::Deflaters::Libdeflater { compression: 12 };
 
-lazy_static! {
-    static ref PNG_OPTS: oxipng::Options = {
+acfg!(MinifierPNG: PNGConfig);
+impl ConfigHolder<MinifierPNG> {
+    pub(super) fn minify(&self, b: &[u8], vout: &mut Vec<u8>) -> Result_ {
+        let v = oxipng::optimize_from_memory(b, &self.oxipng_opts)?;
+        let _ = std::mem::replace(vout, v);
+        Ok(())
+    }
+}
+
+pub struct PNGConfig {
+    oxipng_opts: oxipng::Options,
+    #[cfg(feature = "png-zopfli")]
+    use_zopfli: bool
+}
+impl Default for PNGConfig {
+    fn default() -> Self {
         let mut popts = oxipng::Options {
             fix_errors: true,
             strip: oxipng::StripChunks::Safe,
@@ -19,12 +34,7 @@ lazy_static! {
         };
         popts.filter.insert(oxipng::RowFilter::Up);
         popts.filter.insert(oxipng::RowFilter::Paeth);
-        popts
-    };
-}
-
-pub(super) fn minify_png(v: &[u8], vout: &mut Vec<u8>) -> Result_ {
-    let v = oxipng::optimize_from_memory(v, &PNG_OPTS)?;
-    let _ = std::mem::replace(vout, v);
-    Ok(())
+        
+        Self { oxipng_opts: popts, #[cfg(feature = "png-zopfli")] use_zopfli: false }
+    }
 }

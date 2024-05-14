@@ -1,6 +1,6 @@
 use std::{error::Error, io::{copy, Cursor, Write}};
 
-use crate::cfg::{AcceptsConfig, ConfigHolder, acfg};
+use crate::cfg::{ConfigHolder, acfg};
 
 use super::Result_;
 

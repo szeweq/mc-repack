@@ -3,18 +3,34 @@ use std::io::Cursor;
 use json_comments::StripComments;
 use serde_json::Value;
 
+use crate::cfg::{acfg, ConfigHolder};
+
 use super::{find_brackets, BracketsError, Result_};
 
-pub(super) fn minify_json(v: &[u8], vout: &mut Vec<u8>) -> Result_ {
-    let (i, j) = find_brackets(v).ok_or(BracketsError)?;
-    let fv = &v[i..=j];
-    let strip_comments = StripComments::new(Cursor::new(fv));
-    let mut sv: Value = serde_json::from_reader(strip_comments)?;
-    if let Value::Object(xm) = &mut sv {
-        uncomment_json_recursive(xm);
+acfg!(MinifierJSON: JSONConfig);
+impl ConfigHolder<MinifierJSON> {
+    pub(super) fn minify(&self, b: &[u8], vout: &mut Vec<u8>) -> Result_ {
+        let (i, j) = find_brackets(b).ok_or(BracketsError)?;
+        let fv = &b[i..=j];
+        let strip_comments = StripComments::new(Cursor::new(fv));
+        let mut sv: Value = serde_json::from_reader(strip_comments)?;
+        if self.remove_underscored {
+            if let Value::Object(xm) = &mut sv {
+                uncomment_json_recursive(xm);
+            }
+        }
+        serde_json::to_writer(vout, &sv)?;
+        Ok(())
     }
-    serde_json::to_writer(vout, &sv)?;
-    Ok(())
+}
+
+pub struct JSONConfig {
+    remove_underscored: bool
+}
+impl Default for JSONConfig {
+    fn default() -> Self {
+        Self { remove_underscored: true }
+    }
 }
 
 fn uncomment_json_recursive(m: &mut serde_json::Map<String, Value>) {
