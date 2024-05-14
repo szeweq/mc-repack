@@ -10,10 +10,12 @@ A repacking tool for Minecraft mods and resource packs to optimize size and load
 - Minifying JSON files, using `serde-json`, and removing comments
 - Optimizing PNG files, using `oxipng`
 - Optimizing TOML files, using `toml`
+- Optimizing NBT files
 - Removing unwanted files – some project files (from Blender, Photoshop, etc.) are mistakenly packed in mods. This operation will detect and remove (ignore while repacking) these files.
 - Stripping Unicode BOM
 - Removing comment lines in many file types: `.cfg, .obj, .mtl, .zs, .vsh, .fsh`
 - Recompressing files more efficiently
+- Now with Zopfli support (slower, but better compression)
 
 ## Comparison table
 These mods are tested and repacked by MC-Repack with the following results:
