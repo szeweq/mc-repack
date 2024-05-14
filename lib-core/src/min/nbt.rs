@@ -81,6 +81,7 @@ fn copy_to_encoder<W: Write>(w: &mut W, b: &[u8], nc: NBTCompression) -> Result_
 
 /// Configuration for the NBT minifier
 #[derive(Default)]
+#[cfg_attr(feature = "serde-cfg", derive(serde::Serialize, serde::Deserialize))]
 pub struct NBTConfig {
     #[cfg(feature = "nbt-zopfli")]
     /// Enables Zopfli compression (better, but slower)

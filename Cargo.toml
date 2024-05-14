@@ -17,6 +17,7 @@ members = ["lib-core"]
 
 [workspace.dependencies]
 zip = {version = "^1.2.3", default-features = false}
+serde = "1.0"
 crossbeam-channel = "^0.5.8"
 anyhow = "1.0"
 

@@ -26,6 +26,7 @@ impl ConfigHolder<MinifierJSON> {
 }
 
 /// Configuration for JSON minifier
+#[cfg_attr(feature = "serde-cfg", derive(serde::Serialize, serde::Deserialize))]
 pub struct JSONConfig {
     /// An optional flag that enables removing underscored keys.
     /// Defaults to `true`.

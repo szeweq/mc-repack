@@ -28,6 +28,7 @@ impl ConfigHolder<MinifierTOML> {
 }
 
 /// Configuration for TOML minifier
+#[cfg_attr(feature = "serde-cfg", derive(serde::Serialize, serde::Deserialize))]
 pub struct TOMLConfig {
     /// An optional flag that enables string stripping.
     pub strip_strings: bool
