@@ -5,8 +5,8 @@ use crate::cfg::{acfg, ConfigHolder};
 use super::Result_;
 
 #[cfg(feature = "png-zopfli")]
-const BEST_DEFLATE: oxipng::Deflaters = oxipng::Deflaters::Zopfli { iterations: 15 };
-#[cfg(not(feature = "png-zopfli"))]
+const BEST_ZOPFLI: oxipng::Deflaters = oxipng::Deflaters::Zopfli { iterations: 15 };
+
 const BEST_DEFLATE: oxipng::Deflaters = oxipng::Deflaters::Libdeflater { compression: 12 };
 
 acfg!(MinifierPNG: PNGConfig);
@@ -18,6 +18,7 @@ impl ConfigHolder<MinifierPNG> {
     }
 }
 
+/// Configuration for PNG optimizer
 pub struct PNGConfig {
     oxipng_opts: oxipng::Options,
     #[cfg(feature = "png-zopfli")]
@@ -36,5 +37,14 @@ impl Default for PNGConfig {
         popts.filter.insert(oxipng::RowFilter::Paeth);
         
         Self { oxipng_opts: popts, #[cfg(feature = "png-zopfli")] use_zopfli: false }
+    }
+}
+impl PNGConfig {
+    #[cfg(feature = "png-zopfli")]
+    /// Sets whether to use Zopfli for PNG compression
+    pub fn use_zopfli(&mut self, v: bool) -> &mut Self {
+        self.use_zopfli = v;
+        self.oxipng_opts.deflate = if v { BEST_ZOPFLI } else { BEST_DEFLATE };
+        self
     }
 }

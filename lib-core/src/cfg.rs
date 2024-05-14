@@ -6,6 +6,9 @@ use state::TypeMap;
 pub struct ConfigMap(Arc<RwLock<TypeMap![Sync + Send]>>);
 impl ConfigMap {
     /// Fetches a configuration holder for a type that accepts stored config.
+    /// # Panics
+    /// Panics if the read-write lock is poisoned.
+    #[must_use]
     pub fn fetch<AC: AcceptsConfig>(&self) -> ConfigHolder<AC> {
         let ch = self.0.read().unwrap().try_get::<ConfigHolder<AC>>().cloned();
         ch.map_or_else(move || {
@@ -16,6 +19,8 @@ impl ConfigMap {
     }
 
     /// Sets a config for a type that accepts it. It should be used before any configurable operation.
+    /// # Panics
+    /// Panics if the read-write lock is poisoned.
     pub fn set<AC: AcceptsConfig>(&self, cfg: AC::Cfg) {
         self.0.write().unwrap().set::<ConfigHolder<AC>>(ConfigHolder(Arc::new(cfg)));
     }
@@ -53,6 +58,7 @@ impl<AC: AcceptsConfig> std::ops::Deref for ConfigHolder<AC> {
 
 macro_rules! acfg {
     ($ac:ident : $cfg:ty) => {
+        /// An empty enum type that accepts config (defined using [`AcceptsConfig`] trait). It should not be used without [`ConfigHolder`].
         pub enum $ac {}
         impl crate::cfg::AcceptsConfig for $ac {
             type Cfg = $cfg;

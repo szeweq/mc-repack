@@ -27,8 +27,10 @@ impl ConfigHolder<MinifierTOML> {
     }
 }
 
+/// Configuration for TOML minifier
 pub struct TOMLConfig {
-    strip_strings: bool
+    /// An optional flag that enables string stripping.
+    pub strip_strings: bool
 }
 impl Default for TOMLConfig {
     fn default() -> Self {

@@ -7,6 +7,7 @@ use crate::cfg::{acfg, ConfigHolder};
 
 use super::{find_brackets, BracketsError, Result_};
 
+
 acfg!(MinifierJSON: JSONConfig);
 impl ConfigHolder<MinifierJSON> {
     pub(super) fn minify(&self, b: &[u8], vout: &mut Vec<u8>) -> Result_ {
@@ -24,8 +25,11 @@ impl ConfigHolder<MinifierJSON> {
     }
 }
 
+/// Configuration for JSON minifier
 pub struct JSONConfig {
-    remove_underscored: bool
+    /// An optional flag that enables removing underscored keys.
+    /// Defaults to `true`.
+    pub remove_underscored: bool
 }
 impl Default for JSONConfig {
     fn default() -> Self {

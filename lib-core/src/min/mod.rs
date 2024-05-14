@@ -1,11 +1,19 @@
-use std::error::Error;
-
 use crate::{cfg, errors};
 
-mod json;
-#[cfg(feature = "png")] mod png;
-#[cfg(feature = "toml")] mod toml;
-#[cfg(feature = "nbt")] mod nbt;
+/// Minifier for JSON files
+pub mod json;
+
+#[cfg(feature = "png")]
+/// Optimizer for PNG files
+pub mod png;
+
+#[cfg(feature = "toml")]
+/// Minifier for TOML files
+pub mod toml;
+
+#[cfg(feature = "nbt")]
+/// Optimizer for NBT files
+pub mod nbt;
 
 #[inline]
 const fn strip_bom(b: &[u8]) -> &[u8] {
@@ -107,7 +115,7 @@ fn remove_line_comments(bs: &'static [u8], v: &[u8], vout: &mut Vec<u8>) -> Resu
 /// An error indicating that a file has mismatched pair of brackets
 #[derive(Debug)]
 pub struct BracketsError;
-impl Error for BracketsError {}
+impl std::error::Error for BracketsError {}
 impl std::fmt::Display for BracketsError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str("File has improper opening/closing brackets")

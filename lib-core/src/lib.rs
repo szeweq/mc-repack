@@ -1,5 +1,3 @@
-#![warn(clippy::nursery)]
-#![warn(missing_docs)]
 //! MC-Repack is initially built as a CLI app, but can also be used as a library.
 //! This crate contains methods necessary to work with files that need optimizations.
 //! 

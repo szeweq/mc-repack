@@ -78,12 +78,15 @@ fn copy_to_encoder<W: Write>(w: &mut W, b: &[u8], nc: NBTCompression) -> Result_
     Ok(())
 }
 
+/// Configuration for the NBT minifier
 #[derive(Default)]
 pub struct NBTConfig {
     #[cfg(feature = "nbt-zopfli")]
+    /// Enables Zopfli compression (better, but slower)
     pub use_zopfli: bool
 }
 
+/// An error that occurs when a minifier cannot detect the compression type of a NBT entry
 #[derive(Debug)]
 pub struct NBTError;
 impl Error for NBTError {}
