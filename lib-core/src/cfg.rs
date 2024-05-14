@@ -50,3 +50,13 @@ impl<AC: AcceptsConfig> std::ops::Deref for ConfigHolder<AC> {
         &self.0
     }
 }
+
+macro_rules! acfg {
+    ($ac:ident : $cfg:ty) => {
+        pub enum $ac {}
+        impl AcceptsConfig for $ac {
+            type Cfg = $cfg;
+        }
+    };
+}
+pub(crate) use acfg;

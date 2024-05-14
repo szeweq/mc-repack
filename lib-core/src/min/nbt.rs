@@ -1,6 +1,6 @@
 use std::{error::Error, io::{copy, Cursor, Write}};
 
-use crate::cfg::{AcceptsConfig, ConfigHolder};
+use crate::cfg::{AcceptsConfig, ConfigHolder, acfg};
 
 use super::Result_;
 
@@ -22,10 +22,8 @@ impl NBTCompression {
     }
 }
 
-pub(super) enum MinifierNBT {}
-impl AcceptsConfig for MinifierNBT {
-    type Cfg = NBTConfig;
-}
+acfg!(MinifierNBT : NBTConfig);
+
 impl ConfigHolder<MinifierNBT> {
     pub(super) fn minify(&self, b: &[u8], vout: &mut Vec<u8>) -> Result_ {
         let Some(compression) = NBTCompression::detect(b) else {
