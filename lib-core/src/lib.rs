@@ -36,3 +36,5 @@ pub(crate) fn wrap_err<T, E>(r: Result<T, E>, s: &'static str) -> Result_<T> {
 pub(crate) fn wrap_err<T, E>(r: Result<T, E>, s: &'static str) -> Result_<T> {
     r.map_err(|_| anyhow::anyhow!(s))
 }
+
+pub use optimizer::*;
