@@ -30,7 +30,7 @@ doc = false
 anyhow = ["dep:anyhow"]
 
 [dependencies]
-mc-repack-core = {version = "0.20.0", path = "lib-core"}
+mc-repack-core = {version = "0.20.0", path = "lib-core", features = ["nbt-zopfli", "png-zopfli"]}
 crossbeam-channel = {workspace = true}
 anyhow = {optional = true, workspace = true}
 serde = {workspace = true}
