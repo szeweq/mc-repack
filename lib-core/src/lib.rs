@@ -17,7 +17,7 @@ pub mod fop;
 pub mod errors;
 /// Reading and saving entries (file system or ZIP archive).
 pub mod entry;
-/// Configuration
+/// Implementations of configuration map and traits for accepting config types.
 pub mod cfg;
 
 #[cfg(not(feature = "anyhow"))]

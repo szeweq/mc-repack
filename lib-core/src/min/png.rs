@@ -10,7 +10,10 @@ const BEST_ZOPFLI: oxipng::Deflaters = oxipng::Deflaters::Zopfli { iterations: 1
 
 const BEST_DEFLATE: oxipng::Deflaters = oxipng::Deflaters::Libdeflater { compression: 12 };
 
-acfg!(MinifierPNG: PNGConfig);
+acfg!(
+    /// A PNG minifier that accepts [`PNGConfig`].
+    MinifierPNG: PNGConfig
+);
 impl ConfigHolder<MinifierPNG> {
     pub(super) fn minify(&self, b: &[u8], vout: &mut Vec<u8>) -> Result_ {
         let v = oxipng::optimize_from_memory(b, self.png_opts())?;

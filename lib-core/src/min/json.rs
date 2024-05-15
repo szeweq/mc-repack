@@ -8,7 +8,10 @@ use crate::cfg::{acfg, ConfigHolder};
 use super::{find_brackets, BracketsError, Result_};
 
 
-acfg!(MinifierJSON: JSONConfig);
+acfg!(
+    /// A JSON minifier that accepts [`JSONConfig`].
+    MinifierJSON: JSONConfig
+);
 impl ConfigHolder<MinifierJSON> {
     pub(super) fn minify(&self, b: &[u8], vout: &mut Vec<u8>) -> Result_ {
         let (i, j) = find_brackets(b).ok_or(BracketsError)?;

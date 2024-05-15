@@ -4,7 +4,10 @@ use crate::cfg::{acfg, ConfigHolder};
 
 use super::Result_;
 
-acfg!(MinifierTOML: TOMLConfig);
+acfg!(
+    /// A TOML minifier that accepts [`TOMLConfig`].
+    MinifierTOML: TOMLConfig
+);
 impl ConfigHolder<MinifierTOML> {
     pub(super) fn minify(&self, b: &[u8], vout: &mut Vec<u8>) -> Result_ {
         let fv = std::str::from_utf8(b)?;

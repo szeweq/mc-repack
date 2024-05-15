@@ -57,8 +57,9 @@ impl<AC: AcceptsConfig> std::ops::Deref for ConfigHolder<AC> {
 }
 
 macro_rules! acfg {
-    ($ac:ident : $cfg:ty) => {
-        /// An empty enum type that accepts config (defined using [`AcceptsConfig`] trait). It should not be used without [`ConfigHolder`].
+    ($(#[doc = $doc:expr])? $ac:ident : $cfg:ty) => {
+        $(#[doc = $doc])?
+        /// This empty enum type should not be used without [`ConfigHolder`].
         pub enum $ac {}
         impl crate::cfg::AcceptsConfig for $ac {
             type Cfg = $cfg;

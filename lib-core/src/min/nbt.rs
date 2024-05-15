@@ -23,7 +23,10 @@ impl NBTCompression {
     }
 }
 
-acfg!(MinifierNBT : NBTConfig);
+acfg!(
+    /// A NBT minifier that accepts [`NBTConfig`].
+    MinifierNBT: NBTConfig
+);
 
 impl ConfigHolder<MinifierNBT> {
     pub(super) fn minify(&self, b: &[u8], vout: &mut Vec<u8>) -> Result_ {
