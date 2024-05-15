@@ -22,10 +22,10 @@ fn main() -> Result_<()> {
     
     let path = &args.path;
     let repack_opts = RepackOpts::from_args(&args);
-    let fmeta = path.metadata()?;
-    let task: &dyn ProcessTask = if fmeta.is_dir() {
+    let ftyp = path.metadata()?.file_type();
+    let task: &dyn ProcessTask = if ftyp.is_dir() {
         &JarDirRepackTask
-    } else if fmeta.is_file() {
+    } else if ftyp.is_file() {
         &JarRepackTask
     } else {
         return Err(TaskError::NotFileOrDir.into());
