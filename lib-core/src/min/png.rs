@@ -5,11 +5,6 @@ use state::InitCell;
 use crate::cfg::{acfg, ConfigHolder};
 use super::Result_;
 
-#[cfg(feature = "png-zopfli")]
-const BEST_ZOPFLI: oxipng::Deflaters = oxipng::Deflaters::Zopfli { iterations: 15 };
-
-const BEST_DEFLATE: oxipng::Deflaters = oxipng::Deflaters::Libdeflater { compression: 12 };
-
 acfg!(
     /// A PNG minifier that accepts [`PNGConfig`].
     MinifierPNG: PNGConfig
@@ -43,9 +38,13 @@ impl PNGConfig {
                 strip: oxipng::StripChunks::Safe,
                 optimize_alpha: true,
                 #[cfg(feature = "png-zopfli")]
-                deflate: if self.use_zopfli { BEST_ZOPFLI } else { BEST_DEFLATE },
+                deflate: if self.use_zopfli {
+                    oxipng::Deflaters::Zopfli { iterations: std::num::NonZeroU8::new(15).unwrap() }
+                } else {
+                    oxipng::Deflaters::Libdeflater { compression: 12 }
+                },
                 #[cfg(not(feature = "png-zopfli"))]
-                deflate: BEST_DEFLATE,
+                deflate: oxipng::Deflaters::Libdeflater { compression: 12 },
                 ..Default::default()
             };
             popts.filter.insert(oxipng::RowFilter::Up);
