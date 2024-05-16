@@ -16,20 +16,23 @@ A repacking tool for Minecraft mods and resource packs to optimize size and load
 - Removing comment lines in many file types: `.cfg, .obj, .mtl, .zs, .vsh, .fsh`
 - Recompressing files more efficiently
 - Now with Zopfli support (slower, but better compression)
+- Configurable (it reads `mc-repack.toml` or other TOML file specified by `--config` argument)
 
 ## Comparison table
 These mods are tested and repacked by MC-Repack with the following results:
-| File name | Original | Optimized |
-|----|----:|----:|
-| minecolonies-1.19.2-1.0.1247-BETA.jar | 72.8 MB | 63.7 MB |
-| twilightforest-1.19.3-4.2.1549-universal.jar | 22.5 MB | 21.9 MB |
-| TConstruct-1.18.2-3.6.3.111.jar | 15.2 MB | 14.0 MB |
-| BloodMagic-1.18.2-3.2.6-41.jar | 13.6 MB | 11.9 MB |
-| create-1.19.2-0.5.0.i.jar | 13.1 MB | 12.8 MB |
-| Botania-1.19.2-437-FORGE.jar | 10.9 MB | 10.1 MB |
-| ImmersiveEngineering-1.19.3-9.3.0-163.jar | 10.3 MB | 10.0 MB |
-| thermal_foundation-1.19.2-10.2.0.47.jar | 4.58 MB | 4.38 MB |
-| cfm-7.0.0-pre35-1.19.3.jar | 2.11 MB | 1.92 MB |
+| File name | Original | 0.18 | 0.20 (*) |
+|----|----:|----:|----:|
+| minecolonies-1.19.2-1.0.1247-BETA.jar | 72.8 MB | 63.7 MB | 63.4 MB |
+| twilightforest-1.19.3-4.2.1549-universal.jar | 22.5 MB | 21.9 MB | 21.8 MB |
+| TConstruct-1.18.2-3.6.3.111.jar | 15.2 MB | 14.0 MB | 13.9 MB |
+| BloodMagic-1.18.2-3.2.6-41.jar | 13.6 MB | 11.9 MB | 11.7 MB |
+| create-1.19.2-0.5.0.i.jar | 13.1 MB | 12.8 MB | 12.7 MB |
+| Botania-1.19.2-437-FORGE.jar | 10.9 MB | 10.1 MB | 10.1 MB |
+| ImmersiveEngineering-1.19.3-9.3.0-163.jar | 10.3 MB | 10.0 MB | 9.65 MB |
+| thermal_foundation-1.19.2-10.2.0.47.jar | 4.58 MB | 4.38 MB | 4.35 MB |
+| cfm-7.0.0-pre35-1.19.3.jar | 2.11 MB | 1.92 MB | 1.87 MB |
+
+\* - Using Deflate (faster)
 
 More mods are available on [My Website](https://szeweq.xyz/mc-repack/mods).
 
