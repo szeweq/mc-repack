@@ -15,6 +15,10 @@ pub mod toml;
 /// Optimizer for NBT files
 pub mod nbt;
 
+#[cfg(feature = "ogg")]
+/// Minifier for OGG files
+pub mod ogg;
+
 #[inline]
 const fn strip_bom(b: &[u8]) -> &[u8] {
     if let Some(([239, 187, 191], x)) = b.split_first_chunk() { x } else { b }
@@ -34,7 +38,7 @@ fn find_brackets(b: &[u8]) -> Option<(usize, usize)> {
 /// Checks if a file can be recompressed (not minified) depending on its extension
 #[must_use]
 pub fn only_recompress(ftype: &str) -> bool {
-    matches!(ftype, "glsl" | "html" | "kotlin_module" | "md" | "ogg" | "txt" | "vert" | "xml")
+    matches!(ftype, "glsl" | "html" | "kotlin_module" | "md" | "txt" | "vert" | "xml")
 }
 
 
@@ -48,6 +52,8 @@ pub enum Minifier {
     #[cfg(feature = "toml")] TOML,
     /// A customized NBT minifier
     #[cfg(feature = "nbt")] NBT,
+    /// An OGG minifier using `optivorbis`.
+    #[cfg(feature = "ogg")] OGG,
     /// A minifier that removes hash (`#`) comment lines (and empty lines)
     Hash,
     /// A minifier that removes double-slash (`//`) comment lines (and empty lines)
@@ -62,6 +68,7 @@ impl Minifier {
             "json" | "mcmeta" => Self::JSON,
             #[cfg(feature = "toml")] "toml" => Self::TOML,
             #[cfg(feature = "nbt")] "nbt" => Self::NBT,
+            #[cfg(feature = "ogg")] "ogg" => Self::OGG,
             "cfg" | "obj" | "mtl" => Self::Hash,
             "zs" | "js" | "fsh" | "vsh" => Self::Slash,
             _ => return None
@@ -77,6 +84,7 @@ impl Minifier {
             Self::JSON => cfgmap.fetch::<json::MinifierJSON>().minify(strip_bom(v), vout),
             #[cfg(feature = "toml")] Self::TOML => cfgmap.fetch::<toml::MinifierTOML>().minify(strip_bom(v), vout),
             #[cfg(feature = "nbt")] Self::NBT => cfgmap.fetch::<nbt::MinifierNBT>().minify(v, vout),
+            #[cfg(feature = "ogg")] Self::OGG => cfgmap.fetch::<ogg::MinifierOGG>().minify(v, vout),
             Self::Hash => remove_line_comments(b"#", v, vout),
             Self::Slash => remove_line_comments(b"//", v, vout)
         }

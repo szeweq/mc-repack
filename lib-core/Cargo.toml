@@ -15,13 +15,14 @@ keywords = ["minecraft", "jar", "processing", "optimizer", "repack"]
 anyhow = ["dep:anyhow"]
 png = ["dep:oxipng"]
 toml = ["dep:toml"]
+ogg = ["dep:optivorbis"]
 nbt = []
 nbt-zopfli = ["nbt", "dep:zopfli"]
 png-zopfli = ["png", "oxipng/zopfli"]
 zip-zopfli = ["zip/deflate-zopfli", "dep:zopfli"]
 all-zopfli = ["nbt-zopfli", "png-zopfli", "zip-zopfli"]
 serde-cfg = ["dep:serde", "serde/derive"]
-default = ["png", "toml", "nbt", "serde-cfg"]
+default = ["png", "toml", "nbt", "ogg", "serde-cfg"]
 
 [dependencies]
 zip = {workspace = true, features = ["deflate"]}
@@ -30,6 +31,7 @@ anyhow = {optional = true, workspace = true}
 serde = {optional = true, workspace = true}
 serde_json = {version = "^1.0.93", features = ["preserve_order"]}
 oxipng = {optional = true, version = "^9.1.0", default-features = false, features = ["parallel"]}
+optivorbis = {optional = true, version = "0.2"}
 flate2 = "^1.0.26"
 json_comments = "0.2"
 toml = {optional = true, workspace = true, features = ["preserve_order"]}
