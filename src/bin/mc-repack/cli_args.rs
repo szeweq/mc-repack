@@ -49,6 +49,7 @@ impl RepackOpts {
                 if let Some(x) = c.toml {
                     cfgmap.set::<min::toml::MinifierTOML>(x);
                 }
+                println!("Config loaded successfully!");
             }
             Err(e) if e.kind() != io::ErrorKind::NotFound => {
                 eprintln!("Failed to read config: {e}");
