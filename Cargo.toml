@@ -28,6 +28,7 @@ doc = false
 
 [features]
 anyhow = ["dep:anyhow"]
+zip-zopfli = ["mc-repack-core/zip-zopfli"]
 
 [dependencies]
 mc-repack-core = {version = "0.20.1", path = "lib-core", features = ["nbt-zopfli", "png-zopfli"]}
