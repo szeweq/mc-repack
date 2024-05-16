@@ -53,7 +53,7 @@ impl <R: Read + Seek> EntryReader for ZipEntryReader<R> {
 }
 
 #[cfg(feature = "zip-zopfli")]
-const MAX_LEVEL: i64 = 264;
+const MAX_LEVEL: i64 = 24;
 
 #[cfg(not(feature = "zip-zopfli"))]
 const MAX_LEVEL: i64 = 9;
