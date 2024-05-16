@@ -1,3 +1,4 @@
+#![cfg(feature = "nbt")]
 use std::{error::Error, io::{copy, Cursor, Write}};
 
 use crate::cfg::{ConfigHolder, acfg};
