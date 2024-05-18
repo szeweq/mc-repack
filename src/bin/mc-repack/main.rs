@@ -96,6 +96,7 @@ impl ProcessTask for JarRepackTask {
             ZipEntryReader::new_buf(File::open(fp)?),
             ZipEntrySaver::custom_compress(
                 File::create(nfp)?,
+                opts.keep_dirs,
                 9 + opts.zopfli.map_or(0, |x| x.get() as i64)
             ),
             &opts.cfgmap, &ps, ec, opts.use_blacklist
@@ -143,6 +144,7 @@ impl ProcessTask for JarDirRepackTask {
                     entry::zip::ZipEntryReader::new_buf(fs::File::open(&fp)?),
                     entry::zip::ZipEntrySaver::custom_compress(
                         fs::File::create(&nfp)?,
+                        opts.keep_dirs,
                         clvl
                     ),
                     cfgmap, &ps, ec, use_blacklist

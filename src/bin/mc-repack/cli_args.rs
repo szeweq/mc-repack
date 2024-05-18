@@ -33,11 +33,16 @@ pub struct Args {
 
     /// Check the config file. If it's not found, it will be created. No other tasks will be executed
     #[arg(long)]
-    pub check: bool
+    pub check: bool,
+
+    /// Keep directory entries in the archive
+    #[arg(long)]
+    pub keep_dirs: bool,
 }
 pub struct RepackOpts {
     pub silent: bool,
     pub use_blacklist: bool,
+    pub keep_dirs: bool,
     pub zopfli: Option<std::num::NonZeroU8>,
     pub cfgmap: mc_repack_core::cfg::ConfigMap
 }
@@ -68,6 +73,7 @@ impl RepackOpts {
         Self {
             silent: args.silent,
             use_blacklist: args.use_blacklist,
+            keep_dirs: args.keep_dirs,
             zopfli: args.zopfli,
             cfgmap
         }

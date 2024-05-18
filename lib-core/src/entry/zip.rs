@@ -59,28 +59,31 @@ const MAX_LEVEL: i64 = 9;
 /// An entry saver implementation for ZIP archive. It writes entries to it using a provided writer.
 pub struct ZipEntrySaver<W: Write + Seek> {
     w: ZipWriter<BufWriter<W>>,
+    keep_dirs: bool,
     opts_deflated: SimpleFileOptions,
     opts_stored: SimpleFileOptions
 }
 impl <W: Write + Seek> ZipEntrySaver<W> {
     /// Creates an entry saver with a seekable writer.
-    pub fn new(w: W) -> EntrySaver<Self> {
+    pub fn new(w: W, keep_dirs: bool) -> EntrySaver<Self> {
         EntrySaver(Self {
             w: ZipWriter::new(BufWriter::new(w)),
+            keep_dirs,
             opts_deflated: FileOptions::default().compression_method(CompressionMethod::Deflated).compression_level(Some(MAX_LEVEL)),
             opts_stored: FileOptions::default().compression_method(CompressionMethod::Stored),
         })
     }
     /// Creates an entry saver with custom file options for ZIP archive and a seekable writer.
-    pub fn custom(w: W, opts_stored: SimpleFileOptions, opts_deflated: SimpleFileOptions) -> EntrySaver<Self> {
+    pub fn custom(w: W, keep_dirs: bool, opts_stored: SimpleFileOptions, opts_deflated: SimpleFileOptions) -> EntrySaver<Self> {
         EntrySaver(Self {
-            w: ZipWriter::new(BufWriter::new(w)), opts_deflated, opts_stored
+            w: ZipWriter::new(BufWriter::new(w)), keep_dirs, opts_deflated, opts_stored
         })
     }
     /// Creates an entry saver with custom compression level for deflated entries of ZIP archive and a seekable writer.
-    pub fn custom_compress(w: W, compress: impl Into<i64>) -> EntrySaver<Self> {
+    pub fn custom_compress(w: W, keep_dirs: bool, compress: impl Into<i64>) -> EntrySaver<Self> {
         EntrySaver(Self {
             w: ZipWriter::new(BufWriter::new(w)),
+            keep_dirs,
             opts_deflated: FileOptions::default().compression_method(CompressionMethod::Deflated).compression_level(Some(compress.into())),
             opts_stored: FileOptions::default().compression_method(CompressionMethod::Stored),
         })
@@ -88,7 +91,7 @@ impl <W: Write + Seek> ZipEntrySaver<W> {
 }
 impl <W: Write + Seek> EntrySaverSpec for ZipEntrySaver<W> {
     fn save_dir(&mut self, dir: &str) -> crate::Result_<()> {
-        if dir != ".cache/" {
+        if self.keep_dirs && dir != ".cache/" {
             self.w.add_directory(dir, self.opts_stored)?;
         }
         Ok(())
