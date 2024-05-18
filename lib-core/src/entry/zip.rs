@@ -2,8 +2,8 @@ use std::{io::{BufReader, BufWriter, Read, Seek, Write}, sync::Arc};
 use crossbeam_channel::Sender;
 use zip::{write::{FileOptions, SimpleFileOptions}, CompressionMethod, ZipArchive, ZipWriter};
 
-use crate::{fop::FileOp, optimizer::EntryType};
-use super::{EntryReader, EntrySaverSpec, EntrySaver};
+use crate::fop::FileOp;
+use super::{EntryReader, EntrySaverSpec, EntrySaver, EntryType};
 
 /// An entry reader implementation for ZIP archive. It reads its contents from a provided reader (with seeking).
 pub struct ZipEntryReader<R: Read + Seek> {

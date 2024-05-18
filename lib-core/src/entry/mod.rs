@@ -4,8 +4,8 @@ pub mod fs;
 /// Entry reader and saver for ZIP archives.
 pub mod zip;
 
-use crate::{cfg, errors::ErrorCollector, fop::FileOp, optimizer::{EntryType, ProgressState}};
-
+use std::sync::Arc;
+use crate::{cfg, errors::ErrorCollector, fop::FileOp, ProgressState};
 use crossbeam_channel::{Sender, Receiver};
 
 pub use fs::{FSEntryReader, FSEntrySaver};
@@ -91,6 +91,29 @@ impl<T: FnOnce(Sender<EntryType>, bool) -> crate::Result_<()>> EntryReader for T
         use_blacklist: bool
     ) -> crate::Result_<()> {
         self(tx, use_blacklist)
+    }
+}
+
+/// An entry type based on extracted data from an archive
+pub enum EntryType {
+    /// Number of files stored in an archive
+    Count(usize),
+    /// A directory with its path
+    Directory(Arc<str>),
+    /// A file with its path, data and file operation
+    File(Arc<str>, Box<[u8]>, FileOp)
+}
+impl EntryType {
+    /// A shorthand function for creating a directory entry
+    #[inline]
+    pub fn dir(name: impl Into<Arc<str>>) -> Self {
+        Self::Directory(name.into())
+    }
+
+    /// A shorthand function for creating a file entry
+    #[inline]
+    pub fn file(name: impl Into<Arc<str>>, data: impl Into<Box<[u8]>>, fop: FileOp) -> Self {
+        Self::File(name.into(), data.into(), fop)
     }
 }
 

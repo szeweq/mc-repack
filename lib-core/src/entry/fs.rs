@@ -1,7 +1,7 @@
 use std::{fs, path::Path};
 use crossbeam_channel::Sender;
-use crate::{fop::FileOp, optimizer::EntryType};
-use super::{EntryReader, EntrySaver, EntrySaverSpec};
+use crate::fop::FileOp;
+use super::{EntryReader, EntrySaver, EntrySaverSpec, EntryType};
 
 /// An entry reader implementation for a file system. It reads a file tree from a provided directory.
 pub struct FSEntryReader {

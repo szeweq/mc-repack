@@ -4,7 +4,7 @@ use cli_args::RepackOpts;
 use crossbeam_channel::Sender;
 use indicatif::{ProgressBar, ProgressStyle, MultiProgress};
 
-use mc_repack_core::{entry::{self, ZipEntryReader, ZipEntrySaver}, errors::{EntryRepackError, ErrorCollector}, fop::FileType, optimizer::{optimize_with, ProgressState}};
+use mc_repack_core::{cfg, entry::{self, EntryReader, EntrySaver, EntrySaverSpec, ZipEntryReader, ZipEntrySaver}, errors::{EntryRepackError, ErrorCollector}, fop::FileType, ProgressState};
 
 mod cli_args;
 mod config;
@@ -198,15 +198,14 @@ fn new_path(src: Option<&PathBuf>, p: &Path) -> Option<PathBuf> {
 fn thread_progress_bar(pb: ProgressBar) -> (JoinHandle<()>, Sender<ProgressState>) {
     let (ps, pr) = crossbeam_channel::unbounded();
     let pj = thread::spawn(move || {
-        use ProgressState::*;
         for st in pr {
             match st {
-                Start(u) => { pb.set_length(u as u64); }
-                Push(num, msg) => {
+                ProgressState::Start(u) => { pb.set_length(u as u64); }
+                ProgressState::Push(num, msg) => {
                     pb.set_position(num as u64);
                     pb.set_message(msg.to_string());
                 }
-                Finish => {
+                ProgressState::Finish => {
                     pb.finish_with_message("Saving...");
                 }
             }
@@ -246,4 +245,19 @@ impl From<TaskError> for io::Error {
     fn from(val: TaskError) -> Self {
         Self::new(io::ErrorKind::Other, val)
     }
+}
+
+pub fn optimize_with<R: EntryReader + Send + 'static, S: EntrySaverSpec>(
+    reader: R,
+    saver: EntrySaver<S>,
+    cfgmap: &cfg::ConfigMap,
+    ps: &Sender<ProgressState>,
+    errors: &mut ErrorCollector,
+    use_blacklist: bool
+) -> crate::Result_<()> {
+    let (tx, rx) = crossbeam_channel::bounded(2);
+    let t1 = thread::spawn(move || reader.read_entries(tx, use_blacklist));
+    saver.save_entries(rx, errors, cfgmap, ps)?;
+    t1.join().expect("Cannot join thread")?;
+    Ok(())
 }

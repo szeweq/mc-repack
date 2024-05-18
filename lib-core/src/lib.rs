@@ -9,8 +9,6 @@
 
 /// Minifiers for various file types.
 pub mod min;
-/// Optimizer (file system or ZIP archive).
-pub mod optimizer;
 /// File operations used for repacking.
 pub mod fop;
 /// Error collecting for entries.
@@ -37,4 +35,13 @@ pub(crate) fn wrap_err<T, E>(r: Result<T, E>, s: &'static str) -> Result_<T> {
     r.map_err(|_| anyhow::anyhow!(s))
 }
 
-pub use optimizer::*;
+/// A progress state to update information about currently optimized entry
+#[derive(Debug, Clone)]
+pub enum ProgressState {
+    /// Starts a progress with a step count
+    Start(usize),
+    /// Pushes a new step with text
+    Push(usize, std::sync::Arc<str>),
+    /// Marks a progress as finished
+    Finish
+}
