@@ -1,4 +1,7 @@
 /target
 
+# MC-Repack's own config file
+mc-repack.toml
+
 # JARs for testing
 *.jar
