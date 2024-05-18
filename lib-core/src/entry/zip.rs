@@ -33,7 +33,7 @@ impl <R: Read + Seek> EntryReader for ZipEntryReader<R> {
             let Some(name) = za.name_for_index(i) else { continue; };
             let fname: Arc<str> = name.into();
             tx(if fname.ends_with('/') {
-                EntryType::Directory(fname)
+                EntryType::dir(fname)
             } else {
                 let fop = FileOp::by_name(&fname, use_blacklist);
                 let mut obuf = Vec::new();
@@ -43,7 +43,7 @@ impl <R: Read + Seek> EntryReader for ZipEntryReader<R> {
                     obuf.reserve_exact(jf.size() as usize);
                     jf.read_to_end(&mut obuf)?;
                 }
-                EntryType::File(fname, obuf.into(), fop)
+                EntryType::file(fname, obuf, fop)
             })?;
         }
         Ok(())
