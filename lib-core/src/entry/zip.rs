@@ -78,11 +78,11 @@ impl <W: Write + Seek> ZipEntrySaver<W> {
             w: ZipWriter::new(BufWriter::new(w)), opts_deflated, opts_stored
         })
     }
-    /// Creates an entry saver with custom file options for deflated entries of ZIP archive and a seekable writer.
-    pub fn custom_deflated(w: W, opts_deflated: SimpleFileOptions) -> EntrySaver<Self> {
+    /// Creates an entry saver with custom compression level for deflated entries of ZIP archive and a seekable writer.
+    pub fn custom_compress(w: W, compress: impl Into<i64>) -> EntrySaver<Self> {
         EntrySaver(Self {
             w: ZipWriter::new(BufWriter::new(w)),
-            opts_deflated,
+            opts_deflated: FileOptions::default().compression_method(CompressionMethod::Deflated).compression_level(Some(compress.into())),
             opts_stored: FileOptions::default().compression_method(CompressionMethod::Stored),
         })
     }
