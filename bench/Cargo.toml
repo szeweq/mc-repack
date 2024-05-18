@@ -1,0 +1,15 @@
+[package]
+name = "mcr-bench"
+version = "0.1.0"
+edition = "2021"
+
+[dev-dependencies]
+criterion = "0.5"
+
+[dependencies]
+zopfli = "^0.8.0"
+flate2 = "^1.0.26"
+
+[[bench]]
+name = "compress"
+harness = false

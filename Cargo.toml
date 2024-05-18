@@ -13,7 +13,7 @@ keywords = ["minecraft", "jar", "processing", "optimizer", "repack"]
 exclude = ["/.github", "benches/*", "test-jars/*"]
 
 [workspace]
-members = ["lib-core"]
+members = ["bench","lib-core"]
 
 [workspace.dependencies]
 zip = {version = "^1.2.3", default-features = false}
