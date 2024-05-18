@@ -67,3 +67,35 @@ macro_rules! acfg {
     };
 }
 pub(crate) use acfg;
+
+#[cfg(feature = "_any-zopfli")]
+/// Universal configuration for Zopfli.
+/// It determines if Zopfli will be enabled and how many iterations will be used.
+#[cfg_attr(feature = "serde-cfg", derive(serde::Serialize, serde::Deserialize))]
+#[serde(untagged)]
+pub enum CfgZopfli {
+    /// A switch value (`true` or `false`).
+    /// If it is enabled then Zopfli will be enabled with 10 iterations by default.
+    Switch(bool),
+    /// An iteration count. If it is 0 then Zopfli will be disabled.
+    Iter(u8)
+}
+#[cfg(feature = "_any-zopfli")]
+impl Default for CfgZopfli {
+    fn default() -> Self {
+        Self::Switch(false)
+    }
+}
+
+#[cfg(feature = "_any-zopfli")]
+impl CfgZopfli {
+    /// Returns the iteration count based on its state.
+    #[inline]
+    pub const fn iter_count(&self) -> Option<std::num::NonZeroU8> {
+        match self {
+            Self::Switch(false) => None,
+            Self::Iter(x) => std::num::NonZeroU8::new(*x),
+            Self::Switch(true) => std::num::NonZeroU8::new(10)
+        }
+    }
+}

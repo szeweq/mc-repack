@@ -2,7 +2,7 @@
 
 use state::InitCell;
 
-use crate::cfg::{acfg, ConfigHolder};
+use crate::cfg::{acfg, CfgZopfli, ConfigHolder};
 use super::Result_;
 
 acfg!(
@@ -18,17 +18,13 @@ impl ConfigHolder<MinifierPNG> {
 }
 
 /// Configuration for PNG optimizer
+#[derive(Default)]
 #[cfg_attr(feature = "serde-cfg", derive(serde::Serialize, serde::Deserialize))]
 pub struct PNGConfig {
     #[cfg_attr(feature = "serde-cfg", serde(skip))]
     oxipng_opts: InitCell<oxipng::Options>,
     #[cfg(feature = "png-zopfli")]
-    use_zopfli: bool
-}
-impl Default for PNGConfig {
-    fn default() -> Self {
-        Self { oxipng_opts: InitCell::new(), #[cfg(feature = "png-zopfli")] use_zopfli: false }
-    }
+    use_zopfli: CfgZopfli
 }
 impl PNGConfig {
     fn png_opts(&self) -> &oxipng::Options {
@@ -38,11 +34,10 @@ impl PNGConfig {
                 strip: oxipng::StripChunks::Safe,
                 optimize_alpha: true,
                 #[cfg(feature = "png-zopfli")]
-                deflate: if self.use_zopfli {
-                    oxipng::Deflaters::Zopfli { iterations: std::num::NonZeroU8::new(15).unwrap() }
-                } else {
-                    oxipng::Deflaters::Libdeflater { compression: 12 }
-                },
+                deflate: self.use_zopfli.iter_count().map_or(
+                    oxipng::Deflaters::Libdeflater { compression: 12 },
+                    |ic| oxipng::Deflaters::Zopfli { iterations: ic }
+                ),
                 #[cfg(not(feature = "png-zopfli"))]
                 deflate: oxipng::Deflaters::Libdeflater { compression: 12 },
                 ..Default::default()

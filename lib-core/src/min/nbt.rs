@@ -1,7 +1,7 @@
 #![cfg(feature = "nbt")]
-use std::{error::Error, io::{copy, Cursor, Write}};
+use std::{error::Error, io::{copy, Cursor, Write}, num::NonZeroU64};
 
-use crate::cfg::{ConfigHolder, acfg};
+use crate::cfg::{acfg, CfgZopfli, ConfigHolder};
 
 use super::Result_;
 
@@ -36,27 +36,23 @@ impl ConfigHolder<MinifierNBT> {
         };
     
         #[cfg(feature = "nbt-zopfli")]
-        if self.use_zopfli {
-            return minify_with_zopfli(b, vout, compression);
+        match self.use_zopfli.iter_count() {
+            None => {}
+            Some(ic) => return minify_with_zopfli(b, vout, compression, ic.into())
         }
 
-        minify_with_gzip(b, vout, compression)
+        let mut enc = flate2::write::GzEncoder::new(vout, flate2::Compression::best());
+        copy_to_encoder(&mut enc, b, compression)?;
+        enc.finish()?;
+        Ok(())
     }
 }
 
-fn minify_with_gzip(b: &[u8], vout: &mut Vec<u8>, nc: NBTCompression) -> Result_ {
-    let mut enc = flate2::write::GzEncoder::new(vout, flate2::Compression::best());
-    copy_to_encoder(&mut enc, b, nc)?;
-    enc.finish()?;
-    Ok(())
-}
-
 #[cfg(feature = "nbt-zopfli")]
-fn minify_with_zopfli(b: &[u8], vout: &mut Vec<u8>, nc: NBTCompression) -> Result_ {
-    use std::num::NonZeroU64;
+fn minify_with_zopfli(b: &[u8], vout: &mut Vec<u8>, nc: NBTCompression, ic: NonZeroU64) -> Result_ {
     let zo = zopfli::Options {
-        iteration_count: NonZeroU64::new(10).unwrap(),
-        iterations_without_improvement: NonZeroU64::new(2).unwrap(),
+        iteration_count: ic,
+        iterations_without_improvement: NonZeroU64::new(6).unwrap(),
         ..<zopfli::Options as Default>::default()
     };
     let mut enc = zopfli::GzipEncoder::new(zo, zopfli::BlockType::Dynamic, vout)?;
@@ -89,7 +85,7 @@ fn copy_to_encoder<W: Write>(w: &mut W, b: &[u8], nc: NBTCompression) -> Result_
 pub struct NBTConfig {
     #[cfg(feature = "nbt-zopfli")]
     /// Enables Zopfli compression (better, but slower)
-    pub use_zopfli: bool
+    pub use_zopfli: CfgZopfli
 }
 
 /// An error that occurs when a minifier cannot detect the compression type of a NBT entry
