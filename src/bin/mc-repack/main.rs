@@ -20,7 +20,16 @@ fn main() -> Result_<()> {
     let args = cli_args::Args::parse();
     println!("█▀▄▀█ █▀▀ ▄▄ █▀█ █▀▀ █▀█ ▄▀█ █▀▀ █▄▀\n█ ▀ █ █▄▄    █▀▄ ██▄ █▀▀ █▀█ █▄▄ █ █ by Szeweq (https://szeweq.xyz/mc-repack)\n");
     
-    let path = &args.path;
+    if args.check {
+        if config::check(args.config)? {
+            println!("Config file is valid!");
+        } else {
+            println!("New config file created!");
+        }
+        return Ok(());
+    }
+
+    let path = args.path.as_ref().expect("Path is required");
     let repack_opts = RepackOpts::from_args(&args);
     let ftyp = path.metadata()?.file_type();
     let task: &dyn ProcessTask = if ftyp.is_dir() {

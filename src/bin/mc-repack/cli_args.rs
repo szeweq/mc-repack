@@ -8,8 +8,8 @@ use crate::config;
 #[derive(Debug, clap::Parser)]
 #[command(version)]
 pub struct Args {
-    /// (Required) Path to a file/directory of archives (JAR and ZIP)
-    pub path: PathBuf,
+    /// Path to a file/directory of archives (JAR and ZIP)
+    pub path: Option<PathBuf>,
 
     /// (Optional) Destination path. It cannot be the same as the source!
     #[arg(long)]
@@ -29,7 +29,11 @@ pub struct Args {
 
     /// Enable Zopfli compression (better, but much slower) and apply a number of iterations
     #[arg(short = 'z', long)]
-    pub zopfli: Option<std::num::NonZeroU8>
+    pub zopfli: Option<std::num::NonZeroU8>,
+
+    /// Check the config file. If it's not found, it will be created. No other tasks will be executed
+    #[arg(long)]
+    pub check: bool
 }
 pub struct RepackOpts {
     pub silent: bool,
