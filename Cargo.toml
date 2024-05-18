@@ -19,7 +19,6 @@ members = ["bench","lib-core"]
 zip = {version = "^1.2.3", default-features = false}
 toml = "^0.8.0"
 serde = "1.0"
-crossbeam-channel = "^0.5.8"
 anyhow = "1.0"
 
 [[bin]]
@@ -31,7 +30,7 @@ anyhow = ["dep:anyhow"]
 
 [dependencies]
 mc-repack-core = {version = "0.20.1", path = "lib-core", features = ["all-zopfli"]}
-crossbeam-channel = {workspace = true}
+crossbeam-channel = "^0.5.8"
 anyhow = {optional = true, workspace = true}
 serde = {workspace = true}
 toml = {workspace = true, features = ["preserve_order"]}
