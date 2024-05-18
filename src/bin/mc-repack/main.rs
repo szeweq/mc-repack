@@ -18,7 +18,7 @@ type Result_<T> = Result<T, Error_>;
 
 fn main() -> Result_<()> {
     let args = cli_args::Args::parse();
-    println!("█▀▄▀█ █▀▀ ▄▄ █▀█ █▀▀ █▀█ ▄▀█ █▀▀ █▄▀\n█ ▀ █ █▄▄    █▀▄ ██▄ █▀▀ █▀█ █▄▄ █ █ by Szeweq (https://szeweq.xyz/mc-repack)\n");
+    println!("█▀▄▀█ █▀▀ ▄▄ █▀█ █▀▀ █▀█ ▄▀█ █▀▀ █▄▀ by Szeweq\n█ ▀ █ █▄▄    █▀▄ ██▄ █▀▀ █▀█ █▄▄ █ █ (https://szeweq.xyz/mc-repack)\n");
     
     if args.check {
         if config::check(args.config)? {
