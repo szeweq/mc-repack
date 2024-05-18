@@ -1,5 +1,4 @@
 use std::{fs, path::Path};
-use crossbeam_channel::Sender;
 use crate::fop::FileOp;
 use super::{EntryReader, EntrySaver, EntrySaverSpec, EntryType};
 
@@ -16,13 +15,13 @@ impl FSEntryReader {
 impl EntryReader for FSEntryReader {
     fn read_entries(
         self,
-        tx: Sender<EntryType>,
+        mut tx: impl FnMut(EntryType) -> crate::Result_<()>,
         use_blacklist: bool
     ) -> crate::Result_<()> {
         let mut vdir = vec![self.src_dir.clone()];
         while let Some(px) = vdir.pop() {
             let rd = fs::read_dir(px)?.collect::<Result<Vec<_>, _>>()?;
-            super::wrap_send(&tx, EntryType::Count(rd.len()))?;
+            tx(EntryType::Count(rd.len()))?;
             for de in rd {
                 let meta = de.metadata()?;
                 let et = if meta.is_dir() {
@@ -47,7 +46,7 @@ impl EntryReader for FSEntryReader {
                 } else {
                     continue
                 };
-                super::wrap_send(&tx, et)?;
+                tx(et)?;
             }
         }
         Ok(())
@@ -78,8 +77,3 @@ impl EntrySaverSpec for FSEntrySaver {
         Ok(())
     }
 }
-
-// #[inline]
-// fn send_err(e: SendError<EntryType>) -> io::Error {
-//     io::Error::new(io::ErrorKind::Other, e)
-// }

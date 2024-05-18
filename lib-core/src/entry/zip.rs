@@ -1,5 +1,4 @@
 use std::{io::{BufReader, BufWriter, Read, Seek, Write}, sync::Arc};
-use crossbeam_channel::Sender;
 use zip::{write::{FileOptions, SimpleFileOptions}, CompressionMethod, ZipArchive, ZipWriter};
 
 use crate::fop::FileOp;
@@ -24,16 +23,16 @@ impl <R: Read + Seek> ZipEntryReader<BufReader<R>> {
 impl <R: Read + Seek> EntryReader for ZipEntryReader<R> {
     fn read_entries(
         self,
-        tx: Sender<EntryType>,
+        mut tx: impl FnMut(EntryType) -> crate::Result_<()>,
         use_blacklist: bool
     ) -> crate::Result_<()> {
         let mut za = ZipArchive::new(self.r)?;
         let jfc = za.len();
-        super::wrap_send(&tx, EntryType::Count(jfc))?;
+        tx(EntryType::Count(jfc))?;
         for i in 0..jfc {
             let Some(name) = za.name_for_index(i) else { continue; };
             let fname: Arc<str> = name.into();
-            super::wrap_send(&tx, if fname.ends_with('/') {
+            tx(if fname.ends_with('/') {
                 EntryType::Directory(fname)
             } else {
                 let fop = FileOp::by_name(&fname, use_blacklist);

@@ -6,7 +6,6 @@ pub mod zip;
 
 use std::sync::Arc;
 use crate::{cfg, errors::ErrorCollector, fop::FileOp, ProgressState};
-use crossbeam_channel::{Sender, Receiver};
 
 pub use fs::{FSEntryReader, FSEntrySaver};
 pub use zip::{ZipEntryReader, ZipEntrySaver};
@@ -18,7 +17,7 @@ pub trait EntryReader {
     /// The `use_blacklist` parameter is used to ignore predefined file types written in `blacklist` module.
     fn read_entries(
         self,
-        tx: Sender<EntryType>,
+        tx: impl FnMut(EntryType) -> crate::Result_<()>,
         use_blacklist: bool
     ) -> crate::Result_<()>;
 }
@@ -40,23 +39,23 @@ impl<T: EntrySaverSpec> EntrySaver<T> {
     /// Errors are collected with entry names.
     pub fn save_entries(
         mut self,
-        rx: Receiver<EntryType>,
+        rx: impl IntoIterator<Item = EntryType>,
         ev: &mut ErrorCollector,
         cfgmap: &cfg::ConfigMap,
-        ps: &Sender<ProgressState>
+        mut ps: impl FnMut(ProgressState) -> crate::Result_<()>,
     ) -> crate::Result_<()> {
         let mut cv = Vec::new();
         let mut n = 0;
         for et in rx {
             match et {
                 EntryType::Count(u) => {
-                    wrap_send(ps, ProgressState::Start(u))?;
+                    ps(ProgressState::Start(u))?;
                 }
                 EntryType::Directory(dir) => {
                     self.0.save_dir(&dir)?;
                 }
                 EntryType::File(fname, buf, fop) => {
-                    wrap_send(ps, ProgressState::Push(n, fname.clone()))?;
+                    ps(ProgressState::Push(n, fname.clone()))?;
                     n += 1;
                     match fop {
                         FileOp::Ignore(e) => {
@@ -80,17 +79,7 @@ impl<T: EntrySaverSpec> EntrySaver<T> {
                 }
             }
         }
-        wrap_send(ps, ProgressState::Finish)
-    }
-}
-
-impl<T: FnOnce(Sender<EntryType>, bool) -> crate::Result_<()>> EntryReader for T {
-    fn read_entries(
-        self,
-        tx: Sender<EntryType>,
-        use_blacklist: bool
-    ) -> crate::Result_<()> {
-        self(tx, use_blacklist)
+        ps(ProgressState::Finish)
     }
 }
 
@@ -115,9 +104,4 @@ impl EntryType {
     pub fn file(name: impl Into<Arc<str>>, data: impl Into<Box<[u8]>>, fop: FileOp) -> Self {
         Self::File(name.into(), data.into(), fop)
     }
-}
-
-const CHANNEL_CLOSED_EARLY: &str = "channel closed early";
-fn wrap_send<T>(s: &Sender<T>, t: T) -> crate::Result_<()> {
-    crate::wrap_err(s.send(t), CHANNEL_CLOSED_EARLY)
 }

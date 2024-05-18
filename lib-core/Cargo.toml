@@ -27,7 +27,6 @@ default = ["png", "toml", "nbt", "ogg", "serde-cfg"]
 
 [dependencies]
 zip = {workspace = true, features = ["deflate"]}
-crossbeam-channel = {workspace = true}
 anyhow = {optional = true, workspace = true}
 serde = {optional = true, workspace = true}
 serde_json = {version = "^1.0.93", features = ["preserve_order"]}

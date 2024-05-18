@@ -609,7 +609,6 @@ name = "mc-repack-core"
 version = "0.20.1"
 dependencies = [
  "anyhow",
- "crossbeam-channel",
  "flate2",
  "json_comments",
  "optivorbis",

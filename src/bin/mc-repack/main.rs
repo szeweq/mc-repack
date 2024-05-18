@@ -255,9 +255,26 @@ pub fn optimize_with<R: EntryReader + Send + 'static, S: EntrySaverSpec>(
     errors: &mut ErrorCollector,
     use_blacklist: bool
 ) -> crate::Result_<()> {
-    let (tx, rx) = crossbeam_channel::bounded(2);
-    let t1 = thread::spawn(move || reader.read_entries(tx, use_blacklist));
-    saver.save_entries(rx, errors, cfgmap, ps)?;
+    let (tx, rx) = crossbeam_channel::bounded(8);
+    let t1 = thread::spawn(move || reader.read_entries(|e| wrap_send(&tx, e), use_blacklist));
+    saver.save_entries(rx, errors, cfgmap, |p| wrap_send(ps, p))?;
     t1.join().expect("Cannot join thread")?;
     Ok(())
+}
+
+const CHANNEL_CLOSED_EARLY: &str = "channel closed early";
+fn wrap_send<T>(s: &Sender<T>, t: T) -> Result_<()> {
+    wrap_err(s.send(t), CHANNEL_CLOSED_EARLY)
+}
+
+#[cfg(not(feature = "anyhow"))]
+#[inline]
+pub(crate) fn wrap_err<T, E>(r: Result<T, E>, s: &'static str) -> Result_<T> {
+    r.map_err(|_| std::io::Error::new(std::io::ErrorKind::Other, s))
+}
+
+#[cfg(feature = "anyhow")]
+#[inline]
+pub(crate) fn wrap_err<T, E>(r: Result<T, E>, s: &'static str) -> Result_<T> {
+    r.map_err(|_| anyhow::anyhow!(s))
 }
