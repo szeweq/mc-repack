@@ -59,13 +59,8 @@ trait ProcessTask {
 
 const TASK_ERR_MSG: &str = "Task failed";
 
-#[cfg(not(feature = "anyhow"))]
 fn task_err(_: Box<dyn Any + Send>) -> Error_ {
-    io::Error::new(io::ErrorKind::Other, TASK_ERR_MSG)
-}
-#[cfg(feature = "anyhow")]
-fn task_err(_: Box<dyn Any + Send>) -> Error_ {
-    anyhow::anyhow!(TASK_ERR_MSG)
+    into_err(TASK_ERR_MSG)
 }
 
 #[cfg(not(feature = "anyhow"))]
@@ -264,17 +259,17 @@ pub fn optimize_with<R: EntryReader + Send + 'static, S: EntrySaverSpec>(
 
 const CHANNEL_CLOSED_EARLY: &str = "channel closed early";
 fn wrap_send<T>(s: &Sender<T>, t: T) -> Result_<()> {
-    wrap_err(s.send(t), CHANNEL_CLOSED_EARLY)
+    s.send(t).map_err(|_| into_err(CHANNEL_CLOSED_EARLY))
 }
 
 #[cfg(not(feature = "anyhow"))]
 #[inline]
-pub(crate) fn wrap_err<T, E>(r: Result<T, E>, s: &'static str) -> Result_<T> {
-    r.map_err(|_| std::io::Error::new(std::io::ErrorKind::Other, s))
+fn into_err(s: &'static str) -> Error_ {
+    std::io::Error::other(s)
 }
 
 #[cfg(feature = "anyhow")]
 #[inline]
-pub(crate) fn wrap_err<T, E>(r: Result<T, E>, s: &'static str) -> Result_<T> {
-    r.map_err(|_| anyhow::anyhow!(s))
+fn into_err(s: &'static str) -> Error_ {
+    anyhow::anyhow!(s)
 }
