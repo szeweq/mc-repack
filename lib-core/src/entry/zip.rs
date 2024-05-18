@@ -39,7 +39,6 @@ impl <R: Read + Seek> EntryReader for ZipEntryReader<R> {
                 let mut obuf = Vec::new();
                 if let FileOp::Ignore(_) = fop {} else {
                     let mut jf = za.by_index(i)?;
-                    if jf.compression() != CompressionMethod::Deflated { eprintln!("{}: CM {}\n", fname, jf.compression()); }
                     obuf.reserve_exact(jf.size() as usize);
                     jf.read_to_end(&mut obuf)?;
                 }
