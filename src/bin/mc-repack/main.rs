@@ -250,10 +250,10 @@ pub fn optimize_with<R: EntryReader + Send + 'static, S: EntrySaverSpec>(
     errors: &mut ErrorCollector,
     use_blacklist: bool
 ) -> crate::Result_<()> {
-    let (tx, rx) = crossbeam_channel::bounded(8);
+    let (tx, rx) = crossbeam_channel::bounded(16);
     let t1 = thread::spawn(move || reader.read_entries(|e| wrap_send(&tx, e), use_blacklist));
     saver.save_entries(rx, errors, cfgmap, |p| wrap_send(ps, p))?;
-    t1.join().expect("Cannot join thread")?;
+    t1.join().map_err(|_| into_err("Cannot join thread"))??;
     Ok(())
 }
 
