@@ -1,6 +1,5 @@
 use std::{io::{BufReader, BufWriter, Read, Seek, Write}, sync::Arc};
 use crossbeam_channel::Sender;
-use flate2::bufread::DeflateEncoder;
 use zip::{write::{FileOptions, SimpleFileOptions}, CompressionMethod, ZipArchive, ZipWriter};
 
 use crate::{fop::FileOp, optimizer::EntryType};
@@ -102,9 +101,8 @@ impl <W: Write + Seek> EntrySaverSpec for ZipEntrySaver<W> {
 fn compress_check(b: &[u8], compress_min: usize) -> bool {
     let lb = b.len();
     if lb > compress_min {
-        let de = DeflateEncoder::new(b, flate2::Compression::best());
-        let sum = de.bytes().count();
-        if sum + 8 < lb { return true }
+        let mut d = flate2::write::DeflateEncoder::new(std::io::sink(), flate2::Compression::best());
+        if d.write_all(b).and_then(|_| d.try_finish()).is_ok() && d.total_out() as usize + 8 < lb { return true }
     }
     false
 }
