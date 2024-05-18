@@ -90,7 +90,10 @@ impl ProcessTask for JarRepackTask {
         };
         optimize_with(
             ZipEntryReader::new_buf(File::open(fp)?),
-            ZipEntrySaver::new(File::create(nfp)?),
+            ZipEntrySaver::custom_compress(
+                File::create(nfp)?,
+                9 + opts.zopfli.map_or(0, |x| x.get() as i64)
+            ),
             &opts.cfgmap, &ps, ec, opts.use_blacklist
         ).map_err(|e| wrap_err_with(e, fp))?;
         drop(ps);
@@ -104,6 +107,7 @@ struct JarDirRepackTask;
 impl ProcessTask for JarDirRepackTask {
     fn process(&self, fp: &Path, out: Option<PathBuf>, opts: &RepackOpts, ec: &mut ErrorCollector) -> Result_<()> {
         let RepackOpts { use_blacklist, .. } = *opts;
+        let clvl = 9 + opts.zopfli.map_or(0, |x| x.get() as i64);
         let cfgmap = &opts.cfgmap;
         let mp = MultiProgress::new();
 
@@ -133,7 +137,10 @@ impl ProcessTask for JarDirRepackTask {
                 };
                 match optimize_with(
                     entry::zip::ZipEntryReader::new_buf(fs::File::open(&fp)?),
-                    entry::zip::ZipEntrySaver::new(fs::File::create(&nfp)?),
+                    entry::zip::ZipEntrySaver::custom_compress(
+                        fs::File::create(&nfp)?,
+                        clvl
+                    ),
                     cfgmap, &ps, ec, use_blacklist
                 ) {
                     Ok(_) => {},

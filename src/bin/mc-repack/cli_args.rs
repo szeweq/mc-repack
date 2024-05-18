@@ -25,11 +25,16 @@ pub struct Args {
 
     /// (Optional) Use custom .toml config file. If no path is provided, it will use `mc-repack.toml`
     #[arg(short = 'c', long)]
-    pub config: Option<PathBuf>
+    pub config: Option<PathBuf>,
+
+    /// Enable Zopfli compression (better, but much slower) and apply a number of iterations
+    #[arg(short = 'z', long)]
+    pub zopfli: Option<std::num::NonZeroU8>
 }
 pub struct RepackOpts {
     pub silent: bool,
     pub use_blacklist: bool,
+    pub zopfli: Option<std::num::NonZeroU8>,
     pub cfgmap: mc_repack_core::cfg::ConfigMap
 }
 impl RepackOpts {
@@ -59,6 +64,7 @@ impl RepackOpts {
         Self {
             silent: args.silent,
             use_blacklist: args.use_blacklist,
+            zopfli: args.zopfli,
             cfgmap
         }
     }
