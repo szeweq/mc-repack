@@ -1,23 +1,23 @@
 use std::{io::{BufReader, BufWriter, Read, Seek, Write}, sync::Arc};
 use zip::{write::{FileOptions, SimpleFileOptions}, CompressionMethod, ZipArchive, ZipWriter};
 
-use crate::fop::FileOp;
+use crate::{fop::FileOp, Result_};
 use super::{EntryReader, EntrySaverSpec, EntrySaver, EntryType};
 
 /// An entry reader implementation for ZIP archive. It reads its contents from a provided reader (with seeking).
 pub struct ZipEntryReader<R: Read + Seek> {
-    r: R
+    za: ZipArchive<R>
 }
 impl <R: Read + Seek> ZipEntryReader<R> {
     /// Creates an entry reader with a specified reader.
-    pub const fn new(r: R) -> Self {
-        Self { r }
+    pub fn new(r: R) -> Result_<Self> {
+        Ok(Self { za: ZipArchive::new(r)? })
     }
 }
 impl <R: Read + Seek> ZipEntryReader<BufReader<R>> {
     /// Creates an entry reader wrapping a specified reader with a [`BufReader`].
-    pub fn new_buf(r: R) -> Self {
-        Self { r: BufReader::new(r) }
+    pub fn new_buf(r: R) -> Result_<Self> {
+        Ok(Self { za: ZipArchive::new(BufReader::new(r))? })
     }
 }
 impl <R: Read + Seek> EntryReader for ZipEntryReader<R> {
@@ -26,7 +26,7 @@ impl <R: Read + Seek> EntryReader for ZipEntryReader<R> {
         mut tx: impl FnMut(EntryType) -> crate::Result_<()>,
         use_blacklist: bool
     ) -> crate::Result_<()> {
-        let mut za = ZipArchive::new(self.r)?;
+        let mut za = self.za;
         let jfc = za.len();
         tx(EntryType::Count(jfc))?;
         for i in 0..jfc {
