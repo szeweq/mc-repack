@@ -67,7 +67,7 @@ impl Minifier {
             #[cfg(feature = "png")] "png" => Self::PNG,
             "json" | "mcmeta" => Self::JSON,
             #[cfg(feature = "toml")] "toml" => Self::TOML,
-            #[cfg(feature = "nbt")] "nbt" => Self::NBT,
+            #[cfg(feature = "nbt")] "nbt" | "blueprint" => Self::NBT,
             #[cfg(feature = "ogg")] "ogg" => Self::OGG,
             "cfg" | "obj" | "mtl" => Self::Hash,
             "zs" | "js" | "fsh" | "vsh" => Self::Slash,
