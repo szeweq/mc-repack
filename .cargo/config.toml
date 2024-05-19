@@ -1,4 +1,4 @@
 [alias]
-jars = "run --bin mc-repack --release -- test-jars"
-debug-jars = "run --bin mc-repack -- test-jars"
-zopfli-jars = "run --bin mc-repack -F zip-zopfli --release -- test-jars"
+jars = "run --bin mc-repack --release -- test-jars --out test-jars-repack"
+debug-jars = "run --bin mc-repack -- test-jars --out test-jars-repack"
+zopfli-jars = "run --bin mc-repack -F zip-zopfli --release -- test-jars --out test-jars-repack"
