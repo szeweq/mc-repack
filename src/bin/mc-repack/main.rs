@@ -1,4 +1,4 @@
-use std::{any::Any, ffi::OsString, fs::{self, File}, io, path::{Path, PathBuf}, thread::{self, JoinHandle}};
+use std::{any::Any, ffi::OsString, fs::{self, File}, path::{Path, PathBuf}, thread::{self, JoinHandle}};
 use clap::Parser;
 use cli_args::RepackOpts;
 use crossbeam_channel::Sender;
@@ -9,9 +9,6 @@ use mc_repack_core::{cfg, entry::{self, EntryReader, EntrySaver, EntrySaverSpec,
 mod cli_args;
 mod config;
 
-#[cfg(not(feature = "anyhow"))]
-type Error_ = io::Error;
-#[cfg(feature = "anyhow")]
 type Error_ = anyhow::Error;
 
 type Result_<T> = Result<T, Error_>;
@@ -57,17 +54,10 @@ trait ProcessTask {
     fn process(&self, fp: &Path, out: Option<PathBuf>, opts: &RepackOpts, ec: &mut ErrorCollector) -> Result_<()>;
 }
 
-const TASK_ERR_MSG: &str = "Task failed";
-
 fn task_err(_: Box<dyn Any + Send>) -> Error_ {
-    into_err(TASK_ERR_MSG)
+    anyhow::anyhow!("Task failed")
 }
 
-#[cfg(not(feature = "anyhow"))]
-fn wrap_err_with(e: Error_, p: &Path) -> Error_ {
-    io::Error::new(e.kind(), format!("{}: {}", p.display(), e))
-}
-#[cfg(feature = "anyhow")]
 fn wrap_err_with(e: Error_, p: &Path) -> Error_ {
     anyhow::anyhow!("{}: {}", p.display(), e)
 }
@@ -93,7 +83,7 @@ impl ProcessTask for JarRepackTask {
             return Err(TaskError::InvalidFileName.into())
         };
         optimize_with(
-            ZipEntryReader::new_buf(File::open(fp)?),
+            ZipEntryReader::new_buf(File::open(fp)?)?,
             ZipEntrySaver::custom_compress(
                 File::create(nfp)?,
                 opts.keep_dirs,
@@ -141,7 +131,7 @@ impl ProcessTask for JarDirRepackTask {
                     return Err(TaskError::InvalidFileName.into())
                 };
                 match optimize_with(
-                    entry::zip::ZipEntryReader::new_buf(fs::File::open(&fp)?),
+                    entry::zip::ZipEntryReader::new_buf(fs::File::open(&fp)?)?,
                     entry::zip::ZipEntrySaver::custom_compress(
                         fs::File::create(&nfp)?,
                         opts.keep_dirs,
@@ -238,11 +228,6 @@ impl std::fmt::Display for TaskError {
         })
     }
 }
-impl From<TaskError> for io::Error {
-    fn from(val: TaskError) -> Self {
-        Self::new(io::ErrorKind::Other, val)
-    }
-}
 
 pub fn optimize_with<R: EntryReader + Send + 'static, S: EntrySaverSpec>(
     reader: R,
@@ -255,23 +240,10 @@ pub fn optimize_with<R: EntryReader + Send + 'static, S: EntrySaverSpec>(
     let (tx, rx) = crossbeam_channel::bounded(16);
     let t1 = thread::spawn(move || reader.read_entries(|e| wrap_send(&tx, e), use_blacklist));
     saver.save_entries(rx, errors, cfgmap, |p| wrap_send(ps, p))?;
-    t1.join().map_err(|_| into_err("Cannot join thread"))??;
+    t1.join().map_err(|_| anyhow::anyhow!("Cannot join thread"))??;
     Ok(())
 }
 
-const CHANNEL_CLOSED_EARLY: &str = "channel closed early";
 fn wrap_send<T>(s: &Sender<T>, t: T) -> Result_<()> {
-    s.send(t).map_err(|_| into_err(CHANNEL_CLOSED_EARLY))
-}
-
-#[cfg(not(feature = "anyhow"))]
-#[inline]
-fn into_err(s: &'static str) -> Error_ {
-    std::io::Error::other(s)
-}
-
-#[cfg(feature = "anyhow")]
-#[inline]
-fn into_err(s: &'static str) -> Error_ {
-    anyhow::anyhow!(s)
+    s.send(t).map_err(|_| anyhow::anyhow!("channel closed early"))
 }

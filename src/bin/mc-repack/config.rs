@@ -11,7 +11,7 @@ pub struct Config {
     pub toml: Option<min::toml::TOMLConfig>
 }
 
-fn path_to_config(path: Option<PathBuf>) -> Result_<PathBuf> {
+fn path_to_config(path: Option<PathBuf>) -> io::Result<PathBuf> {
     match path {
         Some(p) => {
             let meta = fs::metadata(&p)?;
@@ -25,7 +25,7 @@ fn path_to_config(path: Option<PathBuf>) -> Result_<PathBuf> {
     }
 }
 
-pub fn read_config(path: Option<PathBuf>) -> Result_<Config> {
+pub fn read_config(path: Option<PathBuf>) -> io::Result<Config> {
     let path = path_to_config(path)?;
     let f = fs::read_to_string(path)?;
     toml::from_str(&f).map_err(io::Error::other)
@@ -46,7 +46,7 @@ pub fn check(path: Option<PathBuf>) -> Result_<bool> {
             fs::write(path, s)?;
             return Ok(false);
         }
-        Err(e) => return Err(e)
+        Err(e) => return Err(e.into())
     };
     toml::from_str::<Config>(&f).map_err(io::Error::other)?;
     Ok(true)

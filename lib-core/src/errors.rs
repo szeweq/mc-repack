@@ -1,8 +1,5 @@
 use std::{error::Error, fmt::Display, sync::Arc};
 
-#[cfg(not(feature = "anyhow"))]
-pub(crate) type Error_ = Box<dyn Error>;
-#[cfg(feature = "anyhow")]
 pub(crate) type Error_ = anyhow::Error;
 
 /// A struct for collecting errors.

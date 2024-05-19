@@ -1,4 +1,4 @@
-use crate::{cfg, errors};
+use crate::cfg;
 
 /// Minifier for JSON files
 pub mod json;
@@ -103,7 +103,7 @@ impl Minifier {
     }
 }
 
-type Result_ = Result<(), errors::Error_>;
+type Result_ = anyhow::Result<()>;
 
 fn remove_line_comments(bs: &'static [u8], v: &[u8], vout: &mut Vec<u8>) -> Result_ {
     std::str::from_utf8(v)?;

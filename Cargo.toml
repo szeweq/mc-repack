@@ -25,13 +25,10 @@ anyhow = "1.0"
 name = "mc-repack"
 doc = false
 
-[features]
-anyhow = ["dep:anyhow"]
-
 [dependencies]
 mc-repack-core = {version = "0.20.1", path = "lib-core", features = ["all-zopfli"]}
 crossbeam-channel = "^0.5.8"
-anyhow = {optional = true, workspace = true}
+anyhow = {workspace = true}
 serde = {workspace = true}
 toml = {workspace = true, features = ["preserve_order"]}
 

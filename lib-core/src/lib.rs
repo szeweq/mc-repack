@@ -18,9 +18,6 @@ pub mod entry;
 /// Implementations of configuration map and traits for accepting config types.
 pub mod cfg;
 
-#[cfg(not(feature = "anyhow"))]
-pub(crate) type Result_<T> = std::io::Result<T>;
-#[cfg(feature = "anyhow")]
 pub(crate) type Result_<T> = anyhow::Result<T>;
 
 /// A progress state to update information about currently optimized entry
