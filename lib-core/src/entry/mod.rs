@@ -75,6 +75,9 @@ impl<T: EntrySaverSpec> EntrySaver<T> {
                         FileOp::Recompress(x) => {
                             self.0.save_file(&fname, &buf, x as u16)?;
                         }
+                        FileOp::Pass => {
+                            self.0.save_file(&fname, &buf, 0)?;
+                        }
                     }
                 }
             }
