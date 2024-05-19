@@ -1,4 +1,4 @@
-use std::{io::{BufReader, BufWriter, Read, Seek, Write}, sync::Arc};
+use std::{io::{BufReader, BufWriter, Cursor, Read, Seek, Write}, sync::Arc};
 use zip::{write::{FileOptions, SimpleFileOptions}, CompressionMethod, ZipArchive, ZipWriter};
 
 use crate::{fop::FileOp, Result_};
@@ -18,6 +18,12 @@ impl <R: Read + Seek> ZipEntryReader<BufReader<R>> {
     /// Creates an entry reader wrapping a specified reader with a [`BufReader`].
     pub fn new_buf(r: R) -> Result_<Self> {
         Ok(Self { za: ZipArchive::new(BufReader::new(r))? })
+    }
+}
+impl <T: AsRef<[u8]>> ZipEntryReader<Cursor<T>> {
+    /// Creates an entry reader wrapping a specified reader with a [`Cursor`].
+    pub fn new_mem(t: T) -> Result_<Self> {
+        Ok(Self { za: ZipArchive::new(Cursor::new(t))? })
     }
 }
 impl <R: Read + Seek> EntryReader for ZipEntryReader<R> {
@@ -110,8 +116,22 @@ impl <W: Write + Seek> EntrySaverSpec for ZipEntrySaver<W> {
 fn compress_check(b: &[u8], compress_min: usize) -> bool {
     let lb = b.len();
     if lb > compress_min {
+        if calc_entropy(b) < 7.0 { return true }
         let mut d = flate2::write::DeflateEncoder::new(std::io::sink(), flate2::Compression::best());
         if d.write_all(b).and_then(|_| d.try_finish()).is_ok() && d.total_out() as usize + 8 < lb { return true }
     }
     false
+}
+
+fn calc_entropy(b: &[u8]) -> f32 {
+    if b.is_empty() { return 0.0; }
+    let mut freq = [0usize; 256];
+    for &b in b { freq[b as usize] += 1; }
+    let total = b.len() as f32;
+    let logt = total.log2();
+    let e = freq.into_iter().filter(|&f| f != 0)
+        .map(|f| -(f as f32) * ((f as f32).log2() - logt))
+        .sum::<f32>() / total;
+    assert!((0.0..=8.0).contains(&e), "Invalid entropy: {}", e);
+    e
 }

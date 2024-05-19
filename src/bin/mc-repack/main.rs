@@ -83,7 +83,7 @@ impl ProcessTask for JarRepackTask {
             return Err(TaskError::InvalidFileName.into())
         };
         optimize_with(
-            ZipEntryReader::new_buf(File::open(fp)?)?,
+            ZipEntryReader::new_mem(fs::read(fp)?)?,
             ZipEntrySaver::custom_compress(
                 File::create(nfp)?,
                 opts.keep_dirs,
@@ -131,7 +131,7 @@ impl ProcessTask for JarDirRepackTask {
                     return Err(TaskError::InvalidFileName.into())
                 };
                 match optimize_with(
-                    entry::zip::ZipEntryReader::new_buf(fs::File::open(&fp)?)?,
+                    entry::zip::ZipEntryReader::new_mem(fs::read(&fp)?)?,
                     entry::zip::ZipEntrySaver::custom_compress(
                         fs::File::create(&nfp)?,
                         opts.keep_dirs,
