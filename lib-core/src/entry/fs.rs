@@ -1,5 +1,5 @@
 use std::{fs, path::Path};
-use crate::fop::FileOp;
+use crate::fop::{FileOp, TypeBlacklist};
 use super::{EntryReader, EntrySaver, EntrySaverSpec, EntryType};
 
 /// An entry reader implementation for a file system. It reads a file tree from a provided directory.
@@ -16,7 +16,7 @@ impl EntryReader for FSEntryReader {
     fn read_entries(
         self,
         mut tx: impl FnMut(EntryType) -> crate::Result_<()>,
-        use_blacklist: bool
+        blacklist: &TypeBlacklist
     ) -> crate::Result_<()> {
         let mut vdir = vec![self.src_dir.clone()];
         while let Some(px) = vdir.pop() {
@@ -40,7 +40,7 @@ impl EntryReader for FSEntryReader {
                     } else {
                         continue
                     };
-                    let fop = FileOp::by_name(&fname, use_blacklist);
+                    let fop = FileOp::by_name(&fname, blacklist);
                     let ff = fs::read(&fp)?;
                     EntryType::file(fname, ff, fop)
                 } else {

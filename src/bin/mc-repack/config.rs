@@ -1,4 +1,4 @@
-use std::{io, fs, path::PathBuf};
+use std::{collections::HashSet, fs, io, path::PathBuf};
 
 use mc_repack_core::min;
 use crate::Result_;
@@ -8,7 +8,8 @@ pub struct Config {
     pub json: Option<min::json::JSONConfig>,
     pub nbt: Option<min::nbt::NBTConfig>,
     pub png: Option<min::png::PNGConfig>,
-    pub toml: Option<min::toml::TOMLConfig>
+    pub toml: Option<min::toml::TOMLConfig>,
+    pub blacklist: Option<HashSet<Box<str>>>
 }
 
 fn path_to_config(path: Option<PathBuf>) -> io::Result<PathBuf> {
@@ -41,6 +42,7 @@ pub fn check(path: Option<PathBuf>) -> Result_<bool> {
                 nbt: Some(min::nbt::NBTConfig::default()),
                 png: Some(min::png::PNGConfig::default()),
                 toml: Some(min::toml::TOMLConfig::default()),
+                blacklist: Some(HashSet::new())
             };
             let s = toml::to_string(&cfg).map_err(io::Error::other)?;
             fs::write(path, s)?;

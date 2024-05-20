@@ -1,10 +1,10 @@
-use std::{any::Any, ffi::OsString, fs::{self, File}, path::{Path, PathBuf}, thread::{self, JoinHandle}};
+use std::{any::Any, ffi::OsString, fs::{self, File}, path::{Path, PathBuf}, sync::Arc, thread::{self, JoinHandle}};
 use clap::Parser;
 use cli_args::RepackOpts;
 use crossbeam_channel::Sender;
 use indicatif::{ProgressBar, ProgressStyle, MultiProgress};
 
-use mc_repack_core::{cfg, entry::{self, EntryReader, EntrySaver, EntrySaverSpec, ZipEntryReader, ZipEntrySaver}, errors::{EntryRepackError, ErrorCollector}, fop::FileType, ProgressState};
+use mc_repack_core::{cfg, entry::{self, EntryReader, EntrySaver, EntrySaverSpec, ZipEntryReader, ZipEntrySaver}, errors::{EntryRepackError, ErrorCollector}, fop::{FileType, TypeBlacklist}, ProgressState};
 
 mod cli_args;
 mod config;
@@ -89,7 +89,7 @@ impl ProcessTask for JarRepackTask {
                 opts.keep_dirs,
                 9 + opts.zopfli.map_or(0, |x| x.get() as i64)
             ),
-            &opts.cfgmap, &ps, ec, opts.use_blacklist
+            &opts.cfgmap, &ps, ec, opts.blacklist.clone()
         ).map_err(|e| wrap_err_with(e, fp))?;
         drop(ps);
         pj.join().map_err(task_err)?;
@@ -101,7 +101,7 @@ impl ProcessTask for JarRepackTask {
 struct JarDirRepackTask;
 impl ProcessTask for JarDirRepackTask {
     fn process(&self, fp: &Path, out: Option<PathBuf>, opts: &RepackOpts, ec: &mut ErrorCollector) -> Result_<()> {
-        let RepackOpts { use_blacklist, .. } = *opts;
+        let RepackOpts { blacklist, .. } = opts;
         let clvl = 9 + opts.zopfli.map_or(0, |x| x.get() as i64);
         let cfgmap = &opts.cfgmap;
         let mp = MultiProgress::new();
@@ -137,7 +137,7 @@ impl ProcessTask for JarDirRepackTask {
                         opts.keep_dirs,
                         clvl
                     ),
-                    cfgmap, &ps, ec, use_blacklist
+                    cfgmap, &ps, ec, blacklist.clone()
                 ) {
                     Ok(_) => {},
                     Err(e) => {
@@ -235,10 +235,10 @@ pub fn optimize_with<R: EntryReader + Send + 'static, S: EntrySaverSpec>(
     cfgmap: &cfg::ConfigMap,
     ps: &Sender<ProgressState>,
     errors: &mut ErrorCollector,
-    use_blacklist: bool
+    blacklist: Arc<TypeBlacklist>
 ) -> crate::Result_<()> {
     let (tx, rx) = crossbeam_channel::bounded(16);
-    let t1 = thread::spawn(move || reader.read_entries(|e| wrap_send(&tx, e), use_blacklist));
+    let t1 = thread::spawn(move || reader.read_entries(|e| wrap_send(&tx, e), &blacklist));
     saver.save_entries(rx, errors, cfgmap, |p| wrap_send(ps, p))?;
     t1.join().map_err(|_| anyhow::anyhow!("Cannot join thread"))??;
     Ok(())

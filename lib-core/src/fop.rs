@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use crate::{min::{Minifier, only_recompress}, errors::FileIgnoreError};
 
 pub(crate) const REPACKED: &str = "_repack";
@@ -35,7 +37,7 @@ pub enum FileOp {
 }
 
 impl FileOp {
-    pub(crate) fn by_name(fname: &str, use_blacklist: bool) -> Self {
+    pub(crate) fn by_name(fname: &str, blacklist: &TypeBlacklist) -> Self {
         if fname.starts_with(".cache/") { return Self::Ignore(FileIgnoreError::Blacklisted) }
         if let Some(sub) =  fname.strip_prefix("META-INF/") {
             match sub {
@@ -60,10 +62,29 @@ impl FileOp {
         if let Some(x) = Minifier::by_extension(ftype) {
             return Self::Minify(x)
         }
-        if use_blacklist && can_ignore_type(ftype) { Self::Ignore(FileIgnoreError::Blacklisted) } else { Self::Pass }
+        if blacklist.can_ignore(ftype) { Self::Ignore(FileIgnoreError::Blacklisted) } else { Self::Pass }
     }
 }
 
-fn can_ignore_type(s: &str) -> bool {
-    matches!(s, "bak" | "blend" | "blend1" | "disabled" | "gitignore" | "gitkeep" | "lnk" | "pdn" | "psd" | "xcf")
+/// A blacklist of file types to ignore.
+/// It has built-in file types (if [`TypeBlacklist::Extend`] is used): `bak`, `blend`, `blend1`, `disabled`, `gitignore`, `gitkeep`, `lnk`, `old`, `pdn`, `psd`, `xcf`.
+pub enum TypeBlacklist {
+    /// Extend the blacklist. It uses a predefined list of file types that are not supposed to be repacked.
+    Extend(Option<HashSet<Box<str>>>),
+    /// Override the blacklist. You can define your own list of file types regardless of the predefined list.
+    Override(Option<HashSet<Box<str>>>)
+}
+impl TypeBlacklist {
+    fn can_ignore(&self, s: &str) -> bool {
+        let inner = match self {
+            Self::Extend(x) => {
+                if matches!(s, "bak" | "blend" | "blend1" | "disabled" | "gitignore" | "gitkeep" | "lnk" | "old" | "pdn" | "psd" | "xcf") {
+                    return true
+                }
+                x
+            }
+            Self::Override(x) => x
+        };
+        inner.as_ref().map_or(false, |x| x.contains(s))
+    }
 }

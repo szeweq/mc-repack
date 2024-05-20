@@ -5,7 +5,7 @@ pub mod fs;
 pub mod zip;
 
 use std::sync::Arc;
-use crate::{cfg, errors::ErrorCollector, fop::FileOp, ProgressState};
+use crate::{cfg, errors::ErrorCollector, fop::{FileOp, TypeBlacklist}, ProgressState};
 
 pub use fs::{FSEntryReader, FSEntrySaver};
 pub use zip::{ZipEntryReader, ZipEntrySaver};
@@ -18,7 +18,7 @@ pub trait EntryReader {
     fn read_entries(
         self,
         tx: impl FnMut(EntryType) -> crate::Result_<()>,
-        use_blacklist: bool
+        blacklist: &TypeBlacklist
     ) -> crate::Result_<()>;
 }
 

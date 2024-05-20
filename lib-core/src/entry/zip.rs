@@ -1,7 +1,7 @@
 use std::{io::{BufReader, BufWriter, Cursor, Read, Seek, Write}, sync::Arc};
 use zip::{write::{FileOptions, SimpleFileOptions}, CompressionMethod, ZipArchive, ZipWriter};
 
-use crate::{fop::FileOp, Result_};
+use crate::{fop::{FileOp, TypeBlacklist}, Result_};
 use super::{EntryReader, EntrySaverSpec, EntrySaver, EntryType};
 
 /// An entry reader implementation for ZIP archive. It reads its contents from a provided reader (with seeking).
@@ -30,7 +30,7 @@ impl <R: Read + Seek> EntryReader for ZipEntryReader<R> {
     fn read_entries(
         self,
         mut tx: impl FnMut(EntryType) -> crate::Result_<()>,
-        use_blacklist: bool
+        blacklist: &TypeBlacklist
     ) -> crate::Result_<()> {
         let mut za = self.za;
         let jfc = za.len();
@@ -41,7 +41,7 @@ impl <R: Read + Seek> EntryReader for ZipEntryReader<R> {
             tx(if fname.ends_with('/') {
                 EntryType::dir(fname)
             } else {
-                let fop = FileOp::by_name(&fname, use_blacklist);
+                let fop = FileOp::by_name(&fname, blacklist);
                 let mut obuf = Vec::new();
                 if let FileOp::Ignore(_) = fop {} else {
                     let mut jf = za.by_index(i)?;

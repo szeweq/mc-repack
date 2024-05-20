@@ -1,6 +1,6 @@
-use std::{io, path::PathBuf};
+use std::{io, path::PathBuf, sync::Arc};
 
-use mc_repack_core::min;
+use mc_repack_core::{fop::TypeBlacklist, min};
 
 use crate::config;
 
@@ -19,7 +19,7 @@ pub struct Args {
     #[arg(long)]
     pub silent: bool,
 
-    /// Use built-in blacklist for files
+    /// Add built-in blacklist rules for files. This works separate from the config file
     #[arg(short = 'b', long)]
     pub use_blacklist: bool,
 
@@ -41,7 +41,7 @@ pub struct Args {
 }
 pub struct RepackOpts {
     pub silent: bool,
-    pub use_blacklist: bool,
+    pub blacklist: Arc<TypeBlacklist>,
     pub keep_dirs: bool,
     pub zopfli: Option<std::num::NonZeroU8>,
     pub cfgmap: mc_repack_core::cfg::ConfigMap
@@ -49,6 +49,7 @@ pub struct RepackOpts {
 impl RepackOpts {
     pub fn from_args(args: &Args) -> Self {
         let cfgmap = mc_repack_core::cfg::ConfigMap::default();
+        let mut blacklist = None;
         match config::read_config(args.config.clone()) {
             Ok(c) => {
                 if let Some(x) = c.json {
@@ -63,6 +64,7 @@ impl RepackOpts {
                 if let Some(x) = c.toml {
                     cfgmap.set::<min::toml::MinifierTOML>(x);
                 }
+                blacklist = c.blacklist;
                 println!("Config loaded successfully!");
             }
             Err(e) if e.kind() != io::ErrorKind::NotFound => {
@@ -72,7 +74,11 @@ impl RepackOpts {
         }
         Self {
             silent: args.silent,
-            use_blacklist: args.use_blacklist,
+            blacklist: Arc::new(if args.use_blacklist {
+                TypeBlacklist::Extend(blacklist)
+            } else {
+                TypeBlacklist::Override(blacklist)
+            }),
             keep_dirs: args.keep_dirs,
             zopfli: args.zopfli,
             cfgmap
