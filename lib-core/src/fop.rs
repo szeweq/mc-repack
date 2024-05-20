@@ -65,5 +65,5 @@ impl FileOp {
 }
 
 fn can_ignore_type(s: &str) -> bool {
-    matches!(s, "bak" | "blend" | "blend1" | "psd")
+    matches!(s, "bak" | "blend" | "blend1" | "disabled" | "gitignore" | "gitkeep" | "lnk" | "pdn" | "psd" | "xcf")
 }
