@@ -49,21 +49,21 @@ impl FileOp {
             }
         }
         let Some((_, ftype)) = fname.rsplit_once('.') else {
-            return Self::Recompress(2)
+            return Self::Pass
         };
         if ftype == "class" {
             return Self::Recompress(64)
         }
         if only_recompress(ftype) {
-            return Self::Recompress(4)
+            return Self::Recompress(8)
         }
         if let Some(x) = Minifier::by_extension(ftype) {
             return Self::Minify(x)
         }
-        if use_blacklist && can_ignore_type(ftype) { Self::Ignore(FileIgnoreError::Blacklisted) } else { Self::Recompress(2) }
+        if use_blacklist && can_ignore_type(ftype) { Self::Ignore(FileIgnoreError::Blacklisted) } else { Self::Pass }
     }
 }
 
 fn can_ignore_type(s: &str) -> bool {
-    matches!(s, "blend" | "blend1" | "psd")
+    matches!(s, "bak" | "blend" | "blend1" | "psd")
 }
