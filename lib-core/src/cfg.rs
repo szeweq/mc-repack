@@ -71,8 +71,7 @@ pub(crate) use acfg;
 #[cfg(feature = "_any-zopfli")]
 /// Universal configuration for Zopfli.
 /// It determines if Zopfli will be enabled and how many iterations will be used.
-#[cfg_attr(feature = "serde-cfg", derive(serde::Serialize, serde::Deserialize))]
-#[serde(untagged)]
+#[cfg_attr(feature = "serde-cfg", derive(serde::Serialize, serde::Deserialize), serde(untagged))]
 pub enum CfgZopfli {
     /// A switch value (`true` or `false`).
     /// If it is enabled then Zopfli will be enabled with 10 iterations by default.
@@ -99,3 +98,4 @@ impl CfgZopfli {
         }
     }
 }
+
