@@ -1,58 +1,99 @@
 use std::{io::{BufReader, BufWriter, Cursor, Read, Seek, Write}, sync::Arc};
 use zip::{write::{FileOptions, SimpleFileOptions}, CompressionMethod, ZipArchive, ZipWriter};
 
-use crate::{fop::{FileOp, TypeBlacklist}, Result_};
-use super::{EntryReader, EntrySaverSpec, EntrySaver, EntryType};
+use crate::{fop::FileOp, Result_};
+use super::{EntryReader, EntryReaderSpec, EntrySaver, EntrySaverSpec, EntryType};
 
 /// An entry reader implementation for ZIP archive. It reads its contents from a provided reader (with seeking).
 pub struct ZipEntryReader<R: Read + Seek> {
-    za: ZipArchive<R>
+    za: ZipArchive<R>,
+    cur: usize
 }
 impl <R: Read + Seek> ZipEntryReader<R> {
     /// Creates an entry reader with a specified reader.
-    pub fn new(r: R) -> Result_<Self> {
-        Ok(Self { za: ZipArchive::new(r)? })
+    pub fn new(r: R) -> Result_<EntryReader<Self>> {
+        Ok(EntryReader(Self { za: ZipArchive::new(r)?, cur: 0 }))
     }
 }
 impl <R: Read + Seek> ZipEntryReader<BufReader<R>> {
     /// Creates an entry reader wrapping a specified reader with a [`BufReader`].
-    pub fn new_buf(r: R) -> Result_<Self> {
-        Ok(Self { za: ZipArchive::new(BufReader::new(r))? })
+    #[inline]
+    pub fn new_buf(r: R) -> Result_<EntryReader<Self>> {
+        Self::new(BufReader::new(r))
     }
 }
 impl <T: AsRef<[u8]>> ZipEntryReader<Cursor<T>> {
     /// Creates an entry reader wrapping a specified reader with a [`Cursor`].
-    pub fn new_mem(t: T) -> Result_<Self> {
-        Ok(Self { za: ZipArchive::new(Cursor::new(t))? })
+    #[inline]
+    pub fn new_mem(t: T) -> Result_<EntryReader<Self>> {
+        Self::new(Cursor::new(t))
     }
 }
-impl <R: Read + Seek> EntryReader for ZipEntryReader<R> {
-    fn read_entries(
-        self,
-        mut tx: impl FnMut(EntryType) -> crate::Result_<()>,
-        blacklist: &TypeBlacklist
-    ) -> crate::Result_<()> {
-        let mut za = self.za;
-        let jfc = za.len();
-        tx(EntryType::Count(jfc))?;
-        for i in 0..jfc {
-            let Some(name) = za.name_for_index(i) else { continue; };
-            let fname: Arc<str> = name.into();
-            tx(if fname.ends_with('/') {
-                EntryType::dir(fname)
-            } else {
-                let fop = FileOp::by_name(&fname, blacklist);
-                let mut obuf = Vec::new();
-                if let FileOp::Ignore(_) = fop {} else {
-                    let mut jf = za.by_index(i)?;
-                    obuf.reserve_exact(jf.size() as usize);
-                    jf.read_to_end(&mut obuf)?;
-                }
-                EntryType::file(fname, obuf, fop)
-            })?;
-        }
-        Ok(())
+impl <R: Read + Seek> EntryReaderSpec for ZipEntryReader<R> {
+    fn len(&self) -> usize {
+        self.za.len()
     }
+    fn peek(&mut self) -> Option<(Option<bool>, Box<str>)> {
+        let za = &self.za;
+        let jfc = za.len();
+        if self.cur >= jfc {
+            None
+        } else {
+            Some(za.name_for_index(self.cur).map_or_else(
+                || (None, "".into()),
+                |n| (Some(n.ends_with('/')), n.into())
+            ))
+        }
+    }
+    fn skip(&mut self) {
+        self.cur += 1;
+    }
+    fn read(&mut self) -> crate::Result_<EntryType> {
+        let za = &mut self.za;
+        let jfc = za.len();
+        if self.cur >= jfc {
+            anyhow::bail!("No more entries");
+        } else {
+            let i = self.cur;
+            self.cur += 1;
+            let name: Arc<str> = za.name_for_index(i).unwrap_or_default().into();
+            Ok(if name.ends_with('/') {
+                EntryType::dir(name)
+            } else {
+                let mut obuf = Vec::new();
+                let mut jf = za.by_index(i)?;
+                obuf.reserve_exact(jf.size() as usize);
+                jf.read_to_end(&mut obuf)?;
+                EntryType::file(name, obuf, FileOp::Pass)
+            })
+        }
+    }
+    // fn read_entries(
+    //     self,
+    //     mut tx: impl FnMut(EntryType) -> crate::Result_<()>,
+    //     blacklist: &TypeBlacklist
+    // ) -> crate::Result_<()> {
+    //     let mut za = self.za;
+    //     let jfc = za.len();
+    //     tx(EntryType::Count(jfc))?;
+    //     for i in 0..jfc {
+    //         let Some(name) = za.name_for_index(i) else { continue; };
+    //         let fname: Arc<str> = name.into();
+    //         tx(if fname.ends_with('/') {
+    //             EntryType::dir(fname)
+    //         } else {
+    //             let fop = FileOp::by_name(&fname, blacklist);
+    //             let mut obuf = Vec::new();
+    //             if let FileOp::Ignore(_) = fop {} else {
+    //                 let mut jf = za.by_index(i)?;
+    //                 obuf.reserve_exact(jf.size() as usize);
+    //                 jf.read_to_end(&mut obuf)?;
+    //             }
+    //             EntryType::file(fname, obuf, fop)
+    //         })?;
+    //     }
+    //     Ok(())
+    // }
 }
 
 #[cfg(feature = "zip-zopfli")]

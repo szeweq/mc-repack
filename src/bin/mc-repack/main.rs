@@ -4,7 +4,7 @@ use cli_args::RepackOpts;
 use crossbeam_channel::Sender;
 use indicatif::{ProgressBar, ProgressStyle, MultiProgress};
 
-use mc_repack_core::{cfg, entry::{self, EntryReader, EntrySaver, EntrySaverSpec, ZipEntryReader, ZipEntrySaver}, errors::{EntryRepackError, ErrorCollector}, fop::{FileType, TypeBlacklist}, ProgressState};
+use mc_repack_core::{cfg, entry::{self, EntryReader, EntryReaderSpec, EntrySaver, EntrySaverSpec, ZipEntryReader, ZipEntrySaver}, errors::{EntryRepackError, ErrorCollector}, fop::{FileType, TypeBlacklist}, ProgressState};
 
 mod cli_args;
 mod config;
@@ -229,8 +229,8 @@ impl std::fmt::Display for TaskError {
     }
 }
 
-pub fn optimize_with<R: EntryReader + Send + 'static, S: EntrySaverSpec>(
-    reader: R,
+pub fn optimize_with<R: EntryReaderSpec + Send + 'static, S: EntrySaverSpec>(
+    reader: EntryReader<R>,
     saver: EntrySaver<S>,
     cfgmap: &cfg::ConfigMap,
     ps: &Sender<ProgressState>,
