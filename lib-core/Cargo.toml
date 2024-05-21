@@ -10,6 +10,7 @@ homepage = "https://szeweq.xyz/mc-repack"
 repository = "https://github.com/szeweq/mc-repack"
 categories = ["compression", "game-development"]
 keywords = ["minecraft", "jar", "processing", "optimizer", "repack"]
+rust-version = "1.77.0"
 
 [features]
 png = ["dep:oxipng"]
