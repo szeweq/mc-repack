@@ -7,9 +7,10 @@
 A repacking tool for Minecraft mods and resource packs to optimize size and loading speed.
 
 ## Features
-- Minifying JSON files, using `serde-json`, and removing comments
-- Optimizing PNG files, using `oxipng`
-- Optimizing TOML files, using `toml`
+- Minifying JSON files, using [`serde-json`](https://crates.io/crates/serde-json), and removing comments
+- Optimizing PNG files, using [`oxipng`](https://crates.io/crates/oxipng)
+- Optimizing TOML files, using [`toml`](https://crates.io/crates/toml)
+- Optimizing OGG files, using [`optivorbis`](https://crates.io/crates/optivorbis)
 - Optimizing NBT files
 - Removing unwanted files – some project files (from Blender, Photoshop, etc.) are mistakenly packed in mods. This operation will detect and remove (ignore while repacking) these files.
 - Stripping Unicode BOM
@@ -20,17 +21,17 @@ A repacking tool for Minecraft mods and resource packs to optimize size and load
 
 ## Comparison table
 These mods are tested and repacked by MC-Repack with the following results:
-| File name | Original | 0.18 | 0.20 (*) |
-|----|----:|----:|----:|
-| minecolonies-1.19.2-1.0.1247-BETA.jar | 72.8 MB | 63.7 MB | 63.4 MB |
-| twilightforest-1.19.3-4.2.1549-universal.jar | 22.5 MB | 21.9 MB | 21.8 MB |
-| TConstruct-1.18.2-3.6.3.111.jar | 15.2 MB | 14.0 MB | 13.9 MB |
-| BloodMagic-1.18.2-3.2.6-41.jar | 13.6 MB | 11.9 MB | 11.7 MB |
-| create-1.19.2-0.5.0.i.jar | 13.1 MB | 12.8 MB | 12.7 MB |
-| Botania-1.19.2-437-FORGE.jar | 10.9 MB | 10.1 MB | 10.1 MB |
-| ImmersiveEngineering-1.19.3-9.3.0-163.jar | 10.3 MB | 10.0 MB | 9.65 MB |
-| thermal_foundation-1.19.2-10.2.0.47.jar | 4.58 MB | 4.38 MB | 4.35 MB |
-| cfm-7.0.0-pre35-1.19.3.jar | 2.11 MB | 1.92 MB | 1.87 MB |
+| File name | Original | 0.18 | 0.20 (*) | 0.21 (*) |
+|----|----:|----:|----:|----:|
+| minecolonies-1.19.2-1.0.1247-BETA.jar | 72.8 MB | 63.7 MB | 63.4 MB | 62.7 MB |
+| twilightforest-1.19.3-4.2.1549-universal.jar | 22.5 MB | 21.9 MB | 21.8 MB | 21.2 MB |
+| TConstruct-1.18.2-3.6.3.111.jar | 15.2 MB | 14.0 MB | 13.9 MB | 13.6 MB |
+| BloodMagic-1.18.2-3.2.6-41.jar | 13.6 MB | 11.9 MB | 11.7 MB | 11.6 MB |
+| create-1.19.2-0.5.0.i.jar | 13.1 MB | 12.8 MB | 12.7 MB | 12.6 MB |
+| Botania-1.19.2-437-FORGE.jar | 10.9 MB | 10.1 MB | 10.1 MB | 10.0 MB |
+| ImmersiveEngineering-1.19.3-9.3.0-163.jar | 10.3 MB | 10.0 MB | 9.65 MB | 9.46 MB |
+| thermal_foundation-1.19.2-10.2.0.47.jar | 4.58 MB | 4.38 MB | 4.35 MB | 4.35 MB |
+| cfm-7.0.0-pre35-1.19.3.jar | 2.11 MB | 1.92 MB | 1.87 MB | 1.84 MB |
 
 \* - Using Deflate (faster)
 
@@ -54,7 +55,7 @@ After installation, the tool can be used by typing the following command:
 ```sh
 mc-repack <file|directory>
 ```
-When a file path is provided, then MC-Repack will repack the file contents (adds `$repack` on new archive). If a path is a directory, then all files inside (non-recursive) will be repacked.
+When a file path is provided, then MC-Repack will repack the file contents (adds `_repack` on new archive). If a path is a directory, then all files inside (non-recursive) will be repacked.
 
 More options are provided by typing `mc-repack --help` in a shell/terminal.
 
