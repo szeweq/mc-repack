@@ -1,5 +1,3 @@
-use std::io::Cursor;
-
 use json_comments::StripComments;
 use serde_json::Value;
 
@@ -16,8 +14,7 @@ impl ConfigHolder<MinifierJSON> {
     pub(super) fn minify(&self, b: &[u8], vout: &mut Vec<u8>) -> Result_ {
         let (i, j) = find_brackets(b).ok_or(BracketsError)?;
         let fv = &b[i..=j];
-        let strip_comments = StripComments::new(Cursor::new(fv));
-        let mut sv: Value = serde_json::from_reader(strip_comments)?;
+        let mut sv: Value = serde_json::from_reader(StripComments::new(fv))?;
         if self.remove_underscored {
             if let Value::Object(xm) = &mut sv {
                 uncomment_json_recursive(xm);
