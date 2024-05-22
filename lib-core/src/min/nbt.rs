@@ -1,7 +1,7 @@
 #![cfg(feature = "nbt")]
-use std::{error::Error, io::{self, copy, Write}, num::NonZeroU64};
+use std::{error::Error, io::{self, copy, Write}};
 
-use crate::cfg::{acfg, CfgZopfli, ConfigHolder};
+use crate::cfg::{self, acfg, ConfigHolder};
 
 use super::Result_;
 
@@ -61,10 +61,10 @@ impl ConfigHolder<MinifierNBT> {
 }
 
 #[cfg(feature = "nbt-zopfli")]
-fn minify_with_zopfli(b: &[u8], vout: &mut Vec<u8>, nbtf: NBTFormat, ic: NonZeroU64) -> Result_ {
+fn minify_with_zopfli(b: &[u8], vout: &mut Vec<u8>, nbtf: NBTFormat, ic: std::num::NonZeroU64) -> Result_ {
     let zo = zopfli::Options {
         iteration_count: ic,
-        iterations_without_improvement: NonZeroU64::new(6).unwrap(),
+        iterations_without_improvement: std::num::NonZeroU64::new(6).unwrap(),
         ..<zopfli::Options as Default>::default()
     };
     let mut enc = zopfli::GzipEncoder::new(zo, zopfli::BlockType::Dynamic, vout)?;
@@ -79,7 +79,7 @@ fn minify_with_zopfli(b: &[u8], vout: &mut Vec<u8>, nbtf: NBTFormat, ic: NonZero
 pub struct NBTConfig {
     #[cfg(feature = "nbt-zopfli")]
     /// Enables Zopfli compression (better, but slower)
-    pub use_zopfli: CfgZopfli
+    pub use_zopfli: cfg::CfgZopfli
 }
 
 /// An error that occurs when a minifier cannot detect the compression type of a NBT entry
