@@ -8,13 +8,59 @@ use crate::config;
 #[derive(Debug, clap::Parser)]
 #[command(version)]
 pub struct Args {
+    #[command(subcommand)]
+    pub cmd: Cmd
+}
+
+
+#[derive(Debug, clap::Subcommand)]
+pub enum Cmd {
+    /// Repack archives
+    Jars(JarsArgs),
+    // /// Optimize files
+    // Files(FilesArgs)
+
+    /// Check the config file
+    Check(CommonArgs)
+}
+
+#[derive(Debug, clap::Args)]
+pub struct JarsArgs {
     /// Path to a file/directory of archives (JAR and ZIP)
-    pub path: Option<PathBuf>,
+    #[arg(short = 'i', long = "in")]
+    pub path: PathBuf,
 
-    /// (Optional) Destination path. It cannot be the same as the source!
+    /// Destination directory. It should not be the same as the source!
+    #[arg(short = 'o', long)]
+    pub out: PathBuf,
+
+    /// Enable Zopfli compression (better, but much slower) and apply a number of iterations
+    #[arg(short = 'z', long)]
+    pub zopfli: Option<std::num::NonZeroU8>,
+
+    /// Keep directory entries in the archive
     #[arg(long)]
-    pub out: Option<PathBuf>,
+    pub keep_dirs: bool,
 
+    #[command(flatten)]
+    pub common: CommonArgs
+}
+
+#[derive(Debug, clap::Args)]
+pub struct FilesArgs {
+    /// Path to a file/directory
+    pub path: PathBuf,
+
+    /// Destination directory. It should not be the same as the source!
+    #[arg(long)]
+    pub out: PathBuf,
+
+    #[command(flatten)]
+    pub common: CommonArgs
+}
+
+#[derive(Debug, clap::Args)]
+pub struct CommonArgs {
     /// Do not print file errors
     #[arg(long)]
     pub silent: bool,
@@ -25,29 +71,16 @@ pub struct Args {
 
     /// (Optional) Use custom .toml config file. If no path is provided, it will use `mc-repack.toml`
     #[arg(short = 'c', long)]
-    pub config: Option<PathBuf>,
-
-    /// Enable Zopfli compression (better, but much slower) and apply a number of iterations
-    #[arg(short = 'z', long)]
-    pub zopfli: Option<std::num::NonZeroU8>,
-
-    /// Check the config file. If it's not found, it will be created. No other tasks will be executed
-    #[arg(long)]
-    pub check: bool,
-
-    /// Keep directory entries in the archive
-    #[arg(long)]
-    pub keep_dirs: bool,
+    pub config: Option<PathBuf>
 }
+
 pub struct RepackOpts {
     pub silent: bool,
     pub blacklist: Arc<TypeBlacklist>,
-    pub keep_dirs: bool,
-    pub zopfli: Option<std::num::NonZeroU8>,
     pub cfgmap: mc_repack_core::cfg::ConfigMap
 }
 impl RepackOpts {
-    pub fn from_args(args: &Args) -> Self {
+    pub fn from_args(args: &CommonArgs) -> Self {
         let cfgmap = mc_repack_core::cfg::ConfigMap::default();
         let mut blacklist = None;
         match config::read_config(args.config.clone()) {
@@ -79,8 +112,6 @@ impl RepackOpts {
             } else {
                 TypeBlacklist::Override(blacklist)
             }),
-            keep_dirs: args.keep_dirs,
-            zopfli: args.zopfli,
             cfgmap
         }
     }

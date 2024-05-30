@@ -1,44 +1,40 @@
-use std::{any::Any, ffi::OsString, fs::{self, File}, path::{Path, PathBuf}, sync::Arc, thread::{self, JoinHandle}};
+use std::{any::Any, fs, path::Path, sync::Arc, thread::{self, JoinHandle}};
 use clap::Parser;
-use cli_args::RepackOpts;
+use cli_args::{Cmd, JarsArgs, RepackOpts};
 use crossbeam_channel::Sender;
 use indicatif::{ProgressBar, ProgressStyle, MultiProgress};
 
-use mc_repack_core::{cfg, entry::{self, EntryReader, EntryReaderSpec, EntrySaver, EntrySaverSpec, ZipEntryReader, ZipEntrySaver}, errors::{EntryRepackError, ErrorCollector}, fop::{FileType, TypeBlacklist}, ProgressState};
+use mc_repack_core::{cfg, entry::{self, EntryReader, EntryReaderSpec, EntrySaver, EntrySaverSpec}, errors::{EntryRepackError, ErrorCollector}, fop::TypeBlacklist, ProgressState};
 
 mod cli_args;
 mod config;
+mod rrd;
 
 type Error_ = anyhow::Error;
-
 type Result_<T> = Result<T, Error_>;
 
 fn main() -> Result_<()> {
     let args = cli_args::Args::parse();
     println!("█▀▄▀█ █▀▀ ▄▄ █▀█ █▀▀ █▀█ ▄▀█ █▀▀ █▄▀ by Szeweq\n█ ▀ █ █▄▄    █▀▄ ██▄ █▀▀ █▀█ █▄▄ █ █ (https://szeweq.xyz/mc-repack)\n");
     
-    if args.check {
-        if config::check(args.config)? {
-            println!("Config file is valid!");
-        } else {
-            println!("New config file created!");
+    match &args.cmd {
+        Cmd::Jars(ja) => {
+            let path = &ja.path;
+            let repack_opts = RepackOpts::from_args(&ja.common);
+            let fit = FilesIter::from_path(path.clone().into_boxed_path())?;
+            let mut ec = ErrorCollector::new(repack_opts.silent);
+            process_jars(fit, ja, &repack_opts, &mut ec)?;
+            print_entry_errors(ec.results());
         }
-        return Ok(());
+        Cmd::Check(ca) => {
+            if config::check(ca.config.clone())? {
+                println!("Config file is valid!");
+            } else {
+                println!("New config file created!");
+            }
+        }
     }
 
-    let path = args.path.as_ref().expect("Path is required");
-    let repack_opts = RepackOpts::from_args(&args);
-    let ftyp = path.metadata()?.file_type();
-    let task: &dyn ProcessTask = if ftyp.is_dir() {
-        &JarDirRepackTask
-    } else if ftyp.is_file() {
-        &JarRepackTask
-    } else {
-        return Err(TaskError::NotFileOrDir.into());
-    };
-    let mut ec = ErrorCollector::new(repack_opts.silent);
-    task.process(path, args.out, &repack_opts, &mut ec)?;
-    print_entry_errors(ec.results());
     Ok(())
 }
 
@@ -50,136 +46,67 @@ fn file_progress_bar() -> ProgressBar {
     )
 }
 
-trait ProcessTask {
-    fn process(&self, fp: &Path, out: Option<PathBuf>, opts: &RepackOpts, ec: &mut ErrorCollector) -> Result_<()>;
-}
-
 fn task_err(_: Box<dyn Any + Send>) -> Error_ {
     anyhow::anyhow!("Task failed")
 }
 
-fn wrap_err_with(e: Error_, p: &Path) -> Error_ {
-    anyhow::anyhow!("{}: {}", p.display(), e)
-}
+fn process_jars(fit: FilesIter, jargs: &JarsArgs, opts: &RepackOpts, ec: &mut ErrorCollector) -> Result_<()> {
+    let RepackOpts { blacklist, .. } = opts;
+    let clvl = 9 + jargs.zopfli.map_or(0, |x| x.get() as i64);
+    let cfgmap = &opts.cfgmap;
+    let mp = MultiProgress::new();
 
-struct JarRepackTask;
-impl ProcessTask for JarRepackTask {
-    fn process(&self, fp: &Path, out: Option<PathBuf>, opts: &RepackOpts, ec: &mut ErrorCollector) -> Result_<()> {
-        let fname = if let Some(x) = fp.file_name() {
-            x.to_string_lossy()
-        } else {
-            return Err(TaskError::InvalidFileName.into())
+    let base = Box::from(fit.base());
+    let mut db = fs::DirBuilder::new();
+    db.recursive(true);
+
+    let pb = mp.add(ProgressBar::new_spinner().with_style(
+        ProgressStyle::with_template("{wide_msg}").unwrap()
+    ));
+    let pb2 = mp.add(file_progress_bar());
+    let (pj, ps) = thread_progress_bar(pb2);
+
+    for fp in fit {
+        let (ftype, fp) = fp?;
+        let Some(fname) = fp.file_name() else {
+            return invalid_file_name()
         };
-        match FileType::by_name(&fname) {
-            FileType::Other => { return Err(TaskError::NotZip.into()) }
-            FileType::Repacked => { return Err(TaskError::AlreadyRepacked.into()) }
-            FileType::Original => {},
-        }
-    
-        let pb2 = file_progress_bar();
-        let (pj, ps) = thread_progress_bar(pb2);
-        
-        let Some(nfp) = out.or_else(|| file_name_repack(fp)) else {
-            return Err(TaskError::InvalidFileName.into())
+        let Some(relp) = pathdiff::diff_paths(&fp, &base) else {
+            return invalid_file_name()
         };
-        optimize_with(
-            ZipEntryReader::new_mem(fs::read(fp)?)?,
-            ZipEntrySaver::custom_compress(
-                File::create(nfp)?,
-                opts.keep_dirs,
-                9 + opts.zopfli.map_or(0, |x| x.get() as i64)
-            ),
-            &opts.cfgmap, &ps, ec, opts.blacklist.clone()
-        ).map_err(|e| wrap_err_with(e, fp))?;
-        drop(ps);
-        pj.join().map_err(task_err)?;
-    
-        Ok(())
-    }
-}
-
-struct JarDirRepackTask;
-impl ProcessTask for JarDirRepackTask {
-    fn process(&self, fp: &Path, out: Option<PathBuf>, opts: &RepackOpts, ec: &mut ErrorCollector) -> Result_<()> {
-        let RepackOpts { blacklist, .. } = opts;
-        let clvl = 9 + opts.zopfli.map_or(0, |x| x.get() as i64);
-        let cfgmap = &opts.cfgmap;
-        let mp = MultiProgress::new();
-
-        let rd = fs::read_dir(fp)?;
-
-        let pb = mp.add(ProgressBar::new_spinner().with_style(
-            ProgressStyle::with_template("{wide_msg}").unwrap()
-        ));
-        let pb2 = mp.add(file_progress_bar());
-        
-        let (pj, ps) = thread_progress_bar(pb2);
-
-        for rde in rd {
-            let rde = rde?;
-            let fp = rde.path();
-            let rfn = rde.file_name();
-            let Some(fname) = rfn.to_str() else {
-                return Err(TaskError::InvalidFileName.into())
-            };
-            let meta = fp.metadata()?;
-            if meta.is_file() && matches!(FileType::by_name(fname), FileType::Original) {
-                ec.rename(fname);
-                pb.set_message(fname.to_string());
-                
-                let Some(nfp) = new_path(out.as_ref(), &fp) else {
-                    return Err(TaskError::InvalidFileName.into())
-                };
-                match optimize_with(
-                    entry::zip::ZipEntryReader::new_mem(fs::read(&fp)?)?,
-                    entry::zip::ZipEntrySaver::custom_compress(
-                        fs::File::create(&nfp)?,
-                        opts.keep_dirs,
-                        clvl
-                    ),
-                    cfgmap, &ps, ec, blacklist.clone()
-                ) {
-                    Ok(_) => {},
-                    Err(e) => {
-                        println!("Cannot repack {}: {}\n\n", fp.display(), e);
-                        if let Err(fe) = fs::remove_file(&nfp) {
-                            println!("Cannot remove {}: {}", nfp.display(), fe);
-                        }
+        let relname = relp.to_string_lossy();
+        let fname = fname.to_string_lossy();
+        if matches!(ftype, Some(false)) && matches!(relp.extension().map(|x| x.as_encoded_bytes()), Some(b"jar" | b"zip")) {
+            ec.rename(&relname);
+            pb.set_message(fname.to_string());
+            let nfp = jargs.out.join(&relp);
+            if let Some(np) = nfp.parent() {
+                db.create(np)?;
+            }
+            match optimize_with(
+                entry::ZipEntryReader::new_mem(fs::read(&fp)?)?,
+                entry::ZipEntrySaver::custom_compress(
+                    fs::File::create(&nfp)?,
+                    jargs.keep_dirs,
+                    clvl
+                ),
+                cfgmap, &ps, ec, blacklist.clone()
+            ) {
+                Ok(_) => {},
+                Err(e) => {
+                    println!("Cannot repack {}: {}\n\n", fp.display(), e);
+                    if let Err(fe) = fs::remove_file(&nfp) {
+                        println!("Cannot remove {}: {}", nfp.display(), fe);
                     }
                 }
             }
         }
-        mp.clear()?;
-        drop(ps);
-        pj.join().map_err(task_err)?;
-
-        Ok(())
     }
-}
+    mp.clear()?;
+    drop(ps);
+    pj.join().map_err(task_err)?;
 
-fn file_name_repack(p: &Path) -> Option<PathBuf> {
-    let stem = p.file_stem();
-    let ext = p.extension();
-    match (stem, ext) {
-        (Some(s), Some(e)) => {
-            let mut oss = OsString::new();
-            oss.push(s);
-            oss.push("_repack.");
-            oss.push(e);
-            Some(p.with_file_name(oss))
-        }
-        _ => None
-    }
-}
-
-fn new_path(src: Option<&PathBuf>, p: &Path) -> Option<PathBuf> {
-    src.map_or_else(|| file_name_repack(p), |x| {
-        p.file_name().map(|pfn| {
-            let mut np = x.clone();
-            np.push(pfn);
-            np
-        })
-    })
+    Ok(())
 }
 
 fn thread_progress_bar(pb: ProgressBar) -> (JoinHandle<()>, Sender<ProgressState>) {
@@ -210,25 +137,6 @@ fn print_entry_errors(v: &[EntryRepackError]) {
     }
 }
 
-#[derive(Debug)]
-enum TaskError {
-    InvalidFileName,
-    NotZip,
-    NotFileOrDir,
-    AlreadyRepacked
-}
-impl std::error::Error for TaskError {}
-impl std::fmt::Display for TaskError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(match self {
-            Self::InvalidFileName => "invalid file name",
-            Self::NotZip => "not a ZIP archive",
-            Self::NotFileOrDir => "not a file or directory",
-            Self::AlreadyRepacked => "this archive is marked as repacked, no re-repacking needed"
-        })
-    }
-}
-
 pub fn optimize_with<R: EntryReaderSpec + Send + 'static, S: EntrySaverSpec>(
     reader: EntryReader<R>,
     saver: EntrySaver<S>,
@@ -246,4 +154,41 @@ pub fn optimize_with<R: EntryReaderSpec + Send + 'static, S: EntrySaverSpec>(
 
 fn wrap_send<T>(s: &Sender<T>, t: T) -> Result_<()> {
     s.send(t).map_err(|_| anyhow::anyhow!("channel closed early"))
+}
+
+fn invalid_file_name<T>() -> Result_<T> {
+    anyhow::bail!("invalid file name")
+}
+
+enum FilesIter {
+    Single(Box<Path>, std::iter::Once<(Option<bool>, Box<Path>)>),
+    Dir(Box<Path>, rrd::RecursiveReadDir)
+}
+impl FilesIter {
+    pub fn from_path(p: Box<Path>) -> std::io::Result<Self> {
+        let ft = p.metadata()?.file_type();
+        if ft.is_dir() {
+            Ok(Self::Dir(p.clone(), rrd::RecursiveReadDir::new(p)))
+        } else if ft.is_file() {
+            let parent = p.parent().unwrap();
+            Ok(Self::Single(parent.into(), std::iter::once((Some(false), p))))
+        } else {
+            Err(std::io::Error::new(std::io::ErrorKind::Other, "Not a file or directory"))
+        }
+    }
+    pub fn base(&self) -> &Path {
+        match self {
+            Self::Single(p, _) => p,
+            Self::Dir(p, _) => p
+        }
+    }
+}
+impl Iterator for FilesIter {
+    type Item = std::io::Result<(Option<bool>, Box<Path>)>;
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            Self::Single(_, it) => it.next().map(Ok),
+            Self::Dir(_, it) => it.next()
+        }
+    }
 }
