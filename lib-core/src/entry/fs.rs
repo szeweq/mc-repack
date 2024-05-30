@@ -81,7 +81,7 @@ impl EntrySaverSpec for FSEntrySaver {
 
 struct RecursiveReadDir {
     dirs: Vec<Box<Path>>,
-    cur: Option<fs::ReadDir>
+    cur: Option<Box<fs::ReadDir>>
 }
 impl RecursiveReadDir {
     fn new(src_dir: Box<Path>) -> Self {
@@ -96,7 +96,7 @@ impl Iterator for RecursiveReadDir {
                 let p = self.dirs.pop()?;
                 match fs::read_dir(p) {
                     Ok(rd) => {
-                        self.cur = Some(rd);
+                        self.cur = Some(Box::new(rd));
                         self.cur.as_mut().unwrap()
                     },
                     Err(e) => return Some(Err(e))
