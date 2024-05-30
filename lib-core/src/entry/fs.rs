@@ -1,6 +1,6 @@
 use std::{fs, io, path::Path};
 use crate::fop::FileOp;
-use super::{EntryReaderSpec, EntrySaver, EntrySaverSpec, EntryType};
+use super::{EntryReader, EntryReaderSpec, EntrySaver, EntrySaverSpec, EntryType};
 
 /// An entry reader implementation for a file system. It reads a file tree from a provided directory.
 pub struct FSEntryReader<I: Iterator<Item = io::Result<(Option<bool>, Box<Path>)>>> {
@@ -9,15 +9,15 @@ pub struct FSEntryReader<I: Iterator<Item = io::Result<(Option<bool>, Box<Path>)
 }
 impl FSEntryReader<RecursiveReadDir> {
     /// Creates an entry reader with a source directory path.
-    pub fn new(src_dir: Box<Path>) -> Self {
+    pub fn new(src_dir: Box<Path>) -> EntryReader<Self> {
         let iter: std::iter::Peekable<RecursiveReadDir> = RecursiveReadDir::new(src_dir.clone()).peekable();
-        Self { src_dir, iter }
+        EntryReader(Self { src_dir, iter })
     }
 }
 impl <I: Iterator<Item = io::Result<(Option<bool>, Box<Path>)>>> FSEntryReader<I> {
     /// Creates an entry reader with a source directory path and a custom iterator.
-    pub fn custom(src_dir: Box<Path>, iter: I) -> Self {
-        Self { src_dir, iter: iter.peekable() }
+    pub fn custom(src_dir: Box<Path>, iter: I) -> EntryReader<Self> {
+        EntryReader(Self { src_dir, iter: iter.peekable() })
     }
 }
 impl <I: Iterator<Item = io::Result<(Option<bool>, Box<Path>)>>> EntryReaderSpec for FSEntryReader<I> {
