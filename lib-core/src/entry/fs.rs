@@ -1,25 +1,31 @@
-use std::{fs, path::Path};
+use std::{fs, io, path::Path};
 use crate::fop::FileOp;
 use super::{EntryReaderSpec, EntrySaver, EntrySaverSpec, EntryType};
 
 /// An entry reader implementation for a file system. It reads a file tree from a provided directory.
-pub struct FSEntryReader {
+pub struct FSEntryReader<I: Iterator<Item = io::Result<(Option<bool>, Box<Path>)>>> {
     src_dir: Box<Path>,
-    rrd: std::iter::Peekable<RecursiveReadDir>
+    iter: std::iter::Peekable<I>
 }
-impl FSEntryReader {
+impl FSEntryReader<RecursiveReadDir> {
     /// Creates an entry reader with a source directory path.
     pub fn new(src_dir: Box<Path>) -> Self {
-        let rrd = RecursiveReadDir::new(src_dir.clone()).peekable();
-        Self { src_dir, rrd }
+        let iter: std::iter::Peekable<RecursiveReadDir> = RecursiveReadDir::new(src_dir.clone()).peekable();
+        Self { src_dir, iter }
     }
 }
-impl EntryReaderSpec for FSEntryReader {
+impl <I: Iterator<Item = io::Result<(Option<bool>, Box<Path>)>>> FSEntryReader<I> {
+    /// Creates an entry reader with a source directory path and a custom iterator.
+    pub fn custom(src_dir: Box<Path>, iter: I) -> Self {
+        Self { src_dir, iter: iter.peekable() }
+    }
+}
+impl <I: Iterator<Item = io::Result<(Option<bool>, Box<Path>)>>> EntryReaderSpec for FSEntryReader<I> {
     fn len(&self) -> usize {
         RecursiveReadDir::new(self.src_dir.clone()).filter(|x| x.is_ok()).count()
     }
     fn peek(&mut self) -> Option<(Option<bool>, Box<str>)> {
-        self.rrd.peek().map(|x| {
+        self.iter.peek().map(|x| {
             let Ok((is_dir, p)) = x else { return (None, "".into()) };
             let lname = if let Ok(p) = p.strip_prefix(&self.src_dir) {
                 p.to_string_lossy().to_string()
@@ -30,10 +36,10 @@ impl EntryReaderSpec for FSEntryReader {
         })
     }
     fn skip(&mut self) {
-        self.rrd.next();
+        self.iter.next();
     }
     fn read(&mut self) -> crate::Result_<EntryType> {
-        let Some(r) = self.rrd.next() else {
+        let Some(r) = self.iter.next() else {
             anyhow::bail!("No more entries");
         };
         let (is_dir, p) = r?;
