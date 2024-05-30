@@ -1,6 +1,6 @@
 use std::{any::Any, fs, path::Path, sync::Arc, thread::{self, JoinHandle}};
 use clap::Parser;
-use cli_args::{Cmd, JarsArgs, RepackOpts};
+use cli_args::{Cmd, FilesArgs, JarsArgs, RepackOpts};
 use crossbeam_channel::Sender;
 use indicatif::{ProgressBar, ProgressStyle, MultiProgress};
 
@@ -26,8 +26,13 @@ fn main() -> Result_<()> {
             process_jars(fit, ja, &repack_opts, &mut ec)?;
             print_entry_errors(ec.results());
         }
-        Cmd::Files(_fa) => {
-            println!("The files command is reserved for future use!");
+        Cmd::Files(fa) => {
+            let path = &fa.path;
+            let repack_opts = RepackOpts::from_args(&fa.common);
+            let fit = FilesIter::from_path(path.clone().into_boxed_path())?;
+            let mut ec = ErrorCollector::new(repack_opts.silent);
+            process_files(fit, fa, &repack_opts, &mut ec)?;
+            print_entry_errors(ec.results());
         }
         Cmd::Check(ca) => {
             if config::check(ca.config.clone())? {
@@ -54,9 +59,8 @@ fn task_err(_: Box<dyn Any + Send>) -> Error_ {
 }
 
 fn process_jars(fit: FilesIter, jargs: &JarsArgs, opts: &RepackOpts, ec: &mut ErrorCollector) -> Result_<()> {
-    let RepackOpts { blacklist, .. } = opts;
+    let RepackOpts { blacklist, cfgmap, .. } = opts;
     let clvl = 9 + jargs.zopfli.map_or(0, |x| x.get() as i64);
-    let cfgmap = &opts.cfgmap;
     let mp = MultiProgress::new();
 
     let base = Box::from(fit.base());
@@ -109,6 +113,20 @@ fn process_jars(fit: FilesIter, jargs: &JarsArgs, opts: &RepackOpts, ec: &mut Er
     drop(ps);
     pj.join().map_err(task_err)?;
 
+    Ok(())
+}
+
+fn process_files(fit: FilesIter, fargs: &FilesArgs, opts: &RepackOpts, ec: &mut ErrorCollector) -> Result_<()> {
+    let RepackOpts { blacklist, cfgmap, .. } = opts;
+    let pb2 = file_progress_bar();
+    let (pj, ps) = thread_progress_bar(pb2);
+    optimize_with(
+        entry::FSEntryReader::custom(fit.base().into(), fit),
+        entry::FSEntrySaver::new(fargs.out.clone().into_boxed_path()),
+        cfgmap, &ps, ec, blacklist.clone()
+    )?;
+    drop(ps);
+    pj.join().map_err(task_err)?;
     Ok(())
 }
 
