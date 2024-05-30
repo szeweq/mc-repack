@@ -4,14 +4,13 @@ pub(crate) type Error_ = anyhow::Error;
 
 /// A struct for collecting errors.
 pub struct ErrorCollector {
-    silent: bool,
-    vec: Vec<EntryRepackError>,
+    vec: Option<Vec<EntryRepackError>>,
     name: Arc<str>,
 }
 impl ErrorCollector {
     /// Creates a new `ErrorCollector` with a `silent` option.
     #[must_use]
-    pub fn new(silent: bool) -> Self { Self { silent, vec: Vec::new(), name: "".into() } }
+    pub fn new(silent: bool) -> Self { Self { vec: silent.then(Vec::new), name: "".into() } }
 
     /// Sets the new prefix name for collected entries. 
     pub fn rename(&mut self, name: &str)  {
@@ -20,8 +19,8 @@ impl ErrorCollector {
 
     /// Collects errors for files based on their name (path).
     pub fn collect(&mut self, name: impl Into<Arc<str>>, e: Error_) {
-        if !self.silent {
-            self.vec.push(EntryRepackError {
+        if let Some(vec) = self.vec.as_mut() {
+            vec.push(EntryRepackError {
                 parent: self.name.clone(),
                 name: name.into(),
                 inner: e
@@ -32,7 +31,7 @@ impl ErrorCollector {
     /// Returns all currently gathered results.
     #[must_use]
     pub fn results(&self) -> &[EntryRepackError] {
-        &self.vec
+        self.vec.as_deref().unwrap_or(&[])
     }
 }
 

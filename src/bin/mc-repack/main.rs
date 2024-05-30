@@ -4,7 +4,7 @@ use cli_args::{Cmd, FilesArgs, JarsArgs, RepackOpts};
 use crossbeam_channel::Sender;
 use indicatif::{ProgressBar, ProgressStyle, MultiProgress};
 
-use mc_repack_core::{cfg, entry::{self, EntryReader, EntryReaderSpec, EntrySaver, EntrySaverSpec}, errors::{EntryRepackError, ErrorCollector}, fop::TypeBlacklist, ProgressState};
+use mc_repack_core::{cfg, entry::{self, EntryReader, EntryReaderSpec, EntrySaver, EntrySaverSpec}, errors::ErrorCollector, fop::TypeBlacklist, ProgressState};
 
 mod cli_args;
 mod config;
@@ -24,7 +24,7 @@ fn main() -> Result_<()> {
             let fit = FilesIter::from_path(path)?;
             let mut ec = ErrorCollector::new(repack_opts.silent);
             process_jars(fit, ja, &repack_opts, &mut ec)?;
-            print_entry_errors(ec.results());
+            print_entry_errors(&ec);
         }
         Cmd::Files(fa) => {
             let path = &fa.path;
@@ -32,7 +32,7 @@ fn main() -> Result_<()> {
             let fit = FilesIter::from_path(path)?;
             let mut ec = ErrorCollector::new(repack_opts.silent);
             process_files(fit, fa, &repack_opts, &mut ec)?;
-            print_entry_errors(ec.results());
+            print_entry_errors(&ec);
         }
         Cmd::Check(ca) => {
             if config::check(ca.config.clone())? {
@@ -149,7 +149,8 @@ fn thread_progress_bar(pb: ProgressBar) -> (JoinHandle<()>, Sender<ProgressState
     (pj, ps)
 }
 
-fn print_entry_errors(v: &[EntryRepackError]) {
+fn print_entry_errors(ec: &ErrorCollector) {
+    let v = ec.results();
     if !v.is_empty() {
         eprintln!("Errors found in files:");
         for ere in v {
