@@ -26,6 +26,9 @@ fn main() -> Result_<()> {
             process_jars(fit, ja, &repack_opts, &mut ec)?;
             print_entry_errors(ec.results());
         }
+        Cmd::Files(_fa) => {
+            println!("The files command is reserved for future use!");
+        }
         Cmd::Check(ca) => {
             if config::check(ca.config.clone())? {
                 println!("Config file is valid!");

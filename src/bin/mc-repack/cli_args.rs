@@ -17,8 +17,9 @@ pub struct Args {
 pub enum Cmd {
     /// Repack archives
     Jars(JarsArgs),
-    // /// Optimize files
-    // Files(FilesArgs)
+
+    /// Optimize files
+    Files(FilesArgs),
 
     /// Check the config file
     Check(CommonArgs)
@@ -39,7 +40,7 @@ pub struct JarsArgs {
     pub zopfli: Option<std::num::NonZeroU8>,
 
     /// Keep directory entries in the archive
-    #[arg(long)]
+    #[arg(short = 'd', long)]
     pub keep_dirs: bool,
 
     #[command(flatten)]
