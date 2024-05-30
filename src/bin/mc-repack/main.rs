@@ -21,7 +21,7 @@ fn main() -> Result_<()> {
         Cmd::Jars(ja) => {
             let path = &ja.path;
             let repack_opts = RepackOpts::from_args(&ja.common);
-            let fit = FilesIter::from_path(path.clone().into_boxed_path())?;
+            let fit = FilesIter::from_path(path)?;
             let mut ec = ErrorCollector::new(repack_opts.silent);
             process_jars(fit, ja, &repack_opts, &mut ec)?;
             print_entry_errors(ec.results());
@@ -29,7 +29,7 @@ fn main() -> Result_<()> {
         Cmd::Files(fa) => {
             let path = &fa.path;
             let repack_opts = RepackOpts::from_args(&fa.common);
-            let fit = FilesIter::from_path(path.clone().into_boxed_path())?;
+            let fit = FilesIter::from_path(path)?;
             let mut ec = ErrorCollector::new(repack_opts.silent);
             process_files(fit, fa, &repack_opts, &mut ec)?;
             print_entry_errors(ec.results());
@@ -186,8 +186,9 @@ enum FilesIter {
     Dir(Box<Path>, rrd::RecursiveReadDir)
 }
 impl FilesIter {
-    pub fn from_path(p: Box<Path>) -> std::io::Result<Self> {
+    pub fn from_path(p: &Path) -> std::io::Result<Self> {
         let ft = p.metadata()?.file_type();
+        let p: Box<Path> = Box::from(p);
         if ft.is_dir() {
             Ok(Self::Dir(p.clone(), rrd::RecursiveReadDir::new(p)))
         } else if ft.is_file() {
