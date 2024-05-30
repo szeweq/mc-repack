@@ -21,17 +21,17 @@ fn main() -> Result_<()> {
         Cmd::Jars(ja) => {
             let path = &ja.path;
             let repack_opts = RepackOpts::from_args(&ja.common);
-            let fit = FilesIter::from_path(path)?;
+            let (base, fit) = FilesIter::from_path(path)?;
             let mut ec = ErrorCollector::new(repack_opts.silent);
-            process_jars(fit, ja, &repack_opts, &mut ec)?;
+            process_jars(&base, fit, ja, &repack_opts, &mut ec)?;
             print_entry_errors(&ec);
         }
         Cmd::Files(fa) => {
             let path = &fa.path;
             let repack_opts = RepackOpts::from_args(&fa.common);
-            let fit = FilesIter::from_path(path)?;
+            let (base, fit) = FilesIter::from_path(path)?;
             let mut ec = ErrorCollector::new(repack_opts.silent);
-            process_files(fit, fa, &repack_opts, &mut ec)?;
+            process_files(&base, fit, fa, &repack_opts, &mut ec)?;
             print_entry_errors(&ec);
         }
         Cmd::Check(ca) => {
@@ -58,12 +58,11 @@ fn task_err(_: Box<dyn Any + Send>) -> Error_ {
     anyhow::anyhow!("Task failed")
 }
 
-fn process_jars(fit: FilesIter, jargs: &JarsArgs, opts: &RepackOpts, ec: &mut ErrorCollector) -> Result_<()> {
+fn process_jars(base: &Path, fit: FilesIter, jargs: &JarsArgs, opts: &RepackOpts, ec: &mut ErrorCollector) -> Result_<()> {
     let RepackOpts { blacklist, cfgmap, .. } = opts;
     let clvl = 9 + jargs.zopfli.map_or(0, |x| x.get() as i64);
     let mp = MultiProgress::new();
 
-    let base = Box::from(fit.base());
     let mut db = fs::DirBuilder::new();
     db.recursive(true);
 
@@ -78,7 +77,7 @@ fn process_jars(fit: FilesIter, jargs: &JarsArgs, opts: &RepackOpts, ec: &mut Er
         let Some(fname) = fp.file_name() else {
             return invalid_file_name()
         };
-        let Some(relp) = pathdiff::diff_paths(&fp, &base) else {
+        let Some(relp) = pathdiff::diff_paths(&fp, base) else {
             return invalid_file_name()
         };
         let relname = relp.to_string_lossy();
@@ -116,12 +115,12 @@ fn process_jars(fit: FilesIter, jargs: &JarsArgs, opts: &RepackOpts, ec: &mut Er
     Ok(())
 }
 
-fn process_files(fit: FilesIter, fargs: &FilesArgs, opts: &RepackOpts, ec: &mut ErrorCollector) -> Result_<()> {
+fn process_files(base: &Path, fit: FilesIter, fargs: &FilesArgs, opts: &RepackOpts, ec: &mut ErrorCollector) -> Result_<()> {
     let RepackOpts { blacklist, cfgmap, .. } = opts;
     let pb2 = file_progress_bar();
     let (pj, ps) = thread_progress_bar(pb2);
     optimize_with(
-        entry::FSEntryReader::custom(fit.base().into(), fit),
+        entry::FSEntryReader::custom(base.into(), fit),
         entry::FSEntrySaver::new(fargs.out.clone().into_boxed_path()),
         cfgmap, &ps, ec, blacklist.clone()
     )?;
@@ -182,36 +181,39 @@ fn invalid_file_name<T>() -> Result_<T> {
     anyhow::bail!("invalid file name")
 }
 
+type FileResult = std::io::Result<(Option<bool>, Box<Path>)>;
+
 enum FilesIter {
-    Single(Box<Path>, std::iter::Once<(Option<bool>, Box<Path>)>),
-    Dir(Box<Path>, rrd::RecursiveReadDir)
+    Single(Option<FileResult>),
+    Dir(rrd::RecursiveReadDir)
 }
 impl FilesIter {
-    pub fn from_path(p: &Path) -> std::io::Result<Self> {
+    pub fn from_path(p: &Path) -> std::io::Result<(Box<Path>, Self)> {
         let ft = p.metadata()?.file_type();
         let p: Box<Path> = Box::from(p);
         if ft.is_dir() {
-            Ok(Self::Dir(p.clone(), rrd::RecursiveReadDir::new(p)))
+            Ok((p.clone(), Self::Dir(rrd::RecursiveReadDir::new(p))))
         } else if ft.is_file() {
             let parent = p.parent().unwrap();
-            Ok(Self::Single(parent.into(), std::iter::once((Some(false), p))))
+            Ok((parent.into(), Self::Single(Some(Ok((Some(false), p))))))
         } else {
             Err(std::io::Error::new(std::io::ErrorKind::Other, "Not a file or directory"))
         }
     }
-    pub fn base(&self) -> &Path {
-        match self {
-            Self::Single(p, _) => p,
-            Self::Dir(p, _) => p
-        }
-    }
 }
 impl Iterator for FilesIter {
-    type Item = std::io::Result<(Option<bool>, Box<Path>)>;
+    type Item = FileResult;
     fn next(&mut self) -> Option<Self::Item> {
         match self {
-            Self::Single(_, it) => it.next().map(Ok),
-            Self::Dir(_, it) => it.next()
+            Self::Single(it) => it.take(),
+            Self::Dir(it) => it.next()
+        }
+    }
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        match self {
+            Self::Single(Some(_)) => (1, Some(1)),
+            Self::Single(None) => (0, Some(0)),
+            Self::Dir(it) => it.size_hint()
         }
     }
 }
