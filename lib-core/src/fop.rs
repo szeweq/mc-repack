@@ -2,28 +2,6 @@ use std::collections::HashSet;
 
 use crate::{min::{Minifier, only_recompress}, errors::FileIgnoreError};
 
-pub(crate) const REPACKED: &str = "_repack";
-
-/// A file type (not extension) that MC-Repack will check before repacking.
-pub enum FileType {
-    /// Type for files which MC-Repack cannot repack.
-    Other,
-    /// A JAR or ZIP file which was not yet repacked.
-    Original,
-    /// A repacked file.
-    Repacked
-}
-impl FileType {
-    /// Returns file type based on its file name.
-    #[must_use]
-    pub fn by_name(s: &str) -> Self {
-        match s.rsplit_once('.') {
-            Some((n, "jar" | "zip")) => if n.ends_with(REPACKED) { Self::Repacked } else { Self::Original }
-            _ => Self::Other
-        }
-    }
-}
-
 /// A file operation needed before a file is saved in repacked archive
 pub enum FileOp {
     /// Pass a file (no operation needed).
