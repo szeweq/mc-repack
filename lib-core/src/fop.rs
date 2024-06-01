@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use crate::{min::{Minifier, only_recompress}, errors::FileIgnoreError};
+use crate::{min::Minifier, errors::FileIgnoreError};
 
 /// A file operation needed before a file is saved in repacked archive
 pub enum FileOp {
@@ -31,16 +31,10 @@ impl FileOp {
         let Some((_, ftype)) = fname.rsplit_once('.') else {
             return Self::Pass
         };
-        if ftype == "class" {
-            return Self::Recompress(64)
+        if blacklist.can_ignore(ftype) {
+            return Self::Ignore(FileIgnoreError::Blacklisted)
         }
-        if only_recompress(ftype) {
-            return Self::Recompress(8)
-        }
-        if let Some(x) = Minifier::by_extension(ftype) {
-            return Self::Minify(x)
-        }
-        if blacklist.can_ignore(ftype) { Self::Ignore(FileIgnoreError::Blacklisted) } else { Self::Pass }
+        Minifier::by_extension(ftype).map_or(Self::Pass, Self::Minify)
     }
 }
 

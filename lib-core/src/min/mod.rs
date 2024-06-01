@@ -35,13 +35,6 @@ fn find_brackets(b: &[u8]) -> Option<(usize, usize)> {
     Some((i, j))
 }
 
-/// Checks if a file can be recompressed (not minified) depending on its extension
-#[must_use]
-pub fn only_recompress(ftype: &str) -> bool {
-    matches!(ftype, "glsl" | "html" | "kotlin_module" | "md" | "txt" | "vert" | "xml")
-}
-
-
 /// A type to determine a minifying method and minimum compress size for file data.
 pub enum Minifier {
     /// A PNG minifier using `oxipng`.
