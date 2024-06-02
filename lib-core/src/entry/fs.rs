@@ -11,6 +11,10 @@ impl FSEntryReader<std::vec::IntoIter<io::Result<(Option<bool>, Box<Path>)>>> {
     /// Creates an entry reader with a source directory path.
     pub fn new(src_dir: Box<Path>) -> EntryReader<Self> {
         let files = walkdir::WalkDir::new(src_dir.clone()).into_iter().map(check_dir_entry).collect::<Vec<_>>();
+        Self::from_vec(src_dir, files)
+    }
+    /// Creates an entry reader with a source directory path with a list of files.
+    pub fn from_vec(src_dir: Box<Path>, files: Vec<io::Result<(Option<bool>, Box<Path>)>>) -> EntryReader<Self> {
         EntryReader(Self { src_dir, iter: files.into_iter().peekable() })
     }
 }
