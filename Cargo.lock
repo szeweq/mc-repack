@@ -609,6 +609,7 @@ dependencies = [
  "pathdiff",
  "serde",
  "toml",
+ "walkdir",
 ]
 
 [[package]]
@@ -624,6 +625,7 @@ dependencies = [
  "serde_json",
  "state",
  "toml",
+ "walkdir",
  "zip",
  "zopfli",
 ]

@@ -8,7 +8,6 @@ use mc_repack_core::{cfg, entry::{self, EntryReader, EntryReaderSpec, EntrySaver
 
 mod cli_args;
 mod config;
-mod rrd;
 
 type Error_ = anyhow::Error;
 type Result_<T> = Result<T, Error_>;
@@ -185,14 +184,14 @@ type FileResult = std::io::Result<(Option<bool>, Box<Path>)>;
 
 enum FilesIter {
     Single(Option<FileResult>),
-    Dir(rrd::RecursiveReadDir)
+    Dir(std::vec::IntoIter<FileResult>)
 }
 impl FilesIter {
     pub fn from_path(p: &Path) -> std::io::Result<(Box<Path>, Self)> {
         let ft = p.metadata()?.file_type();
         let p: Box<Path> = Box::from(p);
         if ft.is_dir() {
-            Ok((p.clone(), Self::Dir(rrd::RecursiveReadDir::new(p))))
+            Ok((p.clone(), Self::Dir(walkdir::WalkDir::new(p).into_iter().map(|r| Ok(check_dir_entry(r?))).collect::<Vec<_>>().into_iter())))
         } else if ft.is_file() {
             let parent = p.parent().unwrap();
             Ok((parent.into(), Self::Single(Some(Ok((Some(false), p))))))
@@ -216,4 +215,25 @@ impl Iterator for FilesIter {
             Self::Dir(it) => it.size_hint()
         }
     }
+}
+impl ExactSizeIterator for FilesIter {
+    fn len(&self) -> usize {
+        match self {
+            Self::Single(Some(_)) => 1,
+            Self::Single(None) => 0,
+            Self::Dir(it) => it.len()
+        }
+    }
+}
+
+fn check_dir_entry(de: walkdir::DirEntry) -> (Option<bool>, Box<Path>) {
+    let ft = de.file_type();
+    let p = de.into_path().into_boxed_path();
+    (if ft.is_dir() {
+        Some(true)
+    } else if ft.is_file() {
+        Some(false)
+    } else {
+        None
+    }, p)
 }

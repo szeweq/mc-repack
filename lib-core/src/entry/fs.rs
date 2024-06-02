@@ -3,26 +3,26 @@ use crate::fop::FileOp;
 use super::{EntryReader, EntryReaderSpec, EntrySaver, EntrySaverSpec, EntryType};
 
 /// An entry reader implementation for a file system. It reads a file tree from a provided directory.
-pub struct FSEntryReader<I: Iterator<Item = io::Result<(Option<bool>, Box<Path>)>>> {
+pub struct FSEntryReader<I: ExactSizeIterator<Item = io::Result<(Option<bool>, Box<Path>)>>> {
     src_dir: Box<Path>,
     iter: std::iter::Peekable<I>
 }
-impl FSEntryReader<RecursiveReadDir> {
+impl FSEntryReader<std::vec::IntoIter<io::Result<(Option<bool>, Box<Path>)>>> {
     /// Creates an entry reader with a source directory path.
     pub fn new(src_dir: Box<Path>) -> EntryReader<Self> {
-        let iter: std::iter::Peekable<RecursiveReadDir> = RecursiveReadDir::new(src_dir.clone()).peekable();
-        EntryReader(Self { src_dir, iter })
+        let files = walkdir::WalkDir::new(src_dir.clone()).into_iter().map(check_dir_entry).collect::<Vec<_>>();
+        EntryReader(Self { src_dir, iter: files.into_iter().peekable() })
     }
 }
-impl <I: Iterator<Item = io::Result<(Option<bool>, Box<Path>)>>> FSEntryReader<I> {
+impl <I: ExactSizeIterator<Item = io::Result<(Option<bool>, Box<Path>)>>> FSEntryReader<I> {
     /// Creates an entry reader with a source directory path and a custom iterator.
     pub fn custom(src_dir: Box<Path>, iter: I) -> EntryReader<Self> {
         EntryReader(Self { src_dir, iter: iter.peekable() })
     }
 }
-impl <I: Iterator<Item = io::Result<(Option<bool>, Box<Path>)>>> EntryReaderSpec for FSEntryReader<I> {
+impl <I: ExactSizeIterator<Item = io::Result<(Option<bool>, Box<Path>)>>> EntryReaderSpec for FSEntryReader<I> {
     fn len(&self) -> usize {
-        RecursiveReadDir::new(self.src_dir.clone()).filter(|x| x.is_ok()).count()
+        self.iter.len()
     }
     fn peek(&mut self) -> Option<(Option<bool>, Box<str>)> {
         self.iter.peek().map(|x| {
@@ -85,54 +85,19 @@ impl EntrySaverSpec for FSEntrySaver {
     }
 }
 
-struct RecursiveReadDir {
-    dirs: Vec<Box<Path>>,
-    cur: Option<Box<fs::ReadDir>>
-}
-impl RecursiveReadDir {
-    fn new(src_dir: Box<Path>) -> Self {
-        Self { dirs: vec![src_dir], cur: None }
-    }
-}
-impl Iterator for RecursiveReadDir {
-    type Item = std::io::Result<(Option<bool>, Box<Path>)>;
-    fn next(&mut self) -> Option<Self::Item> {
-        let rd = match self.cur {
-            None => {
-                let p = self.dirs.pop()?;
-                match fs::read_dir(p) {
-                    Ok(rd) => {
-                        self.cur = Some(Box::new(rd));
-                        self.cur.as_mut().unwrap()
-                    },
-                    Err(e) => return Some(Err(e))
-                }
-            }
-            Some(ref mut rd) => rd
-        };
-        let e = match rd.next() {
-            None => {
-                self.cur = None;
-                return self.next()
-            }
-            Some(Ok(x)) => {
-                match x.file_type() {
-                    Ok(ft) => {
-                        let p = x.path().into_boxed_path();
-                        return Some(Ok((if ft.is_dir() {
-                            self.dirs.push(p.clone());
-                            Some(true)
-                        } else if ft.is_file() {
-                            Some(false)
-                        } else {
-                            None
-                        }, p)))
-                    }
-                    Err(e) => e
-                }
-            },
-            Some(Err(e)) => e
-        };
-        Some(Err(e))
+fn check_dir_entry(de: walkdir::Result<walkdir::DirEntry>) -> io::Result<(Option<bool>, Box<Path>)> {
+    match de {
+        Err(e) => Err(e.into()),
+        Ok(de) => {
+            let ft = de.file_type();
+        let p = de.into_path().into_boxed_path();
+        Ok((if ft.is_dir() {
+            Some(true)
+        } else if ft.is_file() {
+            Some(false)
+        } else {
+            None
+        }, p))
+        }
     }
 }

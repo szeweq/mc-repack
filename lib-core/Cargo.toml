@@ -36,6 +36,7 @@ flate2 = "^1.0.26"
 json_comments = "0.2"
 toml = {optional = true, workspace = true, features = ["preserve_order"]}
 zopfli = {version = "^0.8.0", optional = true}
+walkdir = {workspace = true}
 state = "0.6"
 
 [lints.rust]
