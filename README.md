@@ -51,9 +51,10 @@ cargo install --git https://github.com/szeweq/mc-repack
 ```
 
 ## Usage
-After installation, the tool can be used by typing the following command:
+After installation, the tool can be used by typing one of following commands:
 ```sh
-mc-repack <file|directory>
+mc-repack jars --in <file|directory> --out <path>
+mc-repack files --in <file|directory> --out <path>
 ```
 When a file path is provided, then MC-Repack will repack the file contents (adds `_repack` on new archive). If a path is a directory, then all files inside (non-recursive) will be repacked.
 
