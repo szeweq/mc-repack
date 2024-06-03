@@ -10,7 +10,7 @@ pub struct ErrorCollector {
 impl ErrorCollector {
     /// Creates a new `ErrorCollector` with a `silent` option.
     #[must_use]
-    pub fn new(silent: bool) -> Self { Self { vec: silent.then(Vec::new), name: "".into() } }
+    pub fn new(silent: bool) -> Self { Self { vec: (!silent).then(Vec::new), name: "".into() } }
 
     /// Sets the new prefix name for collected entries. 
     pub fn rename(&mut self, name: &str)  {
