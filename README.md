@@ -56,7 +56,9 @@ After installation, the tool can be used by typing one of following commands:
 mc-repack jars --in <file|directory> --out <path>
 mc-repack files --in <file|directory> --out <path>
 ```
-When a file path is provided, then MC-Repack will repack the file contents (adds `_repack` on new archive). If a path is a directory, then all files inside (non-recursive) will be repacked.
+- The `jars` subcommand looks for entries stored in `.jar` (or `.zip`) files.
+- The `files` subcommand transforms the file tree directly. Files will be minified or copied.
+When a file path is provided, then MC-Repack will repack the file contents. If a path is a directory, then all files inside (non-recursive) will be repacked.
 
 More options are provided by typing `mc-repack --help` in a shell/terminal.
 
