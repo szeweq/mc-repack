@@ -68,32 +68,6 @@ impl <R: Read + Seek> EntryReaderSpec for ZipEntryReader<R> {
             })
         }
     }
-    // fn read_entries(
-    //     self,
-    //     mut tx: impl FnMut(EntryType) -> crate::Result_<()>,
-    //     blacklist: &TypeBlacklist
-    // ) -> crate::Result_<()> {
-    //     let mut za = self.za;
-    //     let jfc = za.len();
-    //     tx(EntryType::Count(jfc))?;
-    //     for i in 0..jfc {
-    //         let Some(name) = za.name_for_index(i) else { continue; };
-    //         let fname: Arc<str> = name.into();
-    //         tx(if fname.ends_with('/') {
-    //             EntryType::dir(fname)
-    //         } else {
-    //             let fop = FileOp::by_name(&fname, blacklist);
-    //             let mut obuf = Vec::new();
-    //             if let FileOp::Ignore(_) = fop {} else {
-    //                 let mut jf = za.by_index(i)?;
-    //                 obuf.reserve_exact(jf.size() as usize);
-    //                 jf.read_to_end(&mut obuf)?;
-    //             }
-    //             EntryType::file(fname, obuf, fop)
-    //         })?;
-    //     }
-    //     Ok(())
-    // }
 }
 
 #[cfg(feature = "zip-zopfli")]
