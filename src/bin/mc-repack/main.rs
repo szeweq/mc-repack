@@ -19,19 +19,17 @@ fn main() -> Result_<()> {
     match &args.cmd {
         Cmd::Jars(ja) => {
             let path = &ja.path;
-            let repack_opts = RepackOpts::from_args(&ja.common);
+            let mut repack_opts = RepackOpts::from_args(&ja.common);
             let (base, fit) = FilesIter::from_path(path)?;
-            let mut ec = ErrorCollector::new(repack_opts.silent);
-            process_jars(&base, fit, ja, &repack_opts, &mut ec)?;
-            print_entry_errors(&ec);
+            process_jars(&base, fit, ja, &mut repack_opts)?;
+            print_entry_errors(&repack_opts.err_collect);
         }
         Cmd::Files(fa) => {
             let path = &fa.path;
-            let repack_opts = RepackOpts::from_args(&fa.common);
+            let mut repack_opts = RepackOpts::from_args(&fa.common);
             let (base, fit) = FilesIter::from_path(path)?;
-            let mut ec = ErrorCollector::new(repack_opts.silent);
-            process_files(&base, fit, fa, &repack_opts, &mut ec)?;
-            print_entry_errors(&ec);
+            process_files(&base, fit, fa, &mut repack_opts)?;
+            print_entry_errors(&repack_opts.err_collect);
         }
         Cmd::Check(ca) => {
             if config::check(ca.config.clone())? {
@@ -57,8 +55,9 @@ fn task_err(_: Box<dyn Any + Send>) -> Error_ {
     anyhow::anyhow!("Task failed")
 }
 
-fn process_jars(base: &Path, fit: FilesIter, jargs: &JarsArgs, opts: &RepackOpts, ec: &mut ErrorCollector) -> Result_<()> {
-    let RepackOpts { blacklist, cfgmap, .. } = opts;
+fn process_jars(base: &Path, fit: FilesIter, jargs: &JarsArgs, opts: &mut RepackOpts) -> Result_<()> {
+    let RepackOpts { ref blacklist, ref cfgmap, .. } = opts;
+    let ec = &mut opts.err_collect;
     let clvl = 9 + jargs.zopfli.map_or(0, |x| x.get() as i64);
     let mp = MultiProgress::new();
 
@@ -114,8 +113,9 @@ fn process_jars(base: &Path, fit: FilesIter, jargs: &JarsArgs, opts: &RepackOpts
     Ok(())
 }
 
-fn process_files(base: &Path, fit: FilesIter, fargs: &FilesArgs, opts: &RepackOpts, ec: &mut ErrorCollector) -> Result_<()> {
-    let RepackOpts { blacklist, cfgmap, .. } = opts;
+fn process_files(base: &Path, fit: FilesIter, fargs: &FilesArgs, opts: &mut RepackOpts) -> Result_<()> {
+    let RepackOpts { ref blacklist, ref cfgmap, .. } = opts;
+    let ec = &mut opts.err_collect;
     let pb2 = file_progress_bar();
     let (pj, ps) = thread_progress_bar(pb2);
     optimize_with(

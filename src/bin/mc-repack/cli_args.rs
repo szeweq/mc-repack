@@ -76,7 +76,7 @@ pub struct CommonArgs {
 }
 
 pub struct RepackOpts {
-    pub silent: bool,
+    pub err_collect: mc_repack_core::errors::ErrorCollector,
     pub blacklist: Arc<TypeBlacklist>,
     pub cfgmap: mc_repack_core::cfg::ConfigMap
 }
@@ -107,7 +107,7 @@ impl RepackOpts {
             _ => {}
         }
         Self {
-            silent: args.silent,
+            err_collect: mc_repack_core::errors::ErrorCollector::new(args.silent),
             blacklist: Arc::new(if args.use_blacklist {
                 TypeBlacklist::Extend(blacklist)
             } else {
