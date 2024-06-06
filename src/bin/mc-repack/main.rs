@@ -8,6 +8,7 @@ use mc_repack_core::{cfg, entry::{self, EntryReader, EntryReaderSpec, EntrySaver
 
 mod cli_args;
 mod config;
+mod report;
 
 type Error_ = anyhow::Error;
 type Result_<T> = Result<T, Error_>;
@@ -22,6 +23,9 @@ fn main() -> Result_<()> {
             let mut repack_opts = RepackOpts::from_args(&ja.common);
             let (base, fit) = FilesIter::from_path(path)?;
             process_jars(&base, fit, ja, &mut repack_opts)?;
+            if let Some(ref report) = repack_opts.report {
+                report.save_csv()?;
+            }
             print_entry_errors(&repack_opts.err_collect);
         }
         Cmd::Files(fa) => {
@@ -29,6 +33,10 @@ fn main() -> Result_<()> {
             let mut repack_opts = RepackOpts::from_args(&fa.common);
             let (base, fit) = FilesIter::from_path(path)?;
             process_files(&base, fit, fa, &mut repack_opts)?;
+            if let Some(ref mut report) = repack_opts.report {
+                files_report(report, path, &fa.out)?;
+                report.save_csv()?;
+            }
             print_entry_errors(&repack_opts.err_collect);
         }
         Cmd::Check(ca) => {
@@ -96,7 +104,21 @@ fn process_jars(base: &Path, fit: FilesIter, jargs: &JarsArgs, opts: &mut Repack
                 ),
                 cfgmap, &ps, ec, blacklist.clone()
             ) {
-                Ok(_) => {},
+                Ok(()) => {
+                    if let Some(ref mut report) = opts.report {
+                        match (fs::metadata(&fp), fs::metadata(&nfp)) {
+                            (Ok(fm), Ok(nm)) => {
+                                report.push(&relname, fm.len(), nm.len());
+                            }
+                            (Err(e), Ok(_)) | (Ok(_), Err(e)) => {
+                                println!("Cannot report {}: {}", relname, e);
+                            }
+                            (Err(e1), Err(e2)) => {
+                                println!("Cannot report {}: {}, {}", relname, e1, e2);
+                            }
+                        }
+                    }
+                },
                 Err(e) => {
                     println!("Cannot repack {}: {}\n\n", fp.display(), e);
                     if let Err(fe) = fs::remove_file(&nfp) {
@@ -125,6 +147,32 @@ fn process_files(base: &Path, fit: FilesIter, fargs: &FilesArgs, opts: &mut Repa
     )?;
     drop(ps);
     pj.join().map_err(task_err)?;
+    Ok(())
+}
+
+fn files_report(report: &mut report::Report, path: &Path, out: &Path) -> Result_<()> {
+    let (base, fit) = FilesIter::from_path(path)?;
+    for fp in fit {
+        let (ftype, fp) = fp?;
+        let Some(relp) = pathdiff::diff_paths(&fp, &base) else {
+            return invalid_file_name()
+        };
+        let relname = relp.to_string_lossy();
+        if matches!(ftype, Some(false)) {
+            let nfp = out.join(&relp);
+            match (fs::metadata(&fp), fs::metadata(&nfp)) {
+                (Ok(fm), Ok(nm)) => {
+                    report.push(&relname, fm.len(), nm.len());
+                }
+                (Err(e), Ok(_)) | (Ok(_), Err(e)) => {
+                    println!("Cannot report {}: {}", relname, e);
+                }
+                (Err(e1), Err(e2)) => {
+                    println!("Cannot report {}: {}, {}", relname, e1, e2);
+                }
+            }
+        }
+    }
     Ok(())
 }
 

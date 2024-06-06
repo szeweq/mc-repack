@@ -2,7 +2,7 @@ use std::{io, path::PathBuf, sync::Arc};
 
 use mc_repack_core::{fop::TypeBlacklist, min};
 
-use crate::config;
+use crate::{config, report};
 
 
 #[derive(Debug, clap::Parser)]
@@ -72,13 +72,18 @@ pub struct CommonArgs {
 
     /// (Optional) Use custom .toml config file. If no path is provided, it will use `mc-repack.toml`
     #[arg(short = 'c', long)]
-    pub config: Option<PathBuf>
+    pub config: Option<PathBuf>,
+
+    /// (Optional) Path for CSV report
+    #[arg(short = 'r', long)]
+    pub report: Option<PathBuf>
 }
 
 pub struct RepackOpts {
     pub err_collect: mc_repack_core::errors::ErrorCollector,
     pub blacklist: Arc<TypeBlacklist>,
-    pub cfgmap: mc_repack_core::cfg::ConfigMap
+    pub cfgmap: mc_repack_core::cfg::ConfigMap,
+    pub report: Option<report::Report>,
 }
 impl RepackOpts {
     pub fn from_args(args: &CommonArgs) -> Self {
@@ -113,7 +118,8 @@ impl RepackOpts {
             } else {
                 TypeBlacklist::Override(blacklist)
             }),
-            cfgmap
+            cfgmap,
+            report: args.report.as_ref().map(|p| report::Report::new(p.clone().into_boxed_path()))
         }
     }
 }
