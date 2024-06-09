@@ -5,3 +5,6 @@ mc-repack.toml
 
 # JARs for testing
 *.jar
+
+# Report file in repo
+*.csv
