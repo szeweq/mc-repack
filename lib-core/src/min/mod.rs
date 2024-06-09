@@ -78,8 +78,8 @@ impl Minifier {
             #[cfg(feature = "toml")] Self::TOML => cfgmap.fetch::<toml::MinifierTOML>().minify(strip_bom(v), vout),
             #[cfg(feature = "nbt")] Self::NBT => cfgmap.fetch::<nbt::MinifierNBT>().minify(v, vout),
             #[cfg(feature = "ogg")] Self::OGG => cfgmap.fetch::<ogg::MinifierOGG>().minify(v, vout),
-            Self::Hash => remove_line_comments(b"#", v, vout),
-            Self::Slash => remove_line_comments(b"//", v, vout)
+            Self::Hash => remove_line_comments("#", v, vout),
+            Self::Slash => remove_line_comments("//", v, vout)
         }
     }
 
@@ -98,17 +98,21 @@ impl Minifier {
 
 type Result_ = anyhow::Result<()>;
 
-fn remove_line_comments(bs: &'static [u8], v: &[u8], vout: &mut Vec<u8>) -> Result_ {
-    std::str::from_utf8(v)?;
-    for l in v.split(|&b| b == b'\n' || b == b'\r') {
-        let Some(ix) = l.iter().position(|&b| !b.is_ascii_whitespace()) else {
+fn remove_line_comments(bs: &'static str, v: &[u8], vout: &mut Vec<u8>) -> Result_ {
+    let v = std::str::from_utf8(v)?;
+    for l in v.lines() {
+        let Some(ix) = l.as_bytes().iter().position(|&b| !b.is_ascii_whitespace()) else {
             continue;
         };
         let l = &l[ix..];
-        if !l.starts_with(bs) {
-            vout.extend_from_slice(l);
-            vout.push(b'\n');
-        }
+        let nix = l.find(bs);
+        let l = match nix {
+            Some(nix) if nix == ix => "",
+            Some(nix) => &l[..nix],
+            None => l
+        };
+        vout.extend_from_slice(l.trim_end().as_bytes());
+        vout.push(b'\n');
     }
     Ok(())
 }
