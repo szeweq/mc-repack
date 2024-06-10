@@ -13,3 +13,7 @@ flate2 = "^1.0.26"
 [[bench]]
 name = "compress"
 harness = false
+
+[[bench]]
+name = "brackets"
+harness = false

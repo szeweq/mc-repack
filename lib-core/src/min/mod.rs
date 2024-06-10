@@ -25,14 +25,15 @@ const fn strip_bom(b: &[u8]) -> &[u8] {
 }
 
 #[inline]
-fn find_brackets(b: &[u8]) -> Option<(usize, usize)> {
-    let (i, endb) = match b.iter().enumerate().find(|(_, &b)| b == b'{' || b == b'[') {
-        Some((i, b'{')) => (i, b'}'),
-        Some((i, b'[')) => (i, b']'),
+fn brackets(b: &[u8]) -> Option<&[u8]> {
+    let i = b.iter().position(|&b| b == b'{' || b == b'[')?;
+    let endb = match b[i] {
+        b'{' => b'}',
+        b'[' => b']',
         _ => { return None; }
     };
     let j = b.iter().rposition(|&b| b == endb)?;
-    Some((i, j))
+    Some(&b[i..=j])
 }
 
 /// A type to determine a minifying method and minimum compress size for file data.
