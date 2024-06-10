@@ -75,7 +75,7 @@ impl Minifier {
     pub fn minify(&self, cfgmap: &cfg::ConfigMap, v: &[u8], vout: &mut Vec<u8>) -> Result_ {
         match self {
             #[cfg(feature = "png")] Self::PNG => cfgmap.fetch::<png::MinifierPNG>().minify(v, vout),
-            Self::JSON => cfgmap.fetch::<json::MinifierJSON>().minify(strip_bom(v), vout),
+            Self::JSON => cfgmap.fetch::<json::MinifierJSON>().minify(v, vout),
             #[cfg(feature = "toml")] Self::TOML => cfgmap.fetch::<toml::MinifierTOML>().minify(strip_bom(v), vout),
             #[cfg(feature = "nbt")] Self::NBT => cfgmap.fetch::<nbt::MinifierNBT>().minify(v, vout),
             #[cfg(feature = "ogg")] Self::OGG => cfgmap.fetch::<ogg::MinifierOGG>().minify(v, vout),
