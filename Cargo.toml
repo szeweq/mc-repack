@@ -11,7 +11,7 @@ repository = "https://github.com/szeweq/mc-repack"
 categories = ["command-line-utilities", "compression", "game-development"]
 keywords = ["minecraft", "jar", "processing", "optimizer", "repack"]
 exclude = ["/.github", "bench/*", "test-jars/*", "test-jars-repack/*"]
-rust-version = "1.77.0"
+rust-version = "1.75.0"
 
 [workspace]
 members = ["bench","lib-core"]

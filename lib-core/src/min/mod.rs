@@ -21,7 +21,7 @@ pub mod ogg;
 
 #[inline]
 const fn strip_bom(b: &[u8]) -> &[u8] {
-    if let Some(([239, 187, 191], x)) = b.split_first_chunk() { x } else { b }
+    if let [239, 187, 191, x @ ..] = b { x } else { b }
 }
 
 #[inline]
