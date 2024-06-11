@@ -14,6 +14,8 @@ pub mod errors;
 pub mod entry;
 /// Implementations of configuration map and traits for accepting config types.
 pub mod cfg;
+/// Working on file extensions.
+pub mod ext;
 
 pub(crate) type Result_<T> = anyhow::Result<T>;
 

@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use crate::{min::Minifier, errors::FileIgnoreError};
+use crate::{errors::FileIgnoreError, ext, min::Minifier};
 
 /// A file operation needed before a file is saved in repacked archive
 pub enum FileOp {
@@ -34,7 +34,8 @@ impl FileOp {
         if blacklist.can_ignore(ftype) {
             return Self::Ignore(FileIgnoreError::Blacklisted)
         }
-        Minifier::by_extension(ftype).map_or(Self::Pass, Self::Minify)
+        ext::KnownFmt::by_extension(ftype)
+            .map_or(Self::Pass, |x| Minifier::by_file_format(x).map_or(Self::Pass, Self::Minify))
     }
 }
 

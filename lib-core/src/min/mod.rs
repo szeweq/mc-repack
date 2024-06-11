@@ -1,4 +1,4 @@
-use crate::cfg;
+use crate::{cfg, ext::KnownFmt};
 
 /// Minifier for JSON files
 pub mod json;
@@ -65,6 +65,20 @@ impl Minifier {
             #[cfg(feature = "ogg")] "ogg" => Self::OGG,
             "cfg" | "obj" | "mtl" => Self::Hash,
             "zs" | "js" | "fsh" | "vsh" => Self::Slash,
+            _ => return None
+        })
+    }
+
+    /// Return a Minifier based on known (by this library) file format.
+    pub const fn by_file_format(f: KnownFmt) -> Option<Self> {
+        Some(match f {
+            #[cfg(feature = "png")] KnownFmt::Png => Self::PNG,
+            KnownFmt::Json => Self::JSON,
+            #[cfg(feature = "toml")] KnownFmt::Toml => Self::TOML,
+            #[cfg(feature = "nbt")] KnownFmt::Nbt => Self::NBT,
+            #[cfg(feature = "ogg")] KnownFmt::Ogg => Self::OGG,
+            KnownFmt::Cfg | KnownFmt::Obj | KnownFmt::Mtl => Self::Hash,
+            KnownFmt::Fsh | KnownFmt::Vsh | KnownFmt::Js | KnownFmt::Zs => Self::Slash,
             _ => return None
         })
     }
