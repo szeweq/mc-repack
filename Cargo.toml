@@ -1,6 +1,6 @@
 [package]
 name = "mc-repack"
-version = "0.23.1"
+version = "0.24.0"
 edition = "2021"
 authors = ["Szeweq"]
 license = "MIT"
@@ -28,7 +28,7 @@ name = "mc-repack"
 doc = false
 
 [dependencies]
-mc-repack-core = {version = "0.23.1", path = "lib-core", features = ["all-zopfli"]}
+mc-repack-core = {version = "0.24.0", path = "lib-core", features = ["all-zopfli"]}
 crossbeam-channel = "^0.5.8"
 anyhow = {workspace = true}
 serde = {workspace = true}
