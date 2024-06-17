@@ -50,10 +50,11 @@ pub struct JarsArgs {
 #[derive(Debug, clap::Args)]
 pub struct FilesArgs {
     /// Path to a file/directory
+    #[arg(short = 'i', long = "in")]
     pub path: PathBuf,
 
     /// Destination directory. It should not be the same as the source!
-    #[arg(long)]
+    #[arg(short = 'o', long)]
     pub out: PathBuf,
 
     #[command(flatten)]
