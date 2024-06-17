@@ -3,19 +3,15 @@ use crate::{cfg, ext::KnownFmt};
 /// Minifier for JSON files
 pub mod json;
 
-#[cfg(feature = "png")]
 /// Optimizer for PNG files
 pub mod png;
 
-#[cfg(feature = "toml")]
 /// Minifier for TOML files
 pub mod toml;
 
-#[cfg(feature = "nbt")]
 /// Optimizer for NBT files
 pub mod nbt;
 
-#[cfg(feature = "ogg")]
 /// Minifier for OGG files
 pub mod ogg;
 
