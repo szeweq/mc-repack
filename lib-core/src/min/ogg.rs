@@ -1,7 +1,7 @@
 #![cfg(feature = "ogg")]
 use std::io::Cursor;
 
-use optivorbis::{remuxer::ogg_to_ogg::Settings, OggToOgg, Remuxer, VorbisCommentFieldsAction, VorbisOptimizerSettings};
+use optivorbis::{remuxer::ogg_to_ogg::Settings, OggToOgg, Remuxer, VorbisCommentFieldsAction, VorbisOptimizerSettings, VorbisVendorStringAction};
 
 use crate::cfg::{acfg, ConfigHolder};
 use super::Result_;
@@ -38,6 +38,11 @@ impl OGGConfig {
             VorbisCommentFieldsAction::Delete
         } else {
             VorbisCommentFieldsAction::Copy
+        };
+        opts.vendor_string_action = if self.remove_comments {
+            VorbisVendorStringAction::Empty
+        } else {
+            VorbisVendorStringAction::Copy
         };
         opts
     }
