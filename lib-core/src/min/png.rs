@@ -12,7 +12,7 @@ acfg!(
 impl ConfigHolder<MinifierPNG> {
     pub(super) fn minify(&self, b: &[u8], vout: &mut Vec<u8>) -> Result_ {
         let v = oxipng::optimize_from_memory(b, self.png_opts())?;
-        let _ = std::mem::replace(vout, v);
+        vout.extend_from_slice(&v);
         Ok(())
     }
 }
