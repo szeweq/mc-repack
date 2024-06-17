@@ -61,7 +61,7 @@ impl ConfigHolder<MinifierNBT> {
 fn minify_with_zopfli(vout: &mut Vec<u8>, nbtr: &mut NBTReader, ic: std::num::NonZeroU64) -> Result_ {
     let zo = zopfli::Options {
         iteration_count: ic,
-        iterations_without_improvement: std::num::NonZeroU64::new(6).unwrap(),
+        iterations_without_improvement: std::num::NonZeroU64::new(5).unwrap(),
         ..<zopfli::Options as Default>::default()
     };
     let mut enc = zopfli::GzipEncoder::new(zo, zopfli::BlockType::Dynamic, vout)?;
