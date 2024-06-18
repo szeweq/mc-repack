@@ -1,7 +1,7 @@
 #![cfg(feature = "nbt")]
 use std::{error::Error, io::{self, copy, Write}};
 
-use crate::cfg::{self, acfg, ConfigHolder};
+use crate::cfg::{acfg, ConfigHolder};
 
 use super::Result_;
 
@@ -76,7 +76,7 @@ fn minify_with_zopfli(vout: &mut Vec<u8>, nbtr: &mut NBTReader, ic: std::num::No
 pub struct NBTConfig {
     #[cfg(feature = "nbt-zopfli")]
     /// Enables Zopfli compression (better, but slower)
-    pub use_zopfli: cfg::CfgZopfli
+    pub use_zopfli: crate::cfg::CfgZopfli
 }
 
 /// An error that occurs when a minifier cannot detect the compression type of a NBT entry

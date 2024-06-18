@@ -2,7 +2,7 @@
 
 use state::InitCell;
 
-use crate::cfg::{self, acfg, ConfigHolder};
+use crate::cfg::{acfg, ConfigHolder};
 use super::Result_;
 
 acfg!(
@@ -24,7 +24,7 @@ pub struct PNGConfig {
     #[cfg_attr(feature = "serde-cfg", serde(skip))]
     oxipng_opts: InitCell<oxipng::Options>,
     #[cfg(feature = "png-zopfli")]
-    use_zopfli: cfg::CfgZopfli
+    use_zopfli: crate::cfg::CfgZopfli
 }
 impl PNGConfig {
     fn png_opts(&self) -> &oxipng::Options {
