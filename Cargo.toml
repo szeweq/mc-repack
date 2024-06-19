@@ -10,7 +10,7 @@ homepage = "https://szeweq.xyz/mc-repack"
 repository = "https://github.com/szeweq/mc-repack"
 categories = ["command-line-utilities", "compression", "game-development"]
 keywords = ["minecraft", "jar", "processing", "optimizer", "repack"]
-exclude = ["/.github", "bench/*", "test-jars/*", "test-jars-repack/*"]
+exclude = ["/.github", "bench/*", "test-jars/*", "test-jars-repack/*", "mc-repack-logo.png"]
 rust-version = "1.75.0"
 
 [workspace]
