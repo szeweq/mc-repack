@@ -102,7 +102,7 @@ impl Minifier {
             Self::JSON => 64,
             #[cfg(feature = "toml")] Self::TOML => 64,
             #[cfg(feature = "nbt")] Self::NBT => 768,
-            _ => 8
+            _ => 24
         }
     }
 }

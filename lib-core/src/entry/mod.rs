@@ -112,7 +112,7 @@ impl<S: EntrySaverSpec> EntrySaver<S> {
                             self.0.save_file(&fname, &buf, x as u16)?;
                         }
                         FileOp::Pass => {
-                            self.0.save_file(&fname, &buf, 8)?;
+                            self.0.save_file(&fname, &buf, 24)?;
                         }
                     }
                 }
