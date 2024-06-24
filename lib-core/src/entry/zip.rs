@@ -128,7 +128,8 @@ impl <W: Write + Seek> EntrySaverSpec for ZipEntrySaver<W> {
     }
 }
 
-fn compress_check(b: &[u8], compress_min: usize) -> bool {
+/// Check if data should be compressed. If the compressed size is smaller than original, then the compression should be chosen.
+pub fn compress_check(b: &[u8], compress_min: usize) -> bool {
     let lb = b.len();
     if lb > compress_min {
         if calc_entropy(b) < 7.0 { return true }

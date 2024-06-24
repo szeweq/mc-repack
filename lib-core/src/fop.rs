@@ -19,7 +19,6 @@ impl FileOp {
         if fname.starts_with(".cache/") { return Self::Ignore(FileIgnoreError::Blacklisted) }
         if let Some(sub) =  fname.strip_prefix("META-INF/") {
             match sub {
-                "MANIFEST.MF" => {return Self::Recompress(64) }
                 "SIGNFILE.SF" | "SIGNFILE.DSA" => { return Self::Ignore(FileIgnoreError::Signfile) }
                 x if x.starts_with("SIG-") || [".DSA", ".RSA", ".SF"].into_iter().any(|e| x.ends_with(e)) => {
                     return Self::Ignore(FileIgnoreError::Signfile)
