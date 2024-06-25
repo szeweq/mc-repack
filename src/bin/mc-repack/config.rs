@@ -9,6 +9,7 @@ pub struct Config {
     pub nbt: Option<min::nbt::NBTConfig>,
     pub png: Option<min::png::PNGConfig>,
     pub toml: Option<min::toml::TOMLConfig>,
+    pub jar: Option<min::jar::JARConfig>,
     pub blacklist: Option<HashSet<Box<str>>>
 }
 
@@ -42,6 +43,7 @@ pub fn check(path: Option<PathBuf>) -> Result_<bool> {
                 nbt: Some(min::nbt::NBTConfig::default()),
                 png: Some(min::png::PNGConfig::default()),
                 toml: Some(min::toml::TOMLConfig::default()),
+                jar: Some(min::jar::JARConfig::default()),
                 blacklist: Some(HashSet::new())
             };
             let s = toml::to_string(&cfg).map_err(io::Error::other)?;

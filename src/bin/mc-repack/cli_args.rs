@@ -104,6 +104,9 @@ impl RepackOpts {
                 if let Some(x) = c.toml {
                     cfgmap.set::<min::toml::MinifierTOML>(x);
                 }
+                if let Some(x) = c.jar {
+                    cfgmap.set::<min::jar::MinifierJAR>(x);
+                }
                 blacklist = c.blacklist;
                 println!("Config loaded successfully!");
             }
