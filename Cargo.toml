@@ -1,6 +1,6 @@
 [package]
 name = "mc-repack"
-version = "0.25.0"
+version = "0.26.0"
 edition = "2021"
 authors = ["Szeweq"]
 license = "MIT"
@@ -9,7 +9,7 @@ readme = "README.md"
 homepage = "https://szeweq.xyz/mc-repack"
 repository = "https://github.com/szeweq/mc-repack"
 categories = ["command-line-utilities", "compression", "game-development"]
-keywords = ["minecraft", "jar", "processing", "optimizer", "repack"]
+keywords = ["minecraft", "jar", "processing", "optimizer", "gamedev"]
 exclude = ["/.github", "bench/*", "test-jars/*", "test-jars-repack/*", "mc-repack-logo.png"]
 rust-version = "1.75.0"
 
@@ -28,7 +28,7 @@ name = "mc-repack"
 doc = false
 
 [dependencies]
-mc-repack-core = {version = "0.25", path = "lib-core", features = ["all-zopfli"]}
+mc-repack-core = {version = "0.26", path = "lib-core", features = ["all-zopfli"]}
 crossbeam-channel = "^0.5.8"
 anyhow = {workspace = true}
 serde = {workspace = true}

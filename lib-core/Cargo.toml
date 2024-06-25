@@ -1,6 +1,6 @@
 [package]
 name = "mc-repack-core"
-version = "0.25.0"
+version = "0.26.0"
 edition = "2021"
 authors = ["Szeweq"]
 license = "MIT"
@@ -9,7 +9,7 @@ readme = "README.md"
 homepage = "https://szeweq.xyz/mc-repack"
 repository = "https://github.com/szeweq/mc-repack"
 categories = ["compression", "game-development"]
-keywords = ["minecraft", "jar", "processing", "optimizer", "repack"]
+keywords = ["minecraft", "jar", "processing", "optimizer", "gamedev"]
 rust-version = "1.75.0"
 
 [features]

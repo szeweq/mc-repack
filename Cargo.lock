@@ -599,7 +599,7 @@ dependencies = [
 
 [[package]]
 name = "mc-repack"
-version = "0.25.0"
+version = "0.26.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -614,7 +614,7 @@ dependencies = [
 
 [[package]]
 name = "mc-repack-core"
-version = "0.25.0"
+version = "0.26.0"
 dependencies = [
  "anyhow",
  "flate2",
