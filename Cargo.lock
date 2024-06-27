@@ -607,6 +607,7 @@ dependencies = [
  "indicatif",
  "mc-repack-core",
  "pathdiff",
+ "rayon",
  "serde",
  "toml",
  "walkdir",

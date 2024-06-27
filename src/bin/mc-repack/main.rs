@@ -1,4 +1,4 @@
-use std::{any::Any, fs, path::Path, sync::Arc, thread::{self, JoinHandle}};
+use std::{fs, path::Path, sync::Arc};
 use clap::Parser;
 use cli_args::{Cmd, FilesArgs, JarsArgs, RepackOpts};
 use crossbeam_channel::Sender;
@@ -59,10 +59,6 @@ fn file_progress_bar() -> ProgressBar {
     )
 }
 
-fn task_err(_: Box<dyn Any + Send>) -> Error_ {
-    anyhow::anyhow!("Task failed")
-}
-
 fn process_jars(base: &Path, fit: FilesIter, jargs: &JarsArgs, opts: &mut RepackOpts) -> Result_<()> {
     let RepackOpts { ref blacklist, ref cfgmap, .. } = opts;
     let ec = &mut opts.err_collect;
@@ -76,7 +72,7 @@ fn process_jars(base: &Path, fit: FilesIter, jargs: &JarsArgs, opts: &mut Repack
         ProgressStyle::with_template("{wide_msg}").unwrap()
     ));
     let pb2 = mp.add(file_progress_bar());
-    let (pj, ps) = thread_progress_bar(pb2);
+    let ps = thread_progress_bar(pb2);
 
     for fp in fit {
         let (ftype, fp) = fp?;
@@ -130,7 +126,6 @@ fn process_jars(base: &Path, fit: FilesIter, jargs: &JarsArgs, opts: &mut Repack
     }
     mp.clear()?;
     drop(ps);
-    pj.join().map_err(task_err)?;
 
     Ok(())
 }
@@ -139,14 +134,13 @@ fn process_files(base: &Path, fit: FilesIter, fargs: &FilesArgs, opts: &mut Repa
     let RepackOpts { ref blacklist, ref cfgmap, .. } = opts;
     let ec = &mut opts.err_collect;
     let pb2 = file_progress_bar();
-    let (pj, ps) = thread_progress_bar(pb2);
+    let ps = thread_progress_bar(pb2);
     optimize_with(
         entry::FSEntryReader::custom(base.into(), fit),
         entry::FSEntrySaver::new(fargs.out.clone().into_boxed_path()),
         cfgmap, &ps, ec, blacklist.clone()
     )?;
     drop(ps);
-    pj.join().map_err(task_err)?;
     Ok(())
 }
 
@@ -176,9 +170,9 @@ fn files_report(report: &mut report::Report, path: &Path, out: &Path) -> Result_
     Ok(())
 }
 
-fn thread_progress_bar(pb: ProgressBar) -> (JoinHandle<()>, Sender<ProgressState>) {
+fn thread_progress_bar(pb: ProgressBar) -> Sender<ProgressState> {
     let (ps, pr) = crossbeam_channel::unbounded();
-    let pj = thread::spawn(move || {
+    rayon::spawn(move || {
         for st in pr {
             match st {
                 ProgressState::Start(u) => { pb.set_length(u as u64); }
@@ -192,7 +186,7 @@ fn thread_progress_bar(pb: ProgressBar) -> (JoinHandle<()>, Sender<ProgressState
             }
         }
     });
-    (pj, ps)
+    ps
 }
 
 fn print_entry_errors(ec: &ErrorCollector) {
@@ -205,7 +199,7 @@ fn print_entry_errors(ec: &ErrorCollector) {
     }
 }
 
-pub fn optimize_with<R: EntryReaderSpec + Send + 'static, S: EntrySaverSpec>(
+pub fn optimize_with<R: EntryReaderSpec + Send + 'static, S: EntrySaverSpec + Send + 'static>(
     reader: EntryReader<R>,
     saver: EntrySaver<S>,
     cfgmap: &cfg::ConfigMap,
@@ -214,10 +208,19 @@ pub fn optimize_with<R: EntryReaderSpec + Send + 'static, S: EntrySaverSpec>(
     blacklist: Arc<TypeBlacklist>
 ) -> crate::Result_<()> {
     let (tx, rx) = crossbeam_channel::bounded(16);
-    let t1 = thread::spawn(move || reader.read_entries(|e| wrap_send(&tx, e), &blacklist));
-    saver.save_entries(rx, errors, cfgmap, |p| wrap_send(ps, p))?;
-    t1.join().map_err(|_| anyhow::anyhow!("Cannot join thread"))??;
-    Ok(())
+    let mut r1 = anyhow::Ok(());
+    let mut r2 = anyhow::Ok(());
+    rayon::scope_fifo(|s| {
+        let r1 = &mut r1;
+        let r2 = &mut r2;
+        s.spawn_fifo(move |_| *r1 = reader.read_entries(|e| wrap_send(&tx, e), &blacklist));
+        s.spawn_fifo(move |_| *r2 = saver.save_entries(rx, errors, cfgmap, |p| wrap_send(ps, p)));
+    });
+    match (r1, r2) {
+        (Ok(_), Ok(_)) => Ok(()),
+        (Err(e), Ok(_)) | (Ok(_), Err(e)) => Err(e),
+        (Err(e1), Err(e2)) => Err(anyhow::anyhow!("Two errors: {} {}", e1, e2)),
+    }
 }
 
 fn wrap_send<T>(s: &Sender<T>, t: T) -> Result_<()> {
