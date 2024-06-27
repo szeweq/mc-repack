@@ -80,6 +80,12 @@ pub struct CommonArgs {
     pub report: Option<PathBuf>
 }
 
+macro_rules! cfgset {
+    ($cfg:expr, $cmap:expr, $($k:ident : $t:ty),+) => {
+        $(if let Some(x) = $cfg.$k { $cmap.set::<$t>(x); })+
+    };
+}
+
 pub struct RepackOpts {
     pub err_collect: mc_repack_core::errors::ErrorCollector,
     pub blacklist: Arc<TypeBlacklist>,
@@ -92,21 +98,13 @@ impl RepackOpts {
         let mut blacklist = None;
         match config::read_config(args.config.clone()) {
             Ok(c) => {
-                if let Some(x) = c.json {
-                    cfgmap.set::<min::json::MinifierJSON>(x);
-                }
-                if let Some(x) = c.nbt {
-                    cfgmap.set::<min::nbt::MinifierNBT>(x);
-                }
-                if let Some(x) = c.png {
-                    cfgmap.set::<min::png::MinifierPNG>(x);
-                }
-                if let Some(x) = c.toml {
-                    cfgmap.set::<min::toml::MinifierTOML>(x);
-                }
-                if let Some(x) = c.jar {
-                    cfgmap.set::<min::jar::MinifierJAR>(x);
-                }
+                cfgset!(c, cfgmap,
+                    json: min::json::MinifierJSON,
+                    nbt: min::nbt::MinifierNBT,
+                    png: min::png::MinifierPNG,
+                    toml: min::toml::MinifierTOML,
+                    jar: min::jar::MinifierJAR
+                );
                 blacklist = c.blacklist;
                 println!("Config loaded successfully!");
             }
