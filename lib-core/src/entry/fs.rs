@@ -1,66 +1,62 @@
 use std::{fs, io, path::Path};
-use crate::fop::FileOp;
-use super::{EntryReader, EntryReaderSpec, EntrySaver, EntrySaverSpec, EntryType};
+use super::{EntryReader, EntrySaver, EntrySaverSpec, ReadEntry};
+
+type FSEntry = io::Result<(Option<bool>, Box<Path>)>;
 
 /// An entry reader implementation for a file system. It reads a file tree from a provided directory.
-pub struct FSEntryReader<I: ExactSizeIterator<Item = io::Result<(Option<bool>, Box<Path>)>>> {
+pub struct FSEntryReader<I: ExactSizeIterator<Item = FSEntry>> {
     src_dir: Box<Path>,
-    iter: std::iter::Peekable<I>
+    iter: I
 }
-impl FSEntryReader<std::vec::IntoIter<io::Result<(Option<bool>, Box<Path>)>>> {
+impl FSEntryReader<std::vec::IntoIter<FSEntry>> {
     /// Creates an entry reader with a source directory path.
-    pub fn new(src_dir: Box<Path>) -> EntryReader<Self> {
+    pub fn new(src_dir: Box<Path>) -> Self {
         let files = walkdir::WalkDir::new(src_dir.clone()).into_iter().map(check_dir_entry).collect::<Vec<_>>();
         Self::from_vec(src_dir, files)
     }
     /// Creates an entry reader with a source directory path with a list of files.
-    pub fn from_vec(src_dir: Box<Path>, files: Vec<io::Result<(Option<bool>, Box<Path>)>>) -> EntryReader<Self> {
-        EntryReader(Self { src_dir, iter: files.into_iter().peekable() })
+    pub fn from_vec(src_dir: Box<Path>, files: Vec<FSEntry>) -> Self {
+        Self { src_dir, iter: files.into_iter() }
     }
 }
-impl <I: ExactSizeIterator<Item = io::Result<(Option<bool>, Box<Path>)>>> FSEntryReader<I> {
+impl <I: ExactSizeIterator<Item = FSEntry>> FSEntryReader<I> {
     /// Creates an entry reader with a source directory path and a custom iterator.
-    pub fn custom(src_dir: Box<Path>, iter: I) -> EntryReader<Self> {
-        EntryReader(Self { src_dir, iter: iter.peekable() })
+    pub fn custom(src_dir: Box<Path>, iter: I) -> Self {
+        Self { src_dir, iter }
     }
 }
-impl <I: ExactSizeIterator<Item = io::Result<(Option<bool>, Box<Path>)>>> EntryReaderSpec for FSEntryReader<I> {
-    fn len(&self) -> usize {
+impl <I: ExactSizeIterator<Item = FSEntry>> EntryReader for FSEntryReader<I> {
+    type RE<'a> = ReadFileEntry<'a> where Self: 'a;
+    #[inline]
+    fn read_len(&self) -> usize {
         self.iter.len()
     }
-    fn peek(&mut self) -> Option<(Option<bool>, Box<str>)> {
-        self.iter.peek().map(|x| {
-            let Ok((is_dir, p)) = x else { return (None, "".into()) };
-            let lname = if let Ok(p) = p.strip_prefix(&self.src_dir) {
-                p.to_string_lossy().to_string()
-            } else {
-                return (None, "".into())
-            };
-            (*is_dir, lname.into_boxed_str())
-        })
+    #[inline]
+    fn read_next(&mut self) -> Option<Self::RE<'_>> {
+        self.iter.next().map(|cur| ReadFileEntry { src_dir: &self.src_dir, cur })
     }
-    fn skip(&mut self) {
-        self.iter.next();
-    }
-    fn read(&mut self) -> crate::Result_<EntryType> {
-        let Some(r) = self.iter.next() else {
-            anyhow::bail!("No more entries");
-        };
-        let (is_dir, p) = r?;
-        let lname = if let Ok(p) = p.strip_prefix(&self.src_dir) {
+}
+
+/// A read entry of a file system.
+pub struct ReadFileEntry<'a> {
+    src_dir: &'a Path,
+    cur: FSEntry
+}
+impl ReadEntry for ReadFileEntry<'_> {
+    fn meta(&self) -> (Option<bool>, Box<str>) {
+        let Ok((is_dir, p)) = &self.cur else { return (None, "".into()) };
+        let lname = if let Ok(p) = p.strip_prefix(self.src_dir) {
             p.to_string_lossy().to_string()
         } else {
-            anyhow::bail!("Invalid entry path: {}", p.display());
+            return (None, "".into())
         };
-        let et = match is_dir {
-            Some(true) => EntryType::dir(lname),
-            Some(false) => {
-                let ff = fs::read(&p)?;
-                EntryType::file(lname, ff, FileOp::Pass)
-            },
-            None => anyhow::bail!("Invalid entry type: {}", p.display()),
-        };
-        Ok(et)
+        (*is_dir, lname.into_boxed_str())
+    }
+    fn data(self) -> crate::Result_<bytes::Bytes> {
+        match self.cur {
+            Ok((_, p)) => Ok(fs::read(&p)?.into()),
+            Err(e) => Err(e.into()),
+        }
     }
 }
 
@@ -89,7 +85,7 @@ impl EntrySaverSpec for FSEntrySaver {
     }
 }
 
-fn check_dir_entry(de: walkdir::Result<walkdir::DirEntry>) -> io::Result<(Option<bool>, Box<Path>)> {
+fn check_dir_entry(de: walkdir::Result<walkdir::DirEntry>) -> FSEntry {
     match de {
         Err(e) => Err(e.into()),
         Ok(de) => {

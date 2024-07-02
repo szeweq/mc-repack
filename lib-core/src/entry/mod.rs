@@ -7,56 +7,74 @@ pub mod zip;
 use std::sync::Arc;
 use crate::{cfg, errors::ErrorCollector, fop::{FileOp, TypeBlacklist}, ProgressState};
 
+use bytes::Bytes;
 pub use fs::{FSEntryReader, FSEntrySaver};
 pub use zip::{ZipEntryReader, ZipEntrySaver};
 
-/// Reads entries from a file-based system.
-pub trait EntryReaderSpec {
-    /// Returns the number of entries.
-    fn len(&self) -> usize;
-    /// Peeks the next entry.
-    fn peek(&mut self) -> Option<(Option<bool>, Box<str>)>;
-    /// Skips the next entry.
-    fn skip(&mut self);
-    /// Reads the next entry.
-    fn read(&mut self) -> crate::Result_<EntryType>;
-    /// Returns `true` if there are no entries.
-    fn is_empty(&self) -> bool { self.len() == 0 }
-}
+/// Reads entries from a file-based system. Typically used with `EntrySaver`.
+pub trait EntryReader {
+    /// A type for reading entries.
+    type RE<'a>: ReadEntry where Self: 'a;
 
-/// A struct for reading entries for further optimization. Typically used with `EntrySaver`.
-pub struct EntryReader<R: EntryReaderSpec>(R);
-impl <R: EntryReaderSpec> EntryReader<R> {
+    /// Reads the next entry.
+    fn read_next(&mut self) -> Option<Self::RE<'_>>;
+
+    /// Returns the number of entries.
+    fn read_len(&self) -> usize;
+
+    /// Creates an iterator for reading entries.
+    fn read_iter(&mut self) -> ReadEntryIter<Self> where Self: Sized { ReadEntryIter(self) }
+
     /// Reads entries, checks if they are not blacklisted and sends them via `tx`.
-    pub fn read_entries(
+    fn read_entries(
         mut self,
         mut tx: impl FnMut(EntryType) -> crate::Result_<()>,
         blacklist: &TypeBlacklist
-    ) -> crate::Result_<()> {
-        tx(EntryType::Count(self.0.len()))?;
-        while let Some((is_dir, name)) = self.0.peek() {
+    ) -> crate::Result_<()> where Self: Sized {
+        tx(EntryType::Count(self.read_len()))?;
+        for re in self.read_iter() {
+            let (is_dir, name) = re.meta();
             let fop = FileOp::by_name(&name, blacklist);
-            match is_dir {
-                Some(true) => {}
+            let et = match is_dir {
+                Some(true) => {
+                    EntryType::dir(name)
+                }
                 Some(false) => {
                     if let FileOp::Ignore(_) = fop {
-                        self.0.skip();
                         continue;
                     }
+                    EntryType::file(name, re.data()?, fop)
                 }
                 None => {
-                    self.0.skip();
                     continue;
                 }
-            }
-            let mut et = self.0.read()?;
-            if let EntryType::File(n, d, _) = et {
-                et = EntryType::File(n, d, fop);
-            }
+            };
             tx(et)?;
         }
         Ok(())
     }
+}
+
+/// An iterator for reading entries from an entry reader.
+#[repr(transparent)]
+pub struct ReadEntryIter<'a, R: EntryReader>(&'a mut R);
+impl <'a, R: EntryReader + 'a> Iterator for ReadEntryIter<'a, R> {
+    type Item = R::RE<'a>;
+
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        // SAFETY: As long as R has a lifetime, it is safe to call next() on it.
+        unsafe { std::mem::transmute(self.0.read_next()) }
+    }
+}
+
+/// A trait for reading entries data. While the [`ReadEntry::data()`] is called, this entry is consumed.
+pub trait ReadEntry {
+    /// Returns the entry metadata.
+    fn meta(&self) -> (Option<bool>, Box<str>);
+
+    /// Reads the entry data.
+    fn data(self) -> crate::Result_<Bytes>;
 }
 
 /// A struct for saving entries that have been optimized. Typically used with `EntryReader`.
@@ -123,13 +141,14 @@ impl<S: EntrySaverSpec> EntrySaver<S> {
 }
 
 /// An entry type based on extracted data from an archive
+#[derive(Clone)]
 pub enum EntryType {
     /// Number of files stored in an archive
     Count(usize),
     /// A directory with its path
     Directory(Arc<str>),
     /// A file with its path, data and file operation
-    File(Arc<str>, Box<[u8]>, FileOp)
+    File(Arc<str>, Bytes, FileOp)
 }
 impl EntryType {
     /// A shorthand function for creating a directory entry
@@ -140,7 +159,7 @@ impl EntryType {
 
     /// A shorthand function for creating a file entry
     #[inline]
-    pub fn file(name: impl Into<Arc<str>>, data: impl Into<Box<[u8]>>, fop: FileOp) -> Self {
+    pub fn file(name: impl Into<Arc<str>>, data: impl Into<Bytes>, fop: FileOp) -> Self {
         Self::File(name.into(), data.into(), fop)
     }
 }

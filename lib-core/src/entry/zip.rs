@@ -1,8 +1,9 @@
-use std::{io::{BufReader, BufWriter, Cursor, Read, Seek, Write}, sync::Arc};
+use std::io::{BufReader, BufWriter, Cursor, Read, Seek, Write};
+use bytes::Bytes;
 use zip::{write::{FileOptions, SimpleFileOptions}, CompressionMethod, ZipArchive, ZipWriter};
 
-use crate::{fop::FileOp, Result_};
-use super::{EntryReader, EntryReaderSpec, EntrySaver, EntrySaverSpec, EntryType};
+use crate::Result_;
+use super::{EntryReader, EntrySaver, EntrySaverSpec, ReadEntry};
 
 /// An entry reader implementation for ZIP archive. It reads its contents from a provided reader (with seeking).
 pub struct ZipEntryReader<R: Read + Seek> {
@@ -11,62 +12,61 @@ pub struct ZipEntryReader<R: Read + Seek> {
 }
 impl <R: Read + Seek> ZipEntryReader<R> {
     /// Creates an entry reader with a specified reader.
-    pub fn new(r: R) -> Result_<EntryReader<Self>> {
-        Ok(EntryReader(Self { za: ZipArchive::new(r)?, cur: 0 }))
+    pub fn new(r: R) -> Result_<Self> {
+        Ok(Self { za: ZipArchive::new(r)?, cur: 0 })
     }
 }
 impl <R: Read + Seek> ZipEntryReader<BufReader<R>> {
     /// Creates an entry reader wrapping a specified reader with a [`BufReader`].
     #[inline]
-    pub fn new_buf(r: R) -> Result_<EntryReader<Self>> {
+    pub fn new_buf(r: R) -> Result_<Self> {
         Self::new(BufReader::new(r))
     }
 }
 impl <T: AsRef<[u8]>> ZipEntryReader<Cursor<T>> {
     /// Creates an entry reader wrapping a specified reader with a [`Cursor`].
     #[inline]
-    pub fn new_mem(t: T) -> Result_<EntryReader<Self>> {
+    pub fn new_mem(t: T) -> Result_<Self> {
         Self::new(Cursor::new(t))
     }
 }
-impl <R: Read + Seek> EntryReaderSpec for ZipEntryReader<R> {
-    fn len(&self) -> usize {
-        self.za.len()
-    }
-    fn peek(&mut self) -> Option<(Option<bool>, Box<str>)> {
-        let za = &self.za;
+impl <R: Read + Seek> EntryReader for ZipEntryReader<R> {
+    type RE<'a> = ReadZipFileEntry<'a, R> where R: 'a;
+    fn read_next(&mut self) -> Option<Self::RE<'_>> {
+        let za = &mut self.za;
         let jfc = za.len();
         if self.cur >= jfc {
             None
         } else {
-            Some(za.name_for_index(self.cur).map_or_else(
-                || (None, "".into()),
-                |n| (Some(n.ends_with('/')), n.into())
-            ))
-        }
-    }
-    fn skip(&mut self) {
-        self.cur += 1;
-    }
-    fn read(&mut self) -> crate::Result_<EntryType> {
-        let za = &mut self.za;
-        let jfc = za.len();
-        if self.cur >= jfc {
-            anyhow::bail!("No more entries");
-        } else {
-            let i = self.cur;
+            let idx = self.cur;
             self.cur += 1;
-            let name: Arc<str> = za.name_for_index(i).unwrap_or_default().into();
-            Ok(if name.ends_with('/') {
-                EntryType::dir(name)
-            } else {
-                let mut obuf = Vec::new();
-                let mut jf = za.by_index(i)?;
-                obuf.reserve_exact(jf.size() as usize);
-                jf.read_to_end(&mut obuf)?;
-                EntryType::file(name, obuf, FileOp::Pass)
-            })
+            Some(ReadZipFileEntry { zip: za, idx })
         }
+    }
+    #[inline]
+    fn read_len(&self) -> usize {
+        self.za.len()
+    }
+}
+
+/// A read entry of a ZIP archive.
+pub struct ReadZipFileEntry<'a, RS: Read + Seek> {
+    zip: &'a mut ZipArchive<RS>,
+    idx: usize
+}
+impl <'a, RS: Read + Seek> ReadEntry for ReadZipFileEntry<'a, RS> {
+    fn meta(&self) -> (Option<bool>, Box<str>) {
+        self.zip.name_for_index(self.idx).map_or_else(
+            || (None, "".into()),
+            |n| (Some(n.ends_with('/')), n.into())
+        )
+    }
+    fn data(self) -> crate::Result_<Bytes> {
+        let mut obuf = Vec::new();
+        let mut jf = self.zip.by_index(self.idx)?;
+        obuf.reserve_exact(jf.size() as usize);
+        jf.read_to_end(&mut obuf)?;
+        Ok(obuf.into())
     }
 }
 
