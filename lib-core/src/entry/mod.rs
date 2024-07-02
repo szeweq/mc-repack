@@ -77,27 +77,20 @@ pub trait ReadEntry {
     fn data(self) -> crate::Result_<Bytes>;
 }
 
-/// A struct for saving entries that have been optimized. Typically used with `EntryReader`.
-pub struct EntrySaver<S: EntrySaverSpec>(S);
+/// Saves entries in a file-based system. Typically used with `EntryReader`.
+pub trait EntrySaver {
+    /// Saves an entry.
+    fn save(&mut self, name: &str, entry: SavingEntry) -> crate::Result_<()>;
 
-/// Saves entries in a file-based system.
-pub trait EntrySaverSpec {
-    /// Saves a directory.
-    fn save_dir(&mut self, dir: &str) -> crate::Result_<()>;
-    /// Saves a file with a minimum file size constraint for compression.
-    fn save_file(&mut self, fname: &str, buf: &[u8], min_compress: u16) -> crate::Result_<()>;
-    
-}
-impl<S: EntrySaverSpec> EntrySaver<S> {
     /// Receives entries from `rx`, optimizes, sends progress (via `ps`), and saves them.
     /// Errors are collected with entry names.
-    pub fn save_entries(
+    fn save_entries(
         mut self,
         rx: impl IntoIterator<Item = EntryType>,
         ev: &mut ErrorCollector,
         cfgmap: &cfg::ConfigMap,
         mut ps: impl FnMut(ProgressState) -> crate::Result_<()>,
-    ) -> crate::Result_<()> {
+    ) -> crate::Result_<()> where Self: Sized {
         let mut cv = Vec::new();
         let mut n = 0;
         for et in rx {
@@ -106,7 +99,7 @@ impl<S: EntrySaverSpec> EntrySaver<S> {
                     ps(ProgressState::Start(u))?;
                 }
                 EntryType::Directory(dir) => {
-                    self.0.save_dir(&dir)?;
+                    self.save(&dir, SavingEntry::Directory)?;
                 }
                 EntryType::File(fname, buf, fop) => {
                     ps(ProgressState::Push(n, fname.clone()))?;
@@ -123,14 +116,14 @@ impl<S: EntrySaverSpec> EntrySaver<S> {
                                     &buf
                                 }
                             };
-                            self.0.save_file(&fname, buf, m.compress_min())?;
+                            self.save(&fname, SavingEntry::File(buf, m.compress_min()))?;
                             cv.clear();
                         }
                         FileOp::Recompress(x) => {
-                            self.0.save_file(&fname, &buf, x as u16)?;
+                            self.save(&fname, SavingEntry::File(&buf, x as u16))?;
                         }
                         FileOp::Pass => {
-                            self.0.save_file(&fname, &buf, 24)?;
+                            self.save(&fname, SavingEntry::File(&buf, 24))?;
                         }
                     }
                 }
@@ -162,4 +155,12 @@ impl EntryType {
     pub fn file(name: impl Into<Arc<str>>, data: impl Into<Bytes>, fop: FileOp) -> Self {
         Self::File(name.into(), data.into(), fop)
     }
+}
+
+/// A type for saving entries.
+pub enum SavingEntry<'a> {
+    /// A directory
+    Directory,
+    /// A file with data and a minimum compression constraint
+    File(&'a [u8], u16)
 }

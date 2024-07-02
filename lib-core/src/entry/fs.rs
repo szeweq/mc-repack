@@ -1,5 +1,5 @@
 use std::{fs, io, path::Path};
-use super::{EntryReader, EntrySaver, EntrySaverSpec, ReadEntry};
+use super::{EntryReader, EntrySaver, ReadEntry, SavingEntry};
 
 type FSEntry = io::Result<(Option<bool>, Box<Path>)>;
 
@@ -66,21 +66,18 @@ pub struct FSEntrySaver {
 }
 impl FSEntrySaver {
     /// Creates an entry saver with a destination directory path.
-    pub const fn new(dest_dir: Box<Path>) -> EntrySaver<Self> {
-        EntrySaver(Self { dest_dir })
+    pub const fn new(dest_dir: Box<Path>) -> Self {
+        Self { dest_dir }
     }
 }
-impl EntrySaverSpec for FSEntrySaver {
-    fn save_dir(&mut self, dir: &str) -> crate::Result_<()> {
-        let mut dp = self.dest_dir.to_path_buf();
-        dp.push(dir);
-        fs::create_dir(dp)?;
-        Ok(())
-    }
-    fn save_file(&mut self, fname: &str, buf: &[u8], _: u16) -> crate::Result_<()> {
-        let mut fp = self.dest_dir.to_path_buf();
-        fp.push(fname);
-        fs::write(fp, buf)?;
+impl EntrySaver for FSEntrySaver {
+    fn save(&mut self, name: &str, entry: SavingEntry) -> crate::Result_<()> {
+        let mut np = self.dest_dir.to_path_buf();
+        np.push(name);
+        match entry {
+            SavingEntry::Directory => fs::create_dir(np),
+            SavingEntry::File(buf, _) => fs::write(np, buf),
+        }?;
         Ok(())
     }
 }

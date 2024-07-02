@@ -4,7 +4,7 @@ use cli_args::{Cmd, FilesArgs, JarsArgs, RepackOpts};
 use crossbeam_channel::Sender;
 use indicatif::{ProgressBar, ProgressStyle, MultiProgress};
 
-use mc_repack_core::{cfg, entry::{self, EntryReader, EntrySaver, EntrySaverSpec}, errors::ErrorCollector, fop::TypeBlacklist, ProgressState};
+use mc_repack_core::{cfg, entry::{self, EntryReader, EntrySaver}, errors::ErrorCollector, fop::TypeBlacklist, ProgressState};
 
 mod cli_args;
 mod config;
@@ -199,9 +199,9 @@ fn print_entry_errors(ec: &ErrorCollector) {
     }
 }
 
-pub fn optimize_with<R: EntryReader + Send + 'static, S: EntrySaverSpec + Send + 'static>(
+pub fn optimize_with<R: EntryReader + Send + 'static, S: EntrySaver + Send + 'static>(
     reader: R,
-    saver: EntrySaver<S>,
+    saver: S,
     cfgmap: &cfg::ConfigMap,
     ps: &Sender<ProgressState>,
     errors: &mut ErrorCollector,
