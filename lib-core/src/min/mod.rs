@@ -36,6 +36,7 @@ fn brackets(b: &[u8]) -> Option<&[u8]> {
 }
 
 /// A type to determine a minifying method and minimum compress size for file data.
+#[derive(Clone)]
 pub enum Minifier {
     /// A PNG minifier using `oxipng`.
     #[cfg(feature = "png")] PNG,

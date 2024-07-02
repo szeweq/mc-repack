@@ -3,6 +3,7 @@ use std::collections::HashSet;
 use crate::{errors::FileIgnoreError, ext, min::Minifier};
 
 /// A file operation needed before a file is saved in repacked archive
+#[derive(Clone)]
 pub enum FileOp {
     /// Pass a file (no operation needed).
     Pass,

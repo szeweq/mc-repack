@@ -63,7 +63,7 @@ impl Display for EntryRepackError {
 }
 
 /// An error indicating a reason why a file cannot be repacked
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum FileIgnoreError {
     /// A processed file is blacklisted.
     Blacklisted,
