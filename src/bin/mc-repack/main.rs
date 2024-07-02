@@ -207,7 +207,7 @@ pub fn optimize_with<R: EntryReader + Send + 'static, S: EntrySaver + Send + 'st
     errors: &mut ErrorCollector,
     blacklist: Arc<TypeBlacklist>
 ) -> crate::Result_<()> {
-    let (tx, rx) = crossbeam_channel::bounded(16);
+    let (tx, rx) = crossbeam_channel::unbounded();
     let mut r1 = anyhow::Ok(());
     let mut r2 = anyhow::Ok(());
     rayon::scope_fifo(|s| {
