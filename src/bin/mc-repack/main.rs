@@ -4,7 +4,7 @@ use cli_args::{Cmd, FilesArgs, JarsArgs, RepackOpts};
 use crossbeam_channel::Sender;
 use indicatif::{ProgressBar, ProgressStyle, MultiProgress};
 
-use mc_repack_core::{cfg, entry::{self, EntryReader, EntrySaver}, errors::ErrorCollector, fop::TypeBlacklist, ProgressState};
+use mc_repack_core::{cfg, entry::{self, read_entry, EntryReader, EntrySaver}, errors::ErrorCollector, fop::TypeBlacklist, ProgressState};
 
 mod cli_args;
 mod config;
@@ -208,12 +208,26 @@ pub fn optimize_with<R: EntryReader + Send + 'static, S: EntrySaver + Send + 'st
     blacklist: Arc<TypeBlacklist>
 ) -> crate::Result_<()> {
     let (tx, rx) = crossbeam_channel::unbounded();
+    wrap_send(ps, ProgressState::Start(reader.read_len()))?;
     let mut r1 = anyhow::Ok(());
     let mut r2 = anyhow::Ok(());
     rayon::scope_fifo(|s| {
         let r1 = &mut r1;
         let r2 = &mut r2;
-        s.spawn_fifo(move |_| *r1 = reader.read_entries(|e| wrap_send(&tx, e), &blacklist));
+        s.spawn_fifo(move |_| {
+            let mut reader = reader;
+            for re in reader.read_iter() {
+                let r = match read_entry::<R>(re, &blacklist) {
+                    Ok(Some(ne)) => wrap_send(&tx, ne),
+                    Ok(None) => Ok(()),
+                    Err(e) => Err(e),
+                };
+                if let Err(e) = r {
+                    *r1 = Err(e);
+                    break;
+                }
+            }
+        });
         s.spawn_fifo(move |_| *r2 = saver.save_entries(rx, errors, cfgmap, |p| wrap_send(ps, p)));
     });
     match (r1, r2) {

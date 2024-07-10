@@ -28,31 +28,31 @@ pub trait EntryReader {
     /// Reads entries, checks if they are not blacklisted and sends them via `tx`.
     fn read_entries(
         mut self,
-        mut tx: impl FnMut(EntryType) -> crate::Result_<()>,
+        mut tx: impl FnMut(NamedEntry) -> crate::Result_<()>,
         blacklist: &TypeBlacklist
     ) -> crate::Result_<()> where Self: Sized {
-        tx(EntryType::Count(self.read_len()))?;
         for re in self.read_iter() {
-            let (is_dir, name) = re.meta();
-            let fop = FileOp::by_name(&name, blacklist);
-            let et = match is_dir {
-                Some(true) => {
-                    EntryType::dir(name)
-                }
-                Some(false) => {
-                    if let FileOp::Ignore(_) = fop {
-                        continue;
-                    }
-                    EntryType::file(name, re.data()?, fop)
-                }
-                None => {
-                    continue;
-                }
-            };
-            tx(et)?;
+            let Some(ne) = read_entry::<Self>(re, blacklist)? else { continue };
+            tx(ne)?;
         }
         Ok(())
     }
+}
+
+/// Reads an entry from an [`EntryReader`].
+pub fn read_entry<R: EntryReader>(re: R::RE<'_>, blacklist: &TypeBlacklist) -> crate::Result_<Option<NamedEntry>> {
+    let (is_dir, name) = re.meta();
+    let Some(is_dir) = is_dir else { return Ok(None) };
+    let et = if is_dir {
+        NamedEntry::dir(name)
+    } else {
+        let fop = FileOp::by_name(&name, blacklist);
+        if let FileOp::Ignore(_) = fop {
+            return Ok(None);
+        }
+        NamedEntry::file(name, re.data()?, fop)
+    };
+    Ok(Some(et))
 }
 
 /// An iterator for reading entries from an entry reader.
@@ -86,44 +86,41 @@ pub trait EntrySaver {
     /// Errors are collected with entry names.
     fn save_entries(
         mut self,
-        rx: impl IntoIterator<Item = EntryType>,
+        rx: impl IntoIterator<Item = NamedEntry>,
         ev: &mut ErrorCollector,
         cfgmap: &cfg::ConfigMap,
         mut ps: impl FnMut(ProgressState) -> crate::Result_<()>,
     ) -> crate::Result_<()> where Self: Sized {
         let mut cv = Vec::new();
         let mut n = 0;
-        for et in rx {
+        for NamedEntry(name, et) in rx {
             match et {
-                EntryType::Count(u) => {
-                    ps(ProgressState::Start(u))?;
+                EntryType::Directory => {
+                    self.save(&name, SavingEntry::Directory)?;
                 }
-                EntryType::Directory(dir) => {
-                    self.save(&dir, SavingEntry::Directory)?;
-                }
-                EntryType::File(fname, buf, fop) => {
-                    ps(ProgressState::Push(n, fname.clone()))?;
+                EntryType::File(buf, fop) => {
+                    ps(ProgressState::Push(n, name.clone()))?;
                     n += 1;
                     match fop {
                         FileOp::Ignore(e) => {
-                            ev.collect(fname.clone(), e.into());
+                            ev.collect(name.clone(), e.into());
                         }
                         FileOp::Minify(m) => {
                             let buf: &[u8] = match m.minify(cfgmap, &buf, &mut cv) {
                                 Ok(()) => &cv,
                                 Err(e) => {
-                                    ev.collect(fname.clone(), e);
+                                    ev.collect(name.clone(), e);
                                     &buf
                                 }
                             };
-                            self.save(&fname, SavingEntry::File(buf, m.compress_min()))?;
+                            self.save(&name, SavingEntry::File(buf, m.compress_min()))?;
                             cv.clear();
                         }
                         FileOp::Recompress(x) => {
-                            self.save(&fname, SavingEntry::File(&buf, x as u16))?;
+                            self.save(&name, SavingEntry::File(&buf, x as u16))?;
                         }
                         FileOp::Pass => {
-                            self.save(&fname, SavingEntry::File(&buf, 24))?;
+                            self.save(&name, SavingEntry::File(&buf, 24))?;
                         }
                     }
                 }
@@ -133,28 +130,29 @@ pub trait EntrySaver {
     }
 }
 
-/// An entry type based on extracted data from an archive
-#[derive(Clone)]
-pub enum EntryType {
-    /// Number of files stored in an archive
-    Count(usize),
-    /// A directory with its path
-    Directory(Arc<str>),
-    /// A file with its path, data and file operation
-    File(Arc<str>, Bytes, FileOp)
-}
-impl EntryType {
+/// An entry with its name and type.
+pub struct NamedEntry(pub Arc<str>, pub EntryType);
+impl NamedEntry {
     /// A shorthand function for creating a directory entry
     #[inline]
     pub fn dir(name: impl Into<Arc<str>>) -> Self {
-        Self::Directory(name.into())
+        Self(name.into(), EntryType::Directory)
     }
 
     /// A shorthand function for creating a file entry
     #[inline]
     pub fn file(name: impl Into<Arc<str>>, data: impl Into<Bytes>, fop: FileOp) -> Self {
-        Self::File(name.into(), data.into(), fop)
+        Self(name.into(), EntryType::File(data.into(), fop))
     }
+}
+
+/// An entry type based on extracted data from an archive
+#[derive(Clone)]
+pub enum EntryType {
+    /// A directory with its path
+    Directory,
+    /// A file with its path, data and file operation
+    File(Bytes, FileOp)
 }
 
 /// A type for saving entries.
