@@ -1,10 +1,10 @@
 use std::{fs, path::Path, sync::Arc};
 use clap::Parser;
 use cli_args::{Cmd, FilesArgs, JarsArgs, RepackOpts};
-use crossbeam_channel::Sender;
+use crossbeam_channel::{Receiver, Sender};
 use indicatif::{ProgressBar, ProgressStyle, MultiProgress};
 
-use mc_repack_core::{cfg, entry::{self, read_entry, EntryReader, EntrySaver}, errors::ErrorCollector, fop::TypeBlacklist, ProgressState};
+use mc_repack_core::{cfg, entry::{self, process_entry, read_entry, EntryReader, EntrySaver, NamedEntry, ReadEntryIter}, errors::ErrorCollector, fop::TypeBlacklist, ProgressState};
 
 mod cli_args;
 mod config;
@@ -92,8 +92,8 @@ fn process_jars(base: &Path, fit: FilesIter, jargs: &JarsArgs, opts: &mut Repack
                 db.create(np)?;
             }
             match optimize_with(
-                entry::ZipEntryReader::new_mem(fs::read(&fp)?)?,
-                entry::ZipEntrySaver::custom_compress(
+                &mut entry::ZipEntryReader::new_mem(fs::read(&fp)?)?,
+                &mut entry::ZipEntrySaver::custom_compress(
                     fs::File::create(&nfp)?,
                     jargs.keep_dirs,
                     clvl
@@ -102,17 +102,7 @@ fn process_jars(base: &Path, fit: FilesIter, jargs: &JarsArgs, opts: &mut Repack
             ) {
                 Ok(()) => {
                     if let Some(ref mut report) = opts.report {
-                        match (fs::metadata(&fp), fs::metadata(&nfp)) {
-                            (Ok(fm), Ok(nm)) => {
-                                report.push(&relname, fm.len(), nm.len());
-                            }
-                            (Err(e), Ok(_)) | (Ok(_), Err(e)) => {
-                                println!("Cannot report {}: {}", relname, e);
-                            }
-                            (Err(e1), Err(e2)) => {
-                                println!("Cannot report {}: {}, {}", relname, e1, e2);
-                            }
-                        }
+                        report_sizes(report, &relname, &fp, &nfp);
                     }
                 },
                 Err(e) => {
@@ -136,8 +126,8 @@ fn process_files(base: &Path, fit: FilesIter, fargs: &FilesArgs, opts: &mut Repa
     let pb2 = file_progress_bar();
     let ps = thread_progress_bar(pb2);
     optimize_with(
-        entry::FSEntryReader::custom(base.into(), fit),
-        entry::FSEntrySaver::new(fargs.out.clone().into_boxed_path()),
+        &mut entry::FSEntryReader::custom(base.into(), fit),
+        &mut entry::FSEntrySaver::new(fargs.out.clone().into_boxed_path()),
         cfgmap, &ps, ec, blacklist.clone()
     )?;
     drop(ps);
@@ -154,20 +144,24 @@ fn files_report(report: &mut report::Report, path: &Path, out: &Path) -> Result_
         let relname = relp.to_string_lossy();
         if matches!(ftype, Some(false)) {
             let nfp = out.join(&relp);
-            match (fs::metadata(&fp), fs::metadata(&nfp)) {
-                (Ok(fm), Ok(nm)) => {
-                    report.push(&relname, fm.len(), nm.len());
-                }
-                (Err(e), Ok(_)) | (Ok(_), Err(e)) => {
-                    println!("Cannot report {}: {}", relname, e);
-                }
-                (Err(e1), Err(e2)) => {
-                    println!("Cannot report {}: {}, {}", relname, e1, e2);
-                }
-            }
+            report_sizes(report, &relname, &fp, &nfp);
         }
     }
     Ok(())
+}
+
+fn report_sizes(report: &mut report::Report, relname: &str, fp: &Path, nfp: &Path) {
+    match (fs::metadata(fp), fs::metadata(nfp)) {
+        (Ok(fm), Ok(nm)) => {
+            report.push(relname, fm.len(), nm.len());
+        }
+        (Err(e), Ok(_)) | (Ok(_), Err(e)) => {
+            println!("Cannot report {}: {}", relname, e);
+        }
+        (Err(e1), Err(e2)) => {
+            println!("Cannot report {}: {}, {}", relname, e1, e2);
+        }
+    }
 }
 
 fn thread_progress_bar(pb: ProgressBar) -> Sender<ProgressState> {
@@ -200,8 +194,8 @@ fn print_entry_errors(ec: &ErrorCollector) {
 }
 
 pub fn optimize_with<R: EntryReader + Send + 'static, S: EntrySaver + Send + 'static>(
-    reader: R,
-    saver: S,
+    reader: &mut R,
+    saver: &mut S,
     cfgmap: &cfg::ConfigMap,
     ps: &Sender<ProgressState>,
     errors: &mut ErrorCollector,
@@ -215,26 +209,41 @@ pub fn optimize_with<R: EntryReader + Send + 'static, S: EntrySaver + Send + 'st
         let r1 = &mut r1;
         let r2 = &mut r2;
         s.spawn_fifo(move |_| {
-            let mut reader = reader;
-            for re in reader.read_iter() {
-                let r = match read_entry::<R>(re, &blacklist) {
-                    Ok(Some(ne)) => wrap_send(&tx, ne),
-                    Ok(None) => Ok(()),
-                    Err(e) => Err(e),
-                };
-                if let Err(e) = r {
-                    *r1 = Err(e);
-                    break;
-                }
-            }
+            //let mut reader = reader;
+            *r1 = reading(reader.read_iter(), tx, blacklist)
         });
-        s.spawn_fifo(move |_| *r2 = saver.save_entries(rx, errors, cfgmap, |p| wrap_send(ps, p)));
+        s.spawn_fifo(move |_| {
+            //let mut saver = saver;
+            *r2 = saving(saver, rx, ps, errors, cfgmap)
+        });
     });
     match (r1, r2) {
         (Ok(_), Ok(_)) => Ok(()),
         (Err(e), Ok(_)) | (Ok(_), Err(e)) => Err(e),
         (Err(e1), Err(e2)) => Err(anyhow::anyhow!("Two errors: {} {}", e1, e2)),
     }
+}
+
+fn reading<R: EntryReader>(iter: ReadEntryIter<R>, tx: Sender<NamedEntry>, blacklist: Arc<TypeBlacklist>) -> Result_<()> {
+    for re in iter {
+        if let Some(ne) = read_entry::<R>(re, &blacklist)? {
+            wrap_send(&tx, ne)?;
+        };
+    }
+    Ok(())
+}
+fn saving<S: EntrySaver>(saver: &mut S, rx: Receiver<NamedEntry>, ps: &Sender<ProgressState>, errors: &mut ErrorCollector, cfgmap: &cfg::ConfigMap) -> Result_<()> {
+    let mut cv = Vec::new();
+    for (n, ne) in rx.into_iter().enumerate() {
+        wrap_send(ps, ProgressState::Push(n, ne.0.clone()))?;
+        if let Some(se) = process_entry(&mut cv, &ne, errors, cfgmap) {
+            saver.save(&ne.0, se)?;
+            if !cv.is_empty() {
+                cv.clear();
+            }
+        }
+    }
+    wrap_send(ps, ProgressState::Finish)
 }
 
 fn wrap_send<T>(s: &Sender<T>, t: T) -> Result_<()> {

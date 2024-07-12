@@ -92,42 +92,49 @@ pub trait EntrySaver {
         mut ps: impl FnMut(ProgressState) -> crate::Result_<()>,
     ) -> crate::Result_<()> where Self: Sized {
         let mut cv = Vec::new();
-        let mut n = 0;
-        for NamedEntry(name, et) in rx {
-            match et {
-                EntryType::Directory => {
-                    self.save(&name, SavingEntry::Directory)?;
-                }
-                EntryType::File(buf, fop) => {
-                    ps(ProgressState::Push(n, name.clone()))?;
-                    n += 1;
-                    match fop {
-                        FileOp::Ignore(e) => {
-                            ev.collect(name.clone(), e.into());
-                        }
-                        FileOp::Minify(m) => {
-                            let buf: &[u8] = match m.minify(cfgmap, &buf, &mut cv) {
-                                Ok(()) => &cv,
-                                Err(e) => {
-                                    ev.collect(name.clone(), e);
-                                    &buf
-                                }
-                            };
-                            self.save(&name, SavingEntry::File(buf, m.compress_min()))?;
-                            cv.clear();
-                        }
-                        FileOp::Recompress(x) => {
-                            self.save(&name, SavingEntry::File(&buf, x as u16))?;
-                        }
-                        FileOp::Pass => {
-                            self.save(&name, SavingEntry::File(&buf, 24))?;
-                        }
-                    }
-                }
+        for (n, ne) in rx.into_iter().enumerate() {
+            ps(ProgressState::Push(n, ne.0.clone()))?;
+            if let Some(se) = process_entry(&mut cv, &ne, ev, cfgmap) {
+                self.save(&ne.0, se)?;
             }
         }
         ps(ProgressState::Finish)
     }
+}
+
+/// Saves an entry with the [`EntrySaver`].
+pub fn process_entry<'a>(
+    cbuf: &'a mut Vec<u8>,
+    NamedEntry(name, et): &'a NamedEntry, 
+    ev: &mut ErrorCollector,
+    cfgmap: &cfg::ConfigMap,
+) -> Option<SavingEntry<'a>> {
+    let se = match et {
+        EntryType::Directory => SavingEntry::Directory,
+        EntryType::File(buf, fop) => {
+            match fop {
+                FileOp::Ignore(e) => {
+                    ev.collect(name.clone(), e.clone().into());
+                    return None;
+                }
+                FileOp::Minify(m) => {
+                    let buf: &[u8] = match m.minify(cfgmap, buf, cbuf) {
+                        Ok(()) => cbuf,
+                        Err(e) => {
+                            ev.collect(name.clone(), e);
+                            buf
+                        }
+                    };
+                    SavingEntry::File(buf, m.compress_min())
+                }
+                FileOp::Recompress(x) => SavingEntry::File(buf, *x as u16),
+                FileOp::Pass => SavingEntry::File(buf, 24)
+            }
+        }
+    };
+    Some(se)
+    //saver.save(&name, se)?;
+    //Ok(())
 }
 
 /// An entry with its name and type.
