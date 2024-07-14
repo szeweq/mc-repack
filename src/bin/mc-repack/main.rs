@@ -1,4 +1,4 @@
-use std::{fs, path::Path, sync::Arc};
+use std::{fs, path::Path, sync::Arc, io};
 use clap::Parser;
 use cli_args::{Cmd, FilesArgs, JarsArgs, RepackOpts};
 use crossbeam_channel::{Receiver, Sender};
@@ -254,14 +254,14 @@ fn invalid_file_name<T>() -> Result_<T> {
     anyhow::bail!("invalid file name")
 }
 
-type FileResult = std::io::Result<(Option<bool>, Box<Path>)>;
+type FileResult = io::Result<(Option<bool>, Box<Path>)>;
 
 enum FilesIter {
     Single(Option<FileResult>),
     Dir(std::vec::IntoIter<FileResult>)
 }
 impl FilesIter {
-    pub fn from_path(p: &Path) -> std::io::Result<(Box<Path>, Self)> {
+    pub fn from_path(p: &Path) -> io::Result<(Box<Path>, Self)> {
         let ft = p.metadata()?.file_type();
         let p: Box<Path> = Box::from(p);
         if ft.is_dir() {
@@ -270,7 +270,7 @@ impl FilesIter {
             let parent = p.parent().unwrap();
             Ok((parent.into(), Self::Single(Some(Ok((Some(false), p))))))
         } else {
-            Err(std::io::Error::new(std::io::ErrorKind::Other, "Not a file or directory"))
+            Err(io::Error::new(io::ErrorKind::Other, "Not a file or directory"))
         }
     }
 }
