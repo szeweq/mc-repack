@@ -90,6 +90,7 @@ impl Default for CfgZopfli {
 impl CfgZopfli {
     /// Returns the iteration count based on its state.
     #[inline]
+    #[must_use]
     pub const fn iter_count(&self) -> Option<std::num::NonZeroU8> {
         match self {
             Self::Switch(false) => None,

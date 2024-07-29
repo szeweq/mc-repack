@@ -34,7 +34,8 @@ pub enum KnownFmt {
     Other([u8; 3])
 }
 impl KnownFmt {
-    /// Return a KnownFmt based on file extension.
+    /// Return a `KnownFmt` based on file extension.
+    #[must_use]
     pub fn by_extension(ftype: &str) -> Option<Self> {
         Some(match ftype.to_ascii_lowercase().as_str() {
             "json" | "mcmeta" => Self::Json,
