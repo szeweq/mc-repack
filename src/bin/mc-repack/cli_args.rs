@@ -2,7 +2,7 @@ use std::{io, path::PathBuf, sync::Arc};
 
 use mc_repack_core::{fop::TypeBlacklist, min};
 
-use crate::{config, report};
+use crate::{config::Config, report};
 
 
 #[derive(Debug, clap::Parser)]
@@ -96,7 +96,7 @@ impl RepackOpts {
     pub fn from_args(args: &CommonArgs) -> Self {
         let cfgmap = mc_repack_core::cfg::ConfigMap::default();
         let mut blacklist = None;
-        match config::read_config(args.config.clone()) {
+        match Config::read(args.config.clone()) {
             Ok(c) => {
                 cfgset!(c, cfgmap,
                     json: min::json::MinifierJSON,
