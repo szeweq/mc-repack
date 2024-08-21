@@ -1,27 +1,28 @@
-use std::{fs, path::Path, sync::Arc, io};
+use std::{fs, path::Path, sync::Arc};
 use clap::Parser;
 use cli_args::{Cmd, FilesArgs, JarsArgs, RepackOpts};
 use crossbeam_channel::{Receiver, Sender};
 use indicatif::{ProgressBar, ProgressStyle, MultiProgress};
-
+use iter::Files;
 use mc_repack_core::{cfg, entry::{self, process_entry, read_entry, EntryReader, EntrySaver, NamedEntry, ReadEntryIter}, errors::ErrorCollector, fop::TypeBlacklist, ProgressState};
 
 mod cli_args;
 mod config;
 mod report;
+mod iter;
 
 type Error_ = anyhow::Error;
 type Result_<T> = Result<T, Error_>;
 
 fn main() -> Result_<()> {
+    println!(include_str!("intro.txt"));
     let args = cli_args::Args::parse();
-    println!("█▀▄▀█ █▀▀ ▄▄ █▀█ █▀▀ █▀█ ▄▀█ █▀▀ █▄▀ by Szeweq\n█ ▀ █ █▄▄    █▀▄ ██▄ █▀▀ █▀█ █▄▄ █ █ (https://szeweq.xyz/mc-repack)\n");
     
     match &args.cmd {
         Cmd::Jars(ja) => {
             let path = &ja.path;
             let mut repack_opts = RepackOpts::from_args(&ja.common);
-            let (base, fit) = FilesIter::from_path(path)?;
+            let (base, fit) = Files::from_path(path)?;
             process_jars(&base, fit, ja, &mut repack_opts)?;
             if let Some(ref report) = repack_opts.report {
                 report.save_csv()?;
@@ -31,7 +32,7 @@ fn main() -> Result_<()> {
         Cmd::Files(fa) => {
             let path = &fa.path;
             let mut repack_opts = RepackOpts::from_args(&fa.common);
-            let (base, fit) = FilesIter::from_path(path)?;
+            let (base, fit) = Files::from_path(path)?;
             process_files(&base, fit, fa, &mut repack_opts)?;
             if let Some(ref mut report) = repack_opts.report {
                 files_report(report, path, &fa.out)?;
@@ -59,7 +60,7 @@ fn file_progress_bar() -> ProgressBar {
     )
 }
 
-fn process_jars(base: &Path, fit: FilesIter, jargs: &JarsArgs, opts: &mut RepackOpts) -> Result_<()> {
+fn process_jars(base: &Path, fit: Files, jargs: &JarsArgs, opts: &mut RepackOpts) -> Result_<()> {
     let RepackOpts { ref blacklist, ref cfgmap, .. } = opts;
     let ec = &mut opts.err_collect;
     let clvl = 9 + jargs.zopfli.map_or(0, |x| x.get() as i64);
@@ -120,7 +121,7 @@ fn process_jars(base: &Path, fit: FilesIter, jargs: &JarsArgs, opts: &mut Repack
     Ok(())
 }
 
-fn process_files(base: &Path, fit: FilesIter, fargs: &FilesArgs, opts: &mut RepackOpts) -> Result_<()> {
+fn process_files(base: &Path, fit: Files, fargs: &FilesArgs, opts: &mut RepackOpts) -> Result_<()> {
     let RepackOpts { ref blacklist, ref cfgmap, .. } = opts;
     let ec = &mut opts.err_collect;
     let pb2 = file_progress_bar();
@@ -135,7 +136,7 @@ fn process_files(base: &Path, fit: FilesIter, fargs: &FilesArgs, opts: &mut Repa
 }
 
 fn files_report(report: &mut report::Report, path: &Path, out: &Path) -> Result_<()> {
-    let (base, fit) = FilesIter::from_path(path)?;
+    let (base, fit) = Files::from_path(path)?;
     for fp in fit {
         let (ftype, fp) = fp?;
         let Some(relp) = pathdiff::diff_paths(&fp, &base) else {
@@ -196,7 +197,7 @@ fn print_entry_errors(ec: &ErrorCollector) {
     }
 }
 
-pub fn optimize_with<R: EntryReader + Send + 'static, S: EntrySaver + Send + 'static>(
+fn optimize_with<R: EntryReader + Send + 'static, S: EntrySaver + Send + 'static>(
     reader: &mut R,
     saver: &mut S,
     cfgmap: &cfg::ConfigMap,
@@ -211,26 +212,20 @@ pub fn optimize_with<R: EntryReader + Send + 'static, S: EntrySaver + Send + 'st
     rayon::scope_fifo(|s| {
         let r1 = &mut r1;
         let r2 = &mut r2;
-        s.spawn_fifo(move |_| {
-            //let mut reader = reader;
-            *r1 = reading(reader.read_iter(), tx, blacklist)
-        });
-        s.spawn_fifo(move |_| {
-            //let mut saver = saver;
-            *r2 = saving(saver, rx, ps, errors, cfgmap)
-        });
+        s.spawn_fifo(move |_| *r1 = reading(reader.read_iter(), &tx, &blacklist));
+        s.spawn_fifo(move |_| *r2 = saving(saver, rx, ps, errors, cfgmap));
     });
     match (r1, r2) {
-        (Ok(_), Ok(_)) => Ok(()),
-        (Err(e), Ok(_)) | (Ok(_), Err(e)) => Err(e),
+        (Ok(()), Ok(())) => Ok(()),
+        (Err(e), Ok(())) | (Ok(()), Err(e)) => Err(e),
         (Err(e1), Err(e2)) => Err(anyhow::anyhow!("Two errors: {} {}", e1, e2)),
     }
 }
 
-fn reading<R: EntryReader>(iter: ReadEntryIter<R>, tx: Sender<NamedEntry>, blacklist: Arc<TypeBlacklist>) -> Result_<()> {
+fn reading<R: EntryReader>(iter: ReadEntryIter<R>, tx: &Sender<NamedEntry>, blacklist: &TypeBlacklist) -> Result_<()> {
     for re in iter {
-        if let Some(ne) = read_entry::<R>(re, &blacklist)? {
-            wrap_send(&tx, ne)?;
+        if let Some(ne) = read_entry::<R>(re, blacklist)? {
+            wrap_send(tx, ne)?;
         };
     }
     Ok(())
@@ -255,62 +250,4 @@ fn wrap_send<T>(s: &Sender<T>, t: T) -> Result_<()> {
 
 fn invalid_file_name<T>() -> Result_<T> {
     anyhow::bail!("invalid file name")
-}
-
-type FileResult = io::Result<(Option<bool>, Box<Path>)>;
-
-enum FilesIter {
-    Single(Option<FileResult>),
-    Dir(std::vec::IntoIter<FileResult>)
-}
-impl FilesIter {
-    pub fn from_path(p: &Path) -> io::Result<(Box<Path>, Self)> {
-        let ft = p.metadata()?.file_type();
-        let p: Box<Path> = Box::from(p);
-        if ft.is_dir() {
-            Ok((p.clone(), Self::Dir(walkdir::WalkDir::new(p).into_iter().map(|r| Ok(check_dir_entry(r?))).collect::<Vec<_>>().into_iter())))
-        } else if ft.is_file() {
-            let parent = p.parent().unwrap();
-            Ok((parent.into(), Self::Single(Some(Ok((Some(false), p))))))
-        } else {
-            Err(io::Error::new(io::ErrorKind::Other, "Not a file or directory"))
-        }
-    }
-}
-impl Iterator for FilesIter {
-    type Item = FileResult;
-    fn next(&mut self) -> Option<Self::Item> {
-        match self {
-            Self::Single(it) => it.take(),
-            Self::Dir(it) => it.next()
-        }
-    }
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        match self {
-            Self::Single(Some(_)) => (1, Some(1)),
-            Self::Single(None) => (0, Some(0)),
-            Self::Dir(it) => it.size_hint()
-        }
-    }
-}
-impl ExactSizeIterator for FilesIter {
-    fn len(&self) -> usize {
-        match self {
-            Self::Single(Some(_)) => 1,
-            Self::Single(None) => 0,
-            Self::Dir(it) => it.len()
-        }
-    }
-}
-
-fn check_dir_entry(de: walkdir::DirEntry) -> (Option<bool>, Box<Path>) {
-    let ft = de.file_type();
-    let p = de.into_path().into_boxed_path();
-    (if ft.is_dir() {
-        Some(true)
-    } else if ft.is_file() {
-        Some(false)
-    } else {
-        None
-    }, p)
 }
