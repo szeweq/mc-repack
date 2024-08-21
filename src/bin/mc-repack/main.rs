@@ -155,11 +155,14 @@ fn report_sizes(report: &mut report::Report, relname: &str, fp: &Path, nfp: &Pat
         (Ok(fm), Ok(nm)) => {
             report.push(relname, fm.len(), nm.len());
         }
-        (Err(e), Ok(_)) | (Ok(_), Err(e)) => {
-            println!("Cannot report {}: {}", relname, e);
+        (Err(e), Ok(_)) => {
+            println!("Cannot report {relname} (from input): {e}");
+        }
+        (Ok(_), Err(e)) => {
+            println!("Cannot report {relname} (from output): {e}");
         }
         (Err(e1), Err(e2)) => {
-            println!("Cannot report {}: {}, {}", relname, e1, e2);
+            println!("Cannot report {relname} (from both): {e1}, {e2}");
         }
     }
 }
