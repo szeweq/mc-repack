@@ -17,8 +17,8 @@ rust-version = "1.75.0"
 members = ["bench","lib-core"]
 
 [workspace.dependencies]
-zip = {version = "^2.1.0", default-features = false}
-toml = "^0.8.0"
+zip = {version = "2.2", default-features = false}
+toml = "0.8"
 serde = "1.0"
 anyhow = "1.0"
 walkdir = "2.5"
@@ -35,7 +35,7 @@ serde = {workspace = true}
 toml = {workspace = true, features = ["preserve_order"]}
 walkdir = {workspace = true}
 pathdiff = "^0.2.1"
-rayon = "^1.10"
+rayon = "1.10"
 
 # CLI Dependencies
 clap = {version = "4.5", features = ["derive", "cargo"]}
@@ -45,3 +45,7 @@ indicatif = {version = "0.17"}
 lto = true
 codegen-units = 1
 strip = "symbols"
+
+[lints.clippy]
+nursery = "warn"
+pedantic = "warn"
