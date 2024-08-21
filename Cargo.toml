@@ -48,4 +48,3 @@ strip = "symbols"
 
 [lints.clippy]
 nursery = "warn"
-pedantic = "warn"
