@@ -10,14 +10,14 @@ impl Report {
     }
     pub fn save_csv(&self) -> io::Result<()> {
         use io::Write;
-        fn write_impl(w: &mut fs::File, v: &[(Box<str>, u64, u64)]) -> io::Result<()> {
+        fn write_impl(w: &mut io::BufWriter<fs::File>, v: &[(Box<str>, u64, u64)]) -> io::Result<()> {
             writeln!(w, "name,old_size,new_size")?;
             for (name, old_size, new_size) in v {
                 writeln!(w, "{name},{old_size},{new_size}")?;
             }
             Ok(())
         }
-        let mut w = fs::File::create(&self.0)?;
+        let mut w = io::BufWriter::new(fs::File::create(&self.0)?);
         if let Err(e) = write_impl(&mut w, &self.1) {
             fs::remove_file(&self.0)?;
             return Err(e);
