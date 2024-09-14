@@ -2,7 +2,7 @@ use std::{fs, io, path};
 
 pub struct Report(Box<path::Path>, Vec<(Box<str>, u64, u64)>);
 impl Report {
-    pub fn new(p: Box<path::Path>) -> Self {
+    pub const fn new(p: Box<path::Path>) -> Self {
         Self(p, Vec::new())
     }
     pub fn push(&mut self, name: &str, old_size: u64, new_size: u64) {
