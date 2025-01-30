@@ -58,6 +58,6 @@ impl TypeBlacklist {
             }
             Self::Override(x) => x
         };
-        inner.as_ref().map_or(false, |x| x.contains(s))
+        inner.as_ref().is_some_and(|x| x.contains(s))
     }
 }

@@ -63,7 +63,7 @@ fn file_progress_bar() -> ProgressBar {
 fn process_jars(base: &Path, fit: Files, jargs: &JarsArgs, opts: &mut RepackOpts) -> Result_<()> {
     let RepackOpts { ref blacklist, ref cfgmap, .. } = opts;
     let ec = &mut opts.err_collect;
-    let clvl = 9 + jargs.zopfli.map_or(0, |x| x.get() as i64);
+    let clvl = 9 + jargs.zopfli.map_or(0, |x| i64::from(x.get()));
     let mp = MultiProgress::new();
 
     let mut db = fs::DirBuilder::new();
@@ -85,7 +85,7 @@ fn process_jars(base: &Path, fit: Files, jargs: &JarsArgs, opts: &mut RepackOpts
         };
         let relname = relp.to_string_lossy();
         let fname = fname.to_string_lossy();
-        if matches!(ftype, Some(false)) && matches!(relp.extension().map(|x| x.as_encoded_bytes()), Some(b"jar" | b"zip")) {
+        if matches!(ftype, Some(false)) && matches!(relp.extension().map(std::ffi::OsStr::as_encoded_bytes), Some(b"jar" | b"zip")) {
             ec.rename(&relname);
             pb.set_message(fname.to_string());
             let nfp = jargs.out.join(&relp);
