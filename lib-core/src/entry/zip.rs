@@ -1,37 +1,46 @@
-use std::io::{BufReader, BufWriter, Cursor, Read, Seek, Write};
 use bytes::Bytes;
-use zip::{write::{FileOptions, SimpleFileOptions}, CompressionMethod, ZipArchive, ZipWriter};
+use std::io::{BufReader, BufWriter, Cursor, Read, Seek, Write};
+use zip::{
+    CompressionMethod, ZipArchive, ZipWriter,
+    write::{FileOptions, SimpleFileOptions},
+};
 
-use crate::Result_;
 use super::{EntryReader, EntrySaver, ReadEntry, SavingEntry};
+use crate::Result_;
 
 /// An entry reader implementation for ZIP archive. It reads its contents from a provided reader (with seeking).
 pub struct ZipEntryReader<R: Read + Seek> {
     za: ZipArchive<R>,
-    cur: usize
+    cur: usize,
 }
-impl <R: Read + Seek> ZipEntryReader<R> {
+impl<R: Read + Seek> ZipEntryReader<R> {
     /// Creates an entry reader with a specified reader.
     pub fn new(r: R) -> Result_<Self> {
-        Ok(Self { za: ZipArchive::new(r)?, cur: 0 })
+        Ok(Self {
+            za: ZipArchive::new(r)?,
+            cur: 0,
+        })
     }
 }
-impl <R: Read + Seek> ZipEntryReader<BufReader<R>> {
+impl<R: Read + Seek> ZipEntryReader<BufReader<R>> {
     /// Creates an entry reader wrapping a specified reader with a [`BufReader`].
     #[inline]
     pub fn new_buf(r: R) -> Result_<Self> {
         Self::new(BufReader::new(r))
     }
 }
-impl <T: AsRef<[u8]>> ZipEntryReader<Cursor<T>> {
+impl<T: AsRef<[u8]>> ZipEntryReader<Cursor<T>> {
     /// Creates an entry reader wrapping a specified reader with a [`Cursor`].
     #[inline]
     pub fn new_mem(t: T) -> Result_<Self> {
         Self::new(Cursor::new(t))
     }
 }
-impl <R: Read + Seek> EntryReader for ZipEntryReader<R> {
-    type RE<'a> = ReadZipFileEntry<'a, R> where R: 'a;
+impl<R: Read + Seek> EntryReader for ZipEntryReader<R> {
+    type RE<'a>
+        = ReadZipFileEntry<'a, R>
+    where
+        R: 'a;
     fn read_next(&mut self) -> Option<Self::RE<'_>> {
         let za = &mut self.za;
         let jfc = za.len();
@@ -52,14 +61,13 @@ impl <R: Read + Seek> EntryReader for ZipEntryReader<R> {
 /// A read entry of a ZIP archive.
 pub struct ReadZipFileEntry<'a, RS: Read + Seek> {
     zip: &'a mut ZipArchive<RS>,
-    idx: usize
+    idx: usize,
 }
-impl <'a, RS: Read + Seek> ReadEntry for ReadZipFileEntry<'a, RS> {
+impl<RS: Read + Seek> ReadEntry for ReadZipFileEntry<'_, RS> {
     fn meta(&self) -> (Option<bool>, Box<str>) {
-        self.zip.name_for_index(self.idx).map_or_else(
-            || (None, "".into()),
-            |n| (Some(n.ends_with('/')), n.into())
-        )
+        self.zip
+            .name_for_index(self.idx)
+            .map_or_else(|| (None, "".into()), |n| (Some(n.ends_with('/')), n.into()))
     }
     fn data(self) -> crate::Result_<Bytes> {
         let mut obuf = Vec::new();
@@ -81,22 +89,32 @@ pub struct ZipEntrySaver<W: Write + Seek> {
     w: ZipWriter<BufWriter<W>>,
     keep_dirs: bool,
     opts_deflated: SimpleFileOptions,
-    opts_stored: SimpleFileOptions
+    opts_stored: SimpleFileOptions,
 }
-impl <W: Write + Seek> ZipEntrySaver<W> {
+impl<W: Write + Seek> ZipEntrySaver<W> {
     /// Creates an entry saver with a seekable writer.
     pub fn new(w: W, keep_dirs: bool) -> Self {
         Self {
             w: ZipWriter::new(BufWriter::new(w)),
             keep_dirs,
-            opts_deflated: FileOptions::default().compression_method(CompressionMethod::Deflated).compression_level(Some(MAX_LEVEL)),
+            opts_deflated: FileOptions::default()
+                .compression_method(CompressionMethod::Deflated)
+                .compression_level(Some(MAX_LEVEL)),
             opts_stored: FileOptions::default().compression_method(CompressionMethod::Stored),
         }
     }
     /// Creates an entry saver with custom file options for ZIP archive and a seekable writer.
-    pub fn custom(w: W, keep_dirs: bool, opts_stored: SimpleFileOptions, opts_deflated: SimpleFileOptions) -> Self {
+    pub fn custom(
+        w: W,
+        keep_dirs: bool,
+        opts_stored: SimpleFileOptions,
+        opts_deflated: SimpleFileOptions,
+    ) -> Self {
         Self {
-            w: ZipWriter::new(BufWriter::new(w)), keep_dirs, opts_deflated, opts_stored
+            w: ZipWriter::new(BufWriter::new(w)),
+            keep_dirs,
+            opts_deflated,
+            opts_stored,
         }
     }
     /// Creates an entry saver with custom compression level for deflated entries of ZIP archive and a seekable writer.
@@ -104,12 +122,14 @@ impl <W: Write + Seek> ZipEntrySaver<W> {
         Self {
             w: ZipWriter::new(BufWriter::new(w)),
             keep_dirs,
-            opts_deflated: FileOptions::default().compression_method(CompressionMethod::Deflated).compression_level(Some(compress.into())),
+            opts_deflated: FileOptions::default()
+                .compression_method(CompressionMethod::Deflated)
+                .compression_level(Some(compress.into())),
             opts_stored: FileOptions::default().compression_method(CompressionMethod::Stored),
         }
     }
 }
-impl <W: Write + Seek> EntrySaver for ZipEntrySaver<W> {
+impl<W: Write + Seek> EntrySaver for ZipEntrySaver<W> {
     fn save(&mut self, name: &str, entry: SavingEntry) -> crate::Result_<()> {
         let z = &mut self.w;
         match entry {
@@ -119,11 +139,14 @@ impl <W: Write + Seek> EntrySaver for ZipEntrySaver<W> {
                 }
             }
             SavingEntry::File(data, compress_min) => {
-                z.start_file(name, if compress_check(data, compress_min as usize) {
-                    self.opts_deflated
-                } else {
-                    self.opts_stored
-                })?;
+                z.start_file(
+                    name,
+                    if compress_check(data, compress_min as usize) {
+                        self.opts_deflated
+                    } else {
+                        self.opts_stored
+                    },
+                )?;
                 z.write_all(data)?;
             }
         }
@@ -135,22 +158,39 @@ impl <W: Write + Seek> EntrySaver for ZipEntrySaver<W> {
 pub fn compress_check(b: &[u8], compress_min: usize) -> bool {
     let lb = b.len();
     if lb > compress_min {
-        if calc_entropy(b) < 7.0 { return true }
-        let mut d = flate2::write::DeflateEncoder::new(std::io::sink(), flate2::Compression::best());
-        if d.write_all(b).and_then(|_| d.try_finish()).is_ok() && d.total_out() as usize + 8 < lb { return true }
+        if calc_entropy(b) < 7.0 {
+            return true;
+        }
+        let mut d =
+            flate2::write::DeflateEncoder::new(std::io::sink(), flate2::Compression::best());
+        if d.write_all(b).and_then(|_| d.try_finish()).is_ok() && d.total_out() as usize + 8 < lb {
+            return true;
+        }
     }
     false
 }
 
-fn calc_entropy(b: &[u8]) -> f32 {
-    if b.is_empty() { return 0.0; }
+fn calc_entropy(b: &[u8]) -> f64 {
+    if b.is_empty() {
+        return 0.0;
+    }
     let mut freq = [0usize; 256];
-    for &b in b { freq[b as usize] += 1; }
-    let total = b.len() as f32;
+    for &b in b {
+        freq[b as usize] += 1;
+    }
+    let total = b.len() as f64;
     let logt = total.log2();
-    let e = freq.into_iter().filter(|&f| f != 0)
-        .map(|f| -(f as f32) * ((f as f32).log2() - logt))
-        .sum::<f32>() / total;
-    assert!((0.0..=8.0).contains(&e), "Invalid entropy: {}", e);
+    let e = freq
+        .into_iter()
+        .filter_map(|f| match f {
+            0 => None,
+            n => {
+                let nf = n as f64;
+                Some(-nf * (nf.log2() - logt))
+            }
+        })
+        .sum::<f64>()
+        / total;
+    assert!((0.0..=8.0).contains(&e), "Invalid entropy: {e}");
     e
 }
