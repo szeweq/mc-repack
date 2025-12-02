@@ -15,6 +15,10 @@ pub struct ZipEntryReader<R: Read + Seek> {
 }
 impl<R: Read + Seek> ZipEntryReader<R> {
     /// Creates an entry reader with a specified reader.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the reader content is not a valid ZIP archive.
     pub fn new(r: R) -> Result_<Self> {
         Ok(Self {
             za: ZipArchive::new(r)?,
@@ -24,6 +28,10 @@ impl<R: Read + Seek> ZipEntryReader<R> {
 }
 impl<R: Read + Seek> ZipEntryReader<BufReader<R>> {
     /// Creates an entry reader wrapping a specified reader with a [`BufReader`].
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the reader content is not a valid ZIP archive.
     #[inline]
     pub fn new_buf(r: R) -> Result_<Self> {
         Self::new(BufReader::new(r))
@@ -31,6 +39,10 @@ impl<R: Read + Seek> ZipEntryReader<BufReader<R>> {
 }
 impl<T: AsRef<[u8]>> ZipEntryReader<Cursor<T>> {
     /// Creates an entry reader wrapping a specified reader with a [`Cursor`].
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the reader content is not a valid ZIP archive.
     #[inline]
     pub fn new_mem(t: T) -> Result_<Self> {
         Self::new(Cursor::new(t))

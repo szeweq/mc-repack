@@ -36,6 +36,10 @@ pub trait EntryReader {
     }
 
     /// Reads entries, checks if they are not blacklisted and sends them via `tx`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if an entry is blacklisted or if an error occurs while reading an entry.
     fn read_entries(
         mut self,
         mut tx: impl FnMut(NamedEntry) -> crate::Result_<()>,
@@ -55,6 +59,10 @@ pub trait EntryReader {
 }
 
 /// Reads an entry from an [`EntryReader`].
+///
+/// # Errors
+///
+/// Returns an error if an entry is blacklisted or if an error occurs while reading an entry.
 pub fn read_entry<R: EntryReader>(
     re: R::RE<'_>,
     blacklist: &TypeBlacklist,
@@ -94,16 +102,28 @@ pub trait ReadEntry {
     fn meta(&self) -> (Option<bool>, Box<str>);
 
     /// Reads the entry data.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if an error occurs while reading the entry data.
     fn data(self) -> crate::Result_<Bytes>;
 }
 
 /// Saves entries in a file-based system. Typically used with `EntryReader`.
 pub trait EntrySaver {
     /// Saves an entry.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if an error occurs while saving the entry.
     fn save(&mut self, name: &str, entry: SavingEntry) -> crate::Result_<()>;
 
     /// Receives entries from `rx`, optimizes, sends progress (via `ps`), and saves them.
     /// Errors are collected with entry names.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if an error occurs while saving the entries.
     fn save_entries(
         mut self,
         rx: impl IntoIterator<Item = NamedEntry>,
@@ -149,7 +169,7 @@ pub fn process_entry<'a>(
                 };
                 SavingEntry::File(buf, m.compress_min())
             }
-            FileOp::Recompress(x) => SavingEntry::File(buf, *x as u16),
+            FileOp::Recompress(x) => SavingEntry::File(buf, u16::from(*x)),
             FileOp::Pass => SavingEntry::File(buf, 24),
         },
     };
