@@ -1,11 +1,14 @@
-
 /// Entry reader and saver for a file system.
 pub mod fs;
 /// Entry reader and saver for ZIP archives.
 pub mod zip;
 
+use crate::{
+    ProgressState, cfg,
+    errors::ErrorCollector,
+    fop::{FileOp, TypeBlacklist},
+};
 use std::sync::Arc;
-use crate::{cfg, errors::ErrorCollector, fop::{FileOp, TypeBlacklist}, ProgressState};
 
 use bytes::Bytes;
 pub use fs::{FSEntryReader, FSEntrySaver};
@@ -14,7 +17,9 @@ pub use zip::{ZipEntryReader, ZipEntrySaver};
 /// Reads entries from a file-based system. Typically used with `EntrySaver`.
 pub trait EntryReader {
     /// A type for reading entries.
-    type RE<'a>: ReadEntry where Self: 'a;
+    type RE<'a>: ReadEntry
+    where
+        Self: 'a;
 
     /// Reads the next entry.
     fn read_next(&mut self) -> Option<Self::RE<'_>>;
@@ -23,16 +28,26 @@ pub trait EntryReader {
     fn read_len(&self) -> usize;
 
     /// Creates an iterator for reading entries.
-    fn read_iter(&mut self) -> ReadEntryIter<Self> where Self: Sized { ReadEntryIter(self) }
+    fn read_iter(&mut self) -> ReadEntryIter<'_, Self>
+    where
+        Self: Sized,
+    {
+        ReadEntryIter(self)
+    }
 
     /// Reads entries, checks if they are not blacklisted and sends them via `tx`.
     fn read_entries(
         mut self,
         mut tx: impl FnMut(NamedEntry) -> crate::Result_<()>,
-        blacklist: &TypeBlacklist
-    ) -> crate::Result_<()> where Self: Sized {
+        blacklist: &TypeBlacklist,
+    ) -> crate::Result_<()>
+    where
+        Self: Sized,
+    {
         for re in self.read_iter() {
-            let Some(ne) = read_entry::<Self>(re, blacklist)? else { continue };
+            let Some(ne) = read_entry::<Self>(re, blacklist)? else {
+                continue;
+            };
             tx(ne)?;
         }
         Ok(())
@@ -40,9 +55,14 @@ pub trait EntryReader {
 }
 
 /// Reads an entry from an [`EntryReader`].
-pub fn read_entry<R: EntryReader>(re: R::RE<'_>, blacklist: &TypeBlacklist) -> crate::Result_<Option<NamedEntry>> {
+pub fn read_entry<R: EntryReader>(
+    re: R::RE<'_>,
+    blacklist: &TypeBlacklist,
+) -> crate::Result_<Option<NamedEntry>> {
     let (is_dir, name) = re.meta();
-    let Some(is_dir) = is_dir else { return Ok(None) };
+    let Some(is_dir) = is_dir else {
+        return Ok(None);
+    };
     let et = if is_dir {
         NamedEntry::dir(name)
     } else {
@@ -58,7 +78,7 @@ pub fn read_entry<R: EntryReader>(re: R::RE<'_>, blacklist: &TypeBlacklist) -> c
 /// An iterator for reading entries from an entry reader.
 #[repr(transparent)]
 pub struct ReadEntryIter<'a, R: EntryReader>(&'a mut R);
-impl <'a, R: EntryReader + 'a> Iterator for ReadEntryIter<'a, R> {
+impl<'a, R: EntryReader + 'a> Iterator for ReadEntryIter<'a, R> {
     type Item = R::RE<'a>;
 
     #[inline]
@@ -90,7 +110,10 @@ pub trait EntrySaver {
         ev: &mut ErrorCollector,
         cfgmap: &cfg::ConfigMap,
         mut ps: impl FnMut(ProgressState) -> crate::Result_<()>,
-    ) -> crate::Result_<()> where Self: Sized {
+    ) -> crate::Result_<()>
+    where
+        Self: Sized,
+    {
         let mut cv = Vec::new();
         for (n, ne) in rx.into_iter().enumerate() {
             ps(ProgressState::Push(n, ne.0.clone()))?;
@@ -105,32 +128,30 @@ pub trait EntrySaver {
 /// Saves an entry with the [`EntrySaver`].
 pub fn process_entry<'a>(
     cbuf: &'a mut Vec<u8>,
-    NamedEntry(name, et): &'a NamedEntry, 
+    NamedEntry(name, et): &'a NamedEntry,
     ev: &mut ErrorCollector,
     cfgmap: &cfg::ConfigMap,
 ) -> Option<SavingEntry<'a>> {
     let se = match et {
         EntryType::Directory => SavingEntry::Directory,
-        EntryType::File(buf, fop) => {
-            match fop {
-                FileOp::Ignore(e) => {
-                    ev.collect(name.clone(), e.clone().into());
-                    return None;
-                }
-                FileOp::Minify(m) => {
-                    let buf: &[u8] = match m.minify(cfgmap, buf, cbuf) {
-                        Ok(()) => cbuf,
-                        Err(e) => {
-                            ev.collect(name.clone(), e);
-                            buf
-                        }
-                    };
-                    SavingEntry::File(buf, m.compress_min())
-                }
-                FileOp::Recompress(x) => SavingEntry::File(buf, *x as u16),
-                FileOp::Pass => SavingEntry::File(buf, 24)
+        EntryType::File(buf, fop) => match fop {
+            FileOp::Ignore(e) => {
+                ev.collect(name.clone(), e.clone().into());
+                return None;
             }
-        }
+            FileOp::Minify(m) => {
+                let buf: &[u8] = match m.minify(cfgmap, buf, cbuf) {
+                    Ok(()) => cbuf,
+                    Err(e) => {
+                        ev.collect(name.clone(), e);
+                        buf
+                    }
+                };
+                SavingEntry::File(buf, m.compress_min())
+            }
+            FileOp::Recompress(x) => SavingEntry::File(buf, *x as u16),
+            FileOp::Pass => SavingEntry::File(buf, 24),
+        },
     };
     Some(se)
     //saver.save(&name, se)?;
@@ -159,7 +180,7 @@ pub enum EntryType {
     /// A directory with its path
     Directory,
     /// A file with its path, data and file operation
-    File(Bytes, FileOp)
+    File(Bytes, FileOp),
 }
 
 /// A type for saving entries.
@@ -167,5 +188,5 @@ pub enum SavingEntry<'a> {
     /// A directory
     Directory,
     /// A file with data and a minimum compression constraint
-    File(&'a [u8], u16)
+    File(&'a [u8], u16),
 }
