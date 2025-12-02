@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dev-dependencies]
-criterion = "0.5"
+criterion = "0.8"
 
 [dependencies]
 zopfli = "^0.8.0"
