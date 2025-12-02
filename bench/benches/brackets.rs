@@ -1,4 +1,4 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 const JSON_LIKE_DATA: &[u8] = b"
  \t The benchmark content begins below:
@@ -18,10 +18,16 @@ const SIMPLE_DATA: &[u8] = b"
 
 #[inline]
 fn find_brackets(b: &[u8]) -> Option<&[u8]> {
-    let (i, endb) = match b.iter().enumerate().find(|(_, &b)| matches!(b, b'{' | b'[')) {
+    let (i, endb) = match b
+        .iter()
+        .enumerate()
+        .find(|&(_, b)| matches!(b, b'{' | b'['))
+    {
         Some((i, b'{')) => (i, b'}'),
         Some((i, b'[')) => (i, b']'),
-        _ => { return None; }
+        _ => {
+            return None;
+        }
     };
     let j = b.iter().rposition(|&b| b == endb)?;
     Some(&b[i..=j])
@@ -33,7 +39,9 @@ fn find_brackets_new(b: &[u8]) -> Option<&[u8]> {
     let endb = match b[i] {
         b'{' => b'}',
         b'[' => b']',
-        _ => { return None; }
+        _ => {
+            return None;
+        }
     };
     let j = b.iter().rposition(|&b| b == endb)?;
     Some(&b[i..=j])
@@ -45,7 +53,9 @@ fn find_brackets_new_2(b: &[u8]) -> Option<&[u8]> {
     let endb = match b[i] {
         b'{' => b'}',
         b'[' => b']',
-        _ => { unreachable!() }
+        _ => {
+            unreachable!()
+        }
     };
     let j = b.iter().rposition(|&b| b == endb)?;
     Some(&b[i..=j])
@@ -53,9 +63,15 @@ fn find_brackets_new_2(b: &[u8]) -> Option<&[u8]> {
 
 #[inline]
 fn find_brackets_opt(b: &[u8]) -> Option<&[u8]> {
-    let (i, endb) = match b.iter().enumerate().find(|(_, &b)| matches!(b, b'{' | b'[')) {
+    let (i, endb) = match b
+        .iter()
+        .enumerate()
+        .find(|&(_, b)| matches!(b, b'{' | b'['))
+    {
         Some((i, x)) => (i, x ^ 6),
-        _ => { return None; }
+        _ => {
+            return None;
+        }
     };
     let j = b.iter().rposition(|&b| b == endb)?;
     Some(&b[i..=j])
@@ -80,12 +96,24 @@ fn find_brackets_mut(mut b: &[u8]) -> Option<&[u8]> {
 
 fn make_bench_with(c: &mut Criterion, name: &str, data: &'static [u8]) {
     let mut g = c.benchmark_group(name);
-    g.bench_with_input("mut", data, |b, d| b.iter(|| find_brackets_mut(black_box(d))));
-    g.bench_with_input("old direct", data, |b, d| b.iter(|| find_brackets(black_box(d))));
-    g.bench_with_input("new direct", data, |b, d| b.iter(|| find_brackets_new(black_box(d))));
-    g.bench_with_input("new direct 2", data, |b, d| b.iter(|| find_brackets_new_2(black_box(d))));
-    g.bench_with_input("optimized", data, |b, d| b.iter(|| find_brackets_opt(black_box(d))));
-    g.bench_with_input("optimized new", data, |b, d| b.iter(|| find_brackets_opt_new(black_box(d))));
+    g.bench_with_input("mut", data, |b, d| {
+        b.iter(|| find_brackets_mut(black_box(d)))
+    });
+    g.bench_with_input("old direct", data, |b, d| {
+        b.iter(|| find_brackets(black_box(d)))
+    });
+    g.bench_with_input("new direct", data, |b, d| {
+        b.iter(|| find_brackets_new(black_box(d)))
+    });
+    g.bench_with_input("new direct 2", data, |b, d| {
+        b.iter(|| find_brackets_new_2(black_box(d)))
+    });
+    g.bench_with_input("optimized", data, |b, d| {
+        b.iter(|| find_brackets_opt(black_box(d)))
+    });
+    g.bench_with_input("optimized new", data, |b, d| {
+        b.iter(|| find_brackets_opt_new(black_box(d)))
+    });
     g.finish();
 }
 
