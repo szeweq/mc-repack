@@ -12,6 +12,7 @@ A repacking tool for Minecraft mods and resource packs to optimize size and load
 - Optimizing PNG files, using [`oxipng`](https://crates.io/crates/oxipng)
 - Optimizing TOML files, using [`toml`](https://crates.io/crates/toml)
 - Optimizing OGG files, using [`optivorbis`](https://crates.io/crates/optivorbis)
+- Optimizing JPEG files, using [`mozjpeg`](https//crates.io/crates/mozjpeg)
 - Optimizing NBT files
 - Removing unwanted files – some project files (from Blender, Photoshop, etc.) are mistakenly packed in mods. This operation will detect and remove (ignore while repacking) these files.
 - Stripping Unicode BOM

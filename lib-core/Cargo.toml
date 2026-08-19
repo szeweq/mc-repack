@@ -18,13 +18,14 @@ toml = ["dep:toml"]
 ogg = ["dep:optivorbis"]
 nbt = []
 jar = []
+jpeg = ["dep:mozjpeg"]
 nbt-zopfli = ["nbt", "dep:zopfli", "_any-zopfli"]
 png-zopfli = ["png", "oxipng/zopfli", "_any-zopfli"]
 zip-zopfli = ["zip/deflate-zopfli", "dep:zopfli", "_any-zopfli"]
 all-zopfli = ["nbt-zopfli", "png-zopfli", "zip-zopfli"]
 _any-zopfli = []
 serde-cfg = ["dep:serde", "serde/derive"]
-default = ["png", "toml", "nbt", "ogg", "jar", "serde-cfg"]
+default = ["png", "toml", "nbt", "ogg", "jar", "jpeg", "serde-cfg"]
 
 [dependencies]
 zip = { workspace = true, features = ["deflate"] }
@@ -34,6 +35,7 @@ serde_json = { version = "^1.0.93", features = ["preserve_order"] }
 oxipng = { optional = true, version = "^10.2.0", default-features = false, features = [
     "parallel",
 ] }
+mozjpeg = { optional = true, version = "^0.10" }
 optivorbis = { optional = true, version = "0.3" }
 flate2 = "^1.0.26"
 json_comments = "0.2"

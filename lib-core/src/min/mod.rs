@@ -18,6 +18,9 @@ pub mod ogg;
 /// Optimizer for JAR archives
 pub mod jar;
 
+/// Minifiers that use `mozjpeg` library.
+pub mod jpeg;
+
 #[inline]
 const fn strip_bom(b: &[u8]) -> &[u8] {
     if let [239, 187, 191, x @ ..] = b { x } else { b }
@@ -38,6 +41,8 @@ fn brackets(b: &[u8]) -> Option<&[u8]> {
 /// A type to determine a minifying method and minimum compress size for file data.
 #[derive(Clone)]
 pub enum Minifier {
+    /// A JPEG minifier using `mozjpeg`.
+    #[cfg(feature = "jpeg")] JPEG,
     /// A PNG minifier using `oxipng`.
     #[cfg(feature = "png")] PNG,
     /// A JSON minifier using `serde_json`.
@@ -68,6 +73,7 @@ impl Minifier {
             #[cfg(feature = "nbt")] "nbt" | "blueprint" => Self::NBT,
             #[cfg(feature = "ogg")] "ogg" => Self::OGG,
             #[cfg(feature = "jar")] "jar" => Self::JAR,
+            #[cfg(feature = "jpeg")] "jpg" | "jpeg" | "jpe" | "jfif" => Self::JPEG,
             "cfg" | "obj" | "mtl" => Self::Hash,
             "zs" | "js" | "fsh" | "vsh" => Self::Slash,
             "mf" => Self::UnixLine,
@@ -84,6 +90,7 @@ impl Minifier {
             #[cfg(feature = "nbt")] KnownFmt::Nbt => Self::NBT,
             #[cfg(feature = "ogg")] KnownFmt::Ogg => Self::OGG,
             #[cfg(feature = "jar")] KnownFmt::Jar => Self::JAR,
+            #[cfg(feature = "jpeg")] KnownFmt::Jpeg => Self::JPEG,
             KnownFmt::Cfg | KnownFmt::Obj | KnownFmt::Mtl => Self::Hash,
             KnownFmt::Fsh | KnownFmt::Vsh | KnownFmt::Js | KnownFmt::Zs => Self::Slash,
             KnownFmt::Mf => Self::UnixLine,
@@ -97,6 +104,7 @@ impl Minifier {
     pub fn minify(&self, cfgmap: &cfg::ConfigMap, v: &[u8], vout: &mut Vec<u8>) -> Result_ {
         match self {
             #[cfg(feature = "png")] Self::PNG => cfgmap.fetch::<png::MinifierPNG>().minify(v, vout),
+            #[cfg(feature = "jpeg")] Self::JPEG => cfgmap.fetch::<jpeg::MinifierJPEG>().minify(v, vout),
             Self::JSON => cfgmap.fetch::<json::MinifierJSON>().minify(v, vout),
             #[cfg(feature = "toml")] Self::TOML => cfgmap.fetch::<toml::MinifierTOML>().minify(strip_bom(v), vout),
             #[cfg(feature = "nbt")] Self::NBT => cfgmap.fetch::<nbt::MinifierNBT>().minify(v, vout),

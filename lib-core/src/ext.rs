@@ -8,6 +8,8 @@ pub enum KnownFmt {
     Toml,
     /// Portable Network Graphics, also known as PNG
     Png,
+    /// JPEG (Joint Photographic Experts Group), also known as JPG
+    Jpeg,
     /// Ogg Vorbis (it may not be an audio file)
     Ogg,
     /// Named Binary Tag, also known as NBT
@@ -41,6 +43,7 @@ impl KnownFmt {
             "json" | "mcmeta" => Self::Json,
             "toml" => Self::Toml,
             "png" => Self::Png,
+            "jpg" | "jpeg" | "jpe" | "jfif" => Self::Jpeg,
             "ogg" => Self::Ogg,
             "nbt" | "blueprint" => Self::Nbt,
             "cfg" => Self::Cfg,
