@@ -17,17 +17,19 @@ exclude = [
     "test-jars-repack/*",
     "mc-repack-logo.png",
 ]
-rust-version = "1.85.0"
+rust-version = "1.95.0"
 
 [workspace]
 members = ["bench", "lib-core"]
 
 [workspace.dependencies]
-zip = { version = "6", default-features = false }
-toml = "0.9"
+zip = { version = "8", default-features = false }
+toml = "1.1"
 serde = "1.0"
 anyhow = "1.0"
 walkdir = "2.5"
+tokio = { version = "1.53" }
+smol = { version = "2.0" }
 
 [[bin]]
 name = "mc-repack"

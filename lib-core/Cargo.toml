@@ -10,7 +10,7 @@ homepage = "https://szeweq.xyz/mc-repack"
 repository = "https://github.com/szeweq/mc-repack"
 categories = ["compression", "game-development"]
 keywords = ["minecraft", "jar", "processing", "optimizer", "gamedev"]
-rust-version = "1.85.0"
+rust-version = "1.95.0"
 
 [features]
 png = ["dep:oxipng"]
@@ -31,7 +31,7 @@ zip = { workspace = true, features = ["deflate"] }
 anyhow = { workspace = true }
 serde = { optional = true, workspace = true }
 serde_json = { version = "^1.0.93", features = ["preserve_order"] }
-oxipng = { optional = true, version = "^9.1.0", default-features = false, features = [
+oxipng = { optional = true, version = "^10.2.0", default-features = false, features = [
     "parallel",
 ] }
 optivorbis = { optional = true, version = "0.3" }

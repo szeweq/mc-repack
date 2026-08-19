@@ -34,16 +34,16 @@ impl PNGConfig {
                 strip: oxipng::StripChunks::Safe,
                 optimize_alpha: true,
                 #[cfg(feature = "png-zopfli")]
-                deflate: self.use_zopfli.iter_count().map_or(
-                    oxipng::Deflaters::Libdeflater { compression: 12 },
-                    |ic| oxipng::Deflaters::Zopfli { iterations: ic }
+                deflater: self.use_zopfli.iter_count().map_or(
+                    oxipng::Deflater::Libdeflater { compression: 12 },
+                    |ic| oxipng::Deflater::Zopfli(zopfli::Options { iteration_count: ic.into(), ..Default::default() })
                 ),
                 #[cfg(not(feature = "png-zopfli"))]
-                deflate: oxipng::Deflaters::Libdeflater { compression: 12 },
+                deflater: oxipng::Deflater::Libdeflater { compression: 12 },
                 ..Default::default()
             };
-            popts.filter.insert(oxipng::RowFilter::Up);
-            popts.filter.insert(oxipng::RowFilter::Paeth);
+            popts.filters.insert(oxipng::FilterStrategy::UP);
+            popts.filters.insert(oxipng::FilterStrategy::PAETH);
 
             popts
         })
