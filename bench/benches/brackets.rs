@@ -1,4 +1,5 @@
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use criterion::{Criterion, criterion_group, criterion_main};
+use std::hint::black_box;
 
 const JSON_LIKE_DATA: &[u8] = b"
  \t The benchmark content begins below:

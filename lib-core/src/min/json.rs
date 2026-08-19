@@ -14,11 +14,10 @@ impl ConfigHolder<MinifierJSON> {
     pub(super) fn minify(&self, b: &[u8], vout: &mut Vec<u8>) -> Result_ {
         let b = brackets(b).ok_or(BracketsError)?;
         let mut sv: Value = serde_json::from_reader(StripComments::new(b))?;
-        if self.remove_underscored {
-            if let Value::Object(xm) = &mut sv {
+        if self.remove_underscored
+            && let Value::Object(xm) = &mut sv {
                 uncomment_json_recursive(xm);
             }
-        }
         serde_json::to_writer(vout, &sv)?;
         Ok(())
     }
