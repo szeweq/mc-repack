@@ -28,7 +28,7 @@ impl Report {
 
 /// A list of well-known file formats that should not be considered unknown.
 const WELL_KNOWN: &[&str] = &[
-    "class", "txt"
+    "bak", "class", "disabled", "dll", "dylib", "kotlin_builtins", "kotlin_metadata", "lnk", "mcfunction", "pdn", "psd", "so", "txt", "xcf"
 ];
 
 /// A catalogue of unknown file formats encountered while repacking.

@@ -51,7 +51,7 @@ impl TypeBlacklist {
     fn can_ignore(&self, s: &str) -> bool {
         let inner = match self {
             Self::Extend(x) => {
-                if matches!(s, "bak" | "blend" | "blend1" | "disabled" | "gitignore" | "gitkeep" | "lnk" | "old" | "pdn" | "psd" | "xcf") {
+                if matches!(s, "bak" | "blend" | "blend1" | "disabled" | "gitignore" | "gitkeep" | "kotlin_builtins" | "kotlin_metadata" | "lnk" | "old" | "pdn" | "psd" | "xcf") {
                     return true
                 }
                 x
