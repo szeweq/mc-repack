@@ -11,11 +11,11 @@ impl ConfigMap {
     #[must_use]
     pub fn fetch<AC: AcceptsConfig>(&self) -> ConfigHolder<AC> {
         let ch = self.0.read().unwrap().try_get::<ConfigHolder<AC>>().cloned();
-        ch.map_or_else(move || {
+        ch.unwrap_or_else(move || {
             let cfg = ConfigHolder(Arc::new(AC::Cfg::default()));
             self.0.write().unwrap().set::<ConfigHolder<AC>>(ConfigHolder::clone(&cfg));
             cfg
-        }, |cfg| cfg)
+        })
     }
 
     /// Sets a config for a type that accepts it. It should be used before any configurable operation.
