@@ -77,7 +77,11 @@ pub struct CommonArgs {
 
     /// (Optional) Path for CSV report
     #[arg(short = 'r', long)]
-    pub report: Option<PathBuf>
+    pub report: Option<PathBuf>,
+
+    /// (Optional) Path for a file listing unknown file formats
+    #[arg(long)]
+    pub unknowns: Option<PathBuf>
 }
 
 macro_rules! cfgset {
@@ -91,6 +95,7 @@ pub struct RepackOpts {
     pub blacklist: Arc<TypeBlacklist>,
     pub cfgmap: mc_repack_core::cfg::ConfigMap,
     pub report: Option<report::Report>,
+    pub unknowns: Option<report::Unknowns>,
 }
 impl RepackOpts {
     pub fn from_args(args: &CommonArgs) -> Self {
@@ -121,7 +126,8 @@ impl RepackOpts {
                 TypeBlacklist::Override(blacklist)
             }),
             cfgmap,
-            report: args.report.as_ref().map(|p| report::Report::new(p.clone().into_boxed_path()))
+            report: args.report.as_ref().map(|p| report::Report::new(p.clone().into_boxed_path())),
+            unknowns: args.unknowns.as_ref().map(|p| report::Unknowns::new(p.clone().into_boxed_path()))
         }
     }
 }

@@ -32,6 +32,9 @@ fn main() -> Result_<()> {
             if let Some(ref report) = repack_opts.report {
                 report.save_csv()?;
             }
+            if let Some(ref unknowns) = repack_opts.unknowns {
+                unknowns.save()?;
+            }
             print_entry_errors(&repack_opts.err_collect);
         }
         Cmd::Files(fa) => {
@@ -42,6 +45,9 @@ fn main() -> Result_<()> {
             if let Some(ref mut report) = repack_opts.report {
                 files_report(report, path, &fa.out)?;
                 report.save_csv()?;
+            }
+            if let Some(ref unknowns) = repack_opts.unknowns {
+                unknowns.save()?;
             }
             print_entry_errors(&repack_opts.err_collect);
         }
@@ -115,6 +121,7 @@ fn process_jars(base: &Path, fit: Files, jargs: &JarsArgs, opts: &mut RepackOpts
                 &ps,
                 ec,
                 blacklist.clone(),
+                &mut opts.unknowns,
             ) {
                 Ok(()) => {
                     if let Some(ref mut report) = opts.report {
@@ -152,6 +159,7 @@ fn process_files(base: &Path, fit: Files, fargs: &FilesArgs, opts: &mut RepackOp
         &ps,
         ec,
         blacklist.clone(),
+        &mut opts.unknowns,
     )?;
     drop(ps);
     Ok(())
@@ -228,6 +236,7 @@ fn optimize_with<R: EntryReader + Send + 'static, S: EntrySaver + Send + 'static
     ps: &Sender<ProgressState>,
     errors: &mut ErrorCollector,
     blacklist: Arc<TypeBlacklist>,
+    unknowns: &mut Option<report::Unknowns>,
 ) -> crate::Result_<()> {
     let (tx, rx) = crossbeam_channel::unbounded();
     wrap_send(ps, ProgressState::Start(reader.read_len()))?;
@@ -236,7 +245,7 @@ fn optimize_with<R: EntryReader + Send + 'static, S: EntrySaver + Send + 'static
     rayon::scope_fifo(|s| {
         let r1 = &mut r1;
         let r2 = &mut r2;
-        s.spawn_fifo(move |_| *r1 = reading(reader.read_iter(), &tx, &blacklist));
+        s.spawn_fifo(move |_| *r1 = reading(reader.read_iter(), &tx, &blacklist, unknowns));
         s.spawn_fifo(move |_| *r2 = saving(saver, rx, ps, errors, cfgmap));
     });
     match (r1, r2) {
@@ -250,13 +259,28 @@ fn reading<R: EntryReader>(
     iter: ReadEntryIter<R>,
     tx: &Sender<NamedEntry>,
     blacklist: &TypeBlacklist,
+    unknowns: &mut Option<report::Unknowns>,
 ) -> Result_<()> {
     for re in iter {
         if let Some(ne) = read_entry::<R>(re, blacklist)? {
+            if let (Some(unk), Some(ext)) = (unknowns.as_mut(), unknown_ext(&ne.0)) {
+                unk.push(ext);
+            }
             wrap_send(tx, ne)?;
         };
     }
     Ok(())
+}
+
+fn unknown_ext(name: &str) -> Option<&str> {
+    if name.ends_with('/') {
+        return None;
+    }
+    let ext = name.rsplit_once('.')?.1;
+    match mc_repack_core::ext::KnownFmt::by_extension(ext) {
+        None | Some(mc_repack_core::ext::KnownFmt::Other(_)) => Some(ext),
+        _ => None,
+    }
 }
 fn saving<S: EntrySaver>(
     saver: &mut S,
